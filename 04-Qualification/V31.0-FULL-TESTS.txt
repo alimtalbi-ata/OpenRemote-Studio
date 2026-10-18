@@ -1,0 +1,6 @@
+OpenRemote Studio V31.0 - qualification source Linux
+2026-10-18
+Commande: cd Application && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -m unittest discover -s tests -q
+1604 tests; 1589 passed; 15 skipped (PySide6 absent); 0 failed.
+Windows PowerShell native qualification: NOT EXECUTED.
+Windows Setup.exe and Portable.zip: NOT BUILT.

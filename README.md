@@ -1,3 +1,7 @@
+## V31.2 — Diagnostic fiable des rapports de recette Windows
+
+Correction d’une erreur de syntaxe PowerShell dans le rapport JSON V31.1 ; la version V31.2 conserve un enregistrement FAIL cohérent en cas d’exception hors étape. Nouvel analyseur `02-Compilation/analyze_qualification.py` qui refuse les rapports incomplets ou incohérents. La qualification native Windows reste à exécuter. Auteur : Abdelhalim Talbi.
+
 ## V30.9 — Qualification de concurrence Windows
 
 Ajout de `02-Compilation/TEST-CONCURRENCE-WINDOWS.ps1`, qui lance des processus PowerShell distincts pour contrôler le verrou exclusif, le refus d’une compilation concurrente, la libération après sortie normale et l’unicité des journaux. Le mode `-LockProbeHoldSeconds` ne compile pas de binaires et reste limité à 120 secondes. Ce test d’intégration exige Windows et n’a pas été exécuté sous Linux.
@@ -36,3 +40,12 @@ La commande officielle `02-Compilation\BUILD-WINDOWS.cmd` utilise un verrou excl
 
 ## V30.9 — crash recovery du verrou Windows
 Le test TEST-CONCURRENCE-WINDOWS.ps1 vérifie aussi la libération du verrou après terminaison forcée du processus propriétaire. À exécuter sous Windows ; les tests Python ne remplacent pas cette recette native.
+
+
+## V31.1 — Qualification Windows complète
+
+Commande de qualification native : `powershell.exe -NoProfile -ExecutionPolicy Bypass -File 02-Compilation\QUALIFICATION-NATIVE-V31.1.ps1 -Build`. Le script orchestre compilation, intégrité, portable extrait, installation/désinstallation et concurrence, puis enregistre un rapport PASS/FAIL sous `Binary/Qualification/`. À exécuter exclusivement sur Windows. Les vérifications SSH/SFTP nécessitent un serveur de test autorisé et restent une recette manuelle documentée.
+
+
+### V31.1 — Qualification native vérifiable
+Rapport JSON horodaté en complément du journal texte ; vérification des codes de retour des scripts enfants, et statut explicite des étapes ignorées. Recette Windows à exécuter sur Windows.

@@ -1,0 +1,4 @@
+OpenRemote Studio V31.1 — Linux Python test run
+Command: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -m unittest discover -s tests -q
+Ran 1608 tests; OK; 15 skipped (PySide6 unavailable).
+Native Windows build: NOT RUN. Windows installer/portable binaries: NOT PRODUCED.
