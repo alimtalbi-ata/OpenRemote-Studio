@@ -16,6 +16,7 @@ try {
 }
 $log = Join-Path $logDir ('build-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.log')
 $transcriptStarted = $false
+$script:buildFailed = $false
 try {
   Start-Transcript -Path $log -ErrorAction Stop | Out-Null
   $transcriptStarted = $true
