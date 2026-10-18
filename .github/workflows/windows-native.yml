@@ -54,6 +54,12 @@ jobs:
         run: |
           python -m unittest discover -s 02-Compilation -p 'test_verify_ci_artifacts.py' -v
           if ($LASTEXITCODE -ne 0) { throw "Artifact gate tests failed" }
+      - name: Static architecture audit
+        run: |
+          python -m unittest discover -s 02-Compilation -p 'test_audit_architecture.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "Architecture inventory tests failed" }
+          python 02-Compilation/audit_architecture.py --root . --output Binary/Qualification/architecture-inventory.json
+          if ($LASTEXITCODE -ne 0) { throw "Architecture inventory failed" }
       - name: Build and run complete native qualification
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
