@@ -8,7 +8,7 @@ if (-not (Test-Path $portable)) { throw "Portable archive missing: $portable" }
 Add-Type -AssemblyName System.IO.Compression
 $archive = [IO.Compression.ZipFile]::OpenRead($portable)
 try {
-  $exe = @($archive.Entries | Where-Object { $_.FullName.Replace('\','/') -match '(^|/)OpenRemoteStudio\.exe
+  $exe = @($archive.Entries | Where-Object { $_.Name -eq 'OpenRemoteStudio.exe' })
   if ($exe.Count -ne 1 -or $exe[0].Length -le 0) { throw 'Portable ZIP lacks a nonempty OpenRemoteStudio.exe' }
   # Fail closed when the portable build misses the Qt Windows platform plugin
   # or the embedded Python runtime. The ZIP must run without system Python.
