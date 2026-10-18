@@ -121,7 +121,7 @@ try {
   $exeEntries = @($entries | Where-Object { $_.Name -eq 'OpenRemoteStudio.exe' })
   if ($exeEntries.Count -ne 1) { throw 'Portable archive must contain exactly one application executable' }
   if (-not $SingleExe) {
-    $platformEntries = @($entries | Where-Object { $_.Name -eq 'qwindows.dll' -and $_.FullName -match '(^|/)platforms/' })
+    $platformEntries = @($entries | Where-Object { $_.Name -eq 'qwindows.dll' -and $_.FullName.Replace('\','/') -match '(^|/)platforms/' })
     if ($platformEntries.Count -ne 1) { throw 'Portable archive missing Qt Windows platform plugin' }
     $runtimeEntries = @($entries | Where-Object { $_.Name -match '^python3[0-9]+\.dll$' })
     if ($runtimeEntries.Count -lt 1) { throw 'Portable archive missing Python runtime' }
