@@ -23,10 +23,16 @@ class BridgeTests(unittest.TestCase):
     def setUpClass(cls): cls.app=QCoreApplication.instance() or QCoreApplication([])
     def test_success_signal(self):
         w=FakeWorker();b=SSHQtBridge(w);received=[];b.connected.connect(received.append)
-        b.start();token=object();w.ok(token);self.assertEqual(received,[token]);b.close()
+        b.start();token=object();w.ok(token)
+        self.assertEqual(received,[])
+        self.app.processEvents()
+        self.assertEqual(received,[token]);b.close()
     def test_error_signal(self):
         w=FakeWorker();b=SSHQtBridge(w);received=[];b.failed.connect(received.append)
-        b.start();w.err(OSError('offline'));self.assertEqual(received,['OSError: offline']);b.close()
+        b.start();w.err(OSError('offline'))
+        self.assertEqual(received,[])
+        self.app.processEvents()
+        self.assertEqual(received,['OSError: offline']);b.close()
     def test_cancel_and_close(self):
         w=FakeWorker();b=SSHQtBridge(w);b.cancel();b.close();b.close()
         self.assertTrue(w.cancelled);self.assertTrue(w.closed)

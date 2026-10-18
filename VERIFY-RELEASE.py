@@ -30,7 +30,9 @@ def _checks(read, names):
 
 def validate(root):
     root=Path(root)
-    names={p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+    metadata={'.git','__pycache__','.pytest_cache','.venv'}
+    names={p.relative_to(root).as_posix() for p in root.rglob('*')
+           if p.is_file() and not metadata.intersection(p.relative_to(root).parts)}
     return _checks(lambda n:(root/n).read_bytes(),names)
 
 def validate_archive(path):

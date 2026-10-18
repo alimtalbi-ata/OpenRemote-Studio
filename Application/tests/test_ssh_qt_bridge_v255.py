@@ -25,12 +25,12 @@ class BridgeV255Tests(unittest.TestCase):
     def setUpClass(cls): cls.app = QCoreApplication.instance() or QCoreApplication([])
     def test_cancel_closes_late_resource(self):
         w=FakeWorker(); b=SSHQtBridge(w); b.start(); old=w.ok; b.cancel()
-        r=Resource(); old(r); self.assertTrue(r.closed)
+        r=Resource(); old(r); self.app.processEvents(); self.assertTrue(r.closed)
     def test_close_suppresses_late_error(self):
         w=FakeWorker(); b=SSHQtBridge(w); got=[]; b.failed.connect(got.append)
-        b.start(); old=w.err; b.close(); old(OSError('offline')); self.assertEqual(got,[])
+        b.start(); old=w.err; b.close(); old(OSError('offline')); self.app.processEvents(); self.assertEqual(got,[])
     def test_new_attempt_rejects_previous_result(self):
         w=FakeWorker(); b=SSHQtBridge(w); b.start(); old=w.ok
-        b.start(); r=Resource(); old(r); self.assertTrue(r.closed); b.close()
+        b.start(); r=Resource(); old(r); self.app.processEvents(); self.assertTrue(r.closed); b.close()
 
 if __name__=='__main__': unittest.main()

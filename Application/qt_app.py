@@ -8,8 +8,8 @@ import os,sys,subprocess,webbrowser,tempfile
 from html import escape
 from pathlib import Path
 from PySide6.QtCore import Qt, QObject, Signal, QRunnable, QThreadPool, QTimer, QSettings
-from PySide6.QtGui import QKeySequence, QColor
-from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QLineEdit,QPushButton,QTreeWidget,QTreeWidgetItem,QTabWidget,QScrollArea,QTextEdit,QLabel,QDialog,QFormLayout,QComboBox,QDialogButtonBox,QMessageBox,QSplitter,QInputDialog,QFileDialog,QPlainTextEdit,QListWidget,QAbstractItemView,QDockWidget,QListWidgetItem,QMenu,QTableWidget,QTableWidgetItem,QCheckBox,QShortcut)
+from PySide6.QtGui import QKeySequence, QColor, QShortcut
+from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QLineEdit,QPushButton,QTreeWidget,QTreeWidgetItem,QTabWidget,QScrollArea,QTextEdit,QLabel,QDialog,QFormLayout,QComboBox,QDialogButtonBox,QMessageBox,QSplitter,QInputDialog,QFileDialog,QPlainTextEdit,QListWidget,QAbstractItemView,QDockWidget,QListWidgetItem,QMenu,QTableWidget,QTableWidgetItem,QCheckBox)
 from core import Store,validate,PROTOCOLS
 from tool_catalog import TOOLS, search_tools
 from profiles import PROFILES, visible_tools
