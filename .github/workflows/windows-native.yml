@@ -43,6 +43,10 @@ jobs:
             if ((Get-Item -LiteralPath $path).Length -lt 1024) { throw "Suspiciously small binary: $path" }
             Get-FileHash -LiteralPath $path -Algorithm SHA256 | Format-List
           }
+      - name: Validate PE and portable ZIP structure
+        run: |
+          python 02-Compilation/verify_ci_artifacts.py
+          if ($LASTEXITCODE -ne 0) { throw "Artifact verification failed" }
       - name: Upload build and qualification logs
         if: always()
         uses: actions/upload-artifact@v4
