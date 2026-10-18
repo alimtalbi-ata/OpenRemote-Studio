@@ -1,0 +1,61 @@
+name: Windows native build candidate
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'Application/**'
+      - '02-Compilation/**'
+      - 'VERSION.txt'
+      - '.github/workflows/windows-native.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-build:
+    runs-on: windows-2022
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run official Windows build
+        run: |
+          & cmd.exe /d /c "02-Compilation\BUILD-WINDOWS.cmd"
+          if ($LASTEXITCODE -ne 0) { throw "Windows build failed: $LASTEXITCODE" }
+      - name: Verify native artifacts exist
+        run: |
+          $version = (Get-Content VERSION.txt -Raw).Trim()
+          $base = Join-Path 'Binary' "V$version"
+          $installer = Join-Path $base "Installer/OpenRemoteStudio-V$version-Windows-Setup.exe"
+          $portable = Join-Path $base "Portable/OpenRemoteStudio-V$version-Windows-Portable.zip"
+          foreach ($path in @($installer, $portable)) {
+            if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing binary: $path" }
+            if ((Get-Item -LiteralPath $path).Length -lt 1024) { throw "Suspiciously small binary: $path" }
+            Get-FileHash -LiteralPath $path -Algorithm SHA256 | Format-List
+          }
+      - name: Upload build and qualification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openremote-windows-build-logs
+          path: |
+            Binary/*.log
+            Binary/Qualification/**
+            04-Qualification/**
+          if-no-files-found: warn
+      - name: Upload Windows binaries
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openremote-windows-native-candidate
+          path: |
+            Binary/V*/Installer/*.exe
+            Binary/V*/Portable/*.zip
+          if-no-files-found: error
