@@ -60,6 +60,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Architecture inventory tests failed" }
           python 02-Compilation/audit_architecture.py --root . --output Binary/Qualification/architecture-inventory.json
           if ($LASTEXITCODE -ne 0) { throw "Architecture inventory failed" }
+      - name: Parse all PowerShell build scripts before packaging
+        run: |
+          $scripts = @(Get-ChildItem Application/windows, 02-Compilation -Filter '*.ps1' -File -Recurse)
+          $failed = $false
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            foreach ($parseError in $parseErrors) {
+              Write-Host "::error file=$($script.FullName),line=$($parseError.Extent.StartLineNumber)::$($parseError.Message)"
+              $failed = $true
+            }
+          }
+          if ($failed) { throw "PowerShell build scripts contain syntax errors" }
+          Write-Host "PowerShell syntax PASS: $($scripts.Count) scripts"
       - name: Build and run complete native qualification
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
