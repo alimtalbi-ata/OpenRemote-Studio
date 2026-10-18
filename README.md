@@ -1,3 +1,7 @@
+## V31.4 — Qualification complète versus partielle
+
+Le rapport Windows indique PARTIAL si -Build ou un contrôle natif est omis. Le vérificateur Python rejette un faux PASS en présence d’étapes ignorées. Option `--require-complete` pour bloquer les qualifications incomplètes. Pas de binaires Windows natifs compilés dans cette livraison. Auteur : Abdelhalim Talbi.
+
 ## V31.2 — Diagnostic fiable des rapports de recette Windows
 
 Correction d’une erreur de syntaxe PowerShell dans le rapport JSON V31.1 ; la version V31.2 conserve un enregistrement FAIL cohérent en cas d’exception hors étape. Nouvel analyseur `02-Compilation/analyze_qualification.py` qui refuse les rapports incomplets ou incohérents. La qualification native Windows reste à exécuter. Auteur : Abdelhalim Talbi.
@@ -49,3 +53,8 @@ Commande de qualification native : `powershell.exe -NoProfile -ExecutionPolicy B
 
 ### V31.1 — Qualification native vérifiable
 Rapport JSON horodaté en complément du journal texte ; vérification des codes de retour des scripts enfants, et statut explicite des étapes ignorées. Recette Windows à exécuter sur Windows.
+
+
+## V31.3 — Audit de qualification native
+
+La recette native V31.3 corrige les contrôles PowerShell susceptibles de consulter un code de retour externe périmé. L'analyseur JSON rejette les statuts globaux contradictoires et les étapes ignorées invalides. La qualification Windows et la création des vrais binaires restent à exécuter sur Windows. Auteur : Abdelhalim Talbi.
