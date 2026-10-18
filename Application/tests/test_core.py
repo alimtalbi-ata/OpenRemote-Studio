@@ -11,7 +11,7 @@ class TestCore(unittest.TestCase):
   for port in ('0','65536','abc'):
    with self.assertRaises(ValueError):
     validate({'name':'x','host':'server.example','protocol':'SSH','port':port})
-  for user in ('alice\\nadmin','alice\\radmin','alice\\x00admin'):
+  for user in ('alice' + chr(10) + 'admin', 'alice' + chr(13) + 'admin', 'alice' + chr(0) + 'admin'):
    with self.assertRaises(ValueError):
     validate({'name':'x','host':'server.example','protocol':'SSH','user':user})
  def test_web_url_rejects_embedded_credentials(self):
