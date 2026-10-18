@@ -76,6 +76,21 @@ jobs:
           } finally {
             $env:PYTHONPATH = $oldPath
           }
+      - name: Audit independent distribution dependencies
+        run: |
+          $version = (Get-Content VERSION.txt -Raw).Trim()
+          $zip = Join-Path 'Binary' "V$version/Portable/OpenRemoteStudio-V$version-Windows-Portable.zip"
+          $auditDir = Join-Path $env:RUNNER_TEMP "ors-dependency-audit"
+          New-Item -ItemType Directory -Path $auditDir -Force | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $auditDir -Force
+          $exe = @(Get-ChildItem $auditDir -Filter OpenRemoteStudio.exe -File -Recurse)
+          if ($exe.Count -ne 1) { throw "Missing packaged executable" }
+          $root = $exe[0].Directory.FullName
+          $pythonDll = @(Get-ChildItem $root -Recurse -Filter 'python3*.dll' -File)
+          $qtPlugin = @(Get-ChildItem $root -Recurse -Filter 'qwindows.dll' -File)
+          if ($pythonDll.Count -lt 1) { throw "Portable distribution lacks Python runtime DLL" }
+          if ($qtPlugin.Count -ne 1) { throw "Portable distribution lacks a unique Qt platform plugin" }
+          Write-Host "PASS: embedded Python runtime and Qt Windows platform plugin"
       - name: Upload build and qualification logs
         if: always()
         uses: actions/upload-artifact@v4
