@@ -47,6 +47,12 @@ jobs:
             if ((Get-Item -LiteralPath $path).Length -lt 1024) { throw "Suspiciously small binary: $path" }
             Get-FileHash -LiteralPath $path -Algorithm SHA256 | Format-List
           }
+      - name: Audit installed packaging dependencies
+        run: |
+          & Application/.venv-build/Scripts/python.exe 02-Compilation/check_build_dependencies.py
+          if ($LASTEXITCODE -ne 0) { throw "Build dependency audit failed" }
+          & Application/.venv-build/Scripts/python.exe -m pip check
+          if ($LASTEXITCODE -ne 0) { throw "Python dependency conflicts detected" }
       - name: Validate PE and portable ZIP structure
         run: |
           python 02-Compilation/verify_ci_artifacts.py
