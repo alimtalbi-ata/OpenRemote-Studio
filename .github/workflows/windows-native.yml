@@ -27,6 +27,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Enforce UTF-8 and Python 3.12 for legacy tests
+        run: |
+          "PYTHONUTF8=1" >> $env:GITHUB_ENV
+          "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
+          "PY_PYTHON=3.12" >> $env:GITHUB_ENV
+          "PY_PYTHON3=3.12" >> $env:GITHUB_ENV
       - name: Validate checked-out source and refresh CI integrity manifest
         run: |
           $changed = @(git diff --name-only --exit-code)
