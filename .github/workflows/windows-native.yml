@@ -27,6 +27,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate checked-out source and refresh CI integrity manifest
+        run: |
+          $changed = @(git diff --name-only --exit-code)
+          if ($LASTEXITCODE -ne 0) { throw "Checkout has modified tracked files" }
+          @'
+          from pathlib import Path
+          import hashlib
+          import subprocess
+          root = Path.cwd()
+          names = subprocess.check_output(["git", "ls-files", "-z"]).decode("utf-8").split("\0")
+          manifest = Path("07-Manifestes/FILES-SHA256.txt")
+          names = sorted(name for name in names if name and name != manifest.as_posix())
+          manifest.write_text("".join(hashlib.sha256((root / name).read_bytes()).hexdigest() + "  " + name + "\n" for name in names), encoding="utf-8")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw "Failed to prepare CI integrity manifest" }
+          python VERIFY-RELEASE.py
+          if ($LASTEXITCODE -ne 0) { throw "Source integrity check failed" }
       - name: Regression tests for artifact gates
         run: |
           python -m unittest discover -s 02-Compilation -p 'test_verify_ci_artifacts.py' -v
