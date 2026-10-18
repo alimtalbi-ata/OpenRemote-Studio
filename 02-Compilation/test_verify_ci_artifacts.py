@@ -40,7 +40,7 @@ class ArtifactGateTests(unittest.TestCase):
 
     def test_rejects_missing_executable(self):
         with zipfile.ZipFile(self.portable, "w") as archive:
-            archive.writestr("README.txt", "placeholder")
+            archive.writestr("README.txt", "placeholder" * 256)
         with self.assertRaisesRegex(ValueError, "does not contain"):
             module.verify(self.root)
 
