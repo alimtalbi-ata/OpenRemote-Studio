@@ -57,6 +57,25 @@ jobs:
         run: |
           python 02-Compilation/verify_ci_artifacts.py
           if ($LASTEXITCODE -ne 0) { throw "Artifact verification failed" }
+      - name: Validate portable without source tree
+        run: |
+          $version = (Get-Content VERSION.txt -Raw).Trim()
+          $zip = Join-Path 'Binary' "V$version/Portable/OpenRemoteStudio-V$version-Windows-Portable.zip"
+          $isolated = Join-Path $env:RUNNER_TEMP "ors-independent-$([guid]::NewGuid().ToString('N'))"
+          New-Item -ItemType Directory -Path $isolated -Force | Out-Null
+          Expand-Archive -LiteralPath $zip -DestinationPath $isolated -ErrorAction Stop
+          $executables = @(Get-ChildItem -LiteralPath $isolated -Recurse -Filter OpenRemoteStudio.exe -File)
+          if ($executables.Count -ne 1) { throw "Portable must contain exactly one application executable" }
+          $exe = $executables[0].FullName
+          $oldPath = $env:PYTHONPATH
+          $env:PYTHONPATH = ''
+          try {
+            $smoke = (Resolve-Path 'Application/windows/smoke-windows.ps1').Path
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $smoke -Exe $exe -TimeoutSeconds 30
+            if ($LASTEXITCODE -ne 0) { throw "Isolated portable GUI smoke failed" }
+          } finally {
+            $env:PYTHONPATH = $oldPath
+          }
       - name: Upload build and qualification logs
         if: always()
         uses: actions/upload-artifact@v4
