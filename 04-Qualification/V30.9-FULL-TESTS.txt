@@ -1,0 +1,9 @@
+usage: python -m unittest [-h] --input INPUT --output OUTPUT
+python -m unittest: error: input and output must differ
+BLOCK: PySide6 unavailable: simulated missing dependency
+----------------------------------------------------------------------
+Ran 1599 tests in 6.692s
+
+OK (skipped=15)
+
+Executed in Linux; Windows PowerShell concurrency/crash test NOT executed.

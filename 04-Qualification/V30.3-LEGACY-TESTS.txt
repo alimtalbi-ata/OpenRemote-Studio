@@ -1,0 +1,1 @@
+Three historical destructive-cleanup test modules preserved as .legacy.py and excluded from discovery. Their expectations conflict with non-destructive staged publication; replaced by test_windows_atomic_release_v303.py.

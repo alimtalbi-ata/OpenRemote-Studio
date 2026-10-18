@@ -1,0 +1,6 @@
+OpenRemote Studio V28.6 — qualification source Linux
+Commande : PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -m unittest discover -s tests -q
+Résultat : Ran 1547 tests; OK (skipped=15), 1532 passés, 0 échec.
+Tests Qt PySide6 ignorés : 15 ; tests natifs Windows : NON EXÉCUTÉS.
+Nouveaux tests : 4 tests de version et packaging.
+Portée : contrôle source uniquement, pas de binaire .exe créé.

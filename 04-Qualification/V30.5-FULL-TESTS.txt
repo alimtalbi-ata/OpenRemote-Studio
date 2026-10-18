@@ -1,0 +1,4 @@
+OpenRemote Studio V30.5
+Python unittest: 1584 run, 1569 passed, 15 skipped, 0 failures.
+Host: Linux; Windows build not executed. PySide6 unavailable.
+Portable security checks use synthetic ZIPs.

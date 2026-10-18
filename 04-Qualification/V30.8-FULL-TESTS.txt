@@ -1,0 +1,7 @@
+usage: python -m unittest [-h] --input INPUT --output OUTPUT
+python -m unittest: error: input and output must differ
+BLOCK: PySide6 unavailable: simulated missing dependency
+----------------------------------------------------------------------
+Ran 1595 tests in 9.991s
+
+OK (skipped=15)
