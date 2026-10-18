@@ -6,6 +6,7 @@ $releaseVersion = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\..\VERS
 $portable = Join-Path $ReleaseDir "Portable\OpenRemoteStudio-V${releaseVersion}-Windows-Portable.zip"
 if (-not (Test-Path $portable)) { throw "Portable archive missing: $portable" }
 Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead($portable)
 try {
   $exe = @($archive.Entries | Where-Object { $_.Name -eq 'OpenRemoteStudio.exe' })
