@@ -38,7 +38,7 @@ class SessionPresentationTests(unittest.TestCase):
         self.assertNotIn("\x00", text)
         self.assertNotIn("PRIVATE_KEY", text)
         self.assertNotIn("secret", text)
-        self.assertIn("non", text.lower())
+        self.assertIn("ne garantit pas", text.lower())
 
     def test_empty_state_and_visibility_summary(self):
         self.assertIn("Aucun processus", session_empty_message(0))
