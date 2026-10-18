@@ -69,7 +69,7 @@ jobs:
             $parseErrors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
             foreach ($parseError in $parseErrors) {
-              Write-Host "::error file=$($script.FullName),line=$($parseError.Extent.StartLineNumber)::$($parseError.Message)"
+              Write-Host "PARSER ERROR: $($script.FullName):$($parseError.Extent.StartLineNumber) $($parseError.Message)"
               $failed = $true
             }
           }
