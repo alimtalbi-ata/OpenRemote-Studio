@@ -3023,7 +3023,7 @@ class Main(QMainWindow):
 
     def show_transfer_history(self):
         """Consult persisted transfer outcomes without executing remote operations."""
-        if hasattr(self, 'transfer_history_tab') and self.tabs.indexOf(self.transfer_history_tab) >= 0:
+        if getattr(self, 'transfer_history_tab', None) is not None and self.tabs.indexOf(self.transfer_history_tab) >= 0:
             self.transfer_history_refresh()
             self.tabs.setCurrentWidget(self.transfer_history_tab)
             return
