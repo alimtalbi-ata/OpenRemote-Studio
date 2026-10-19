@@ -3043,11 +3043,17 @@ class Main(QMainWindow):
         def populate():
             try:
                 rows=self.transfer_journal.search(transfer_query_state(state.currentText()),connection.currentData() or None)
-                table.setRowCount(len(rows))
-                for row_index,row in enumerate(rows):
-                    for col_index,value in enumerate(transfer_row_cells(row)):table.setItem(row_index,col_index,QTableWidgetItem(value))
-                warning.setText(transfer_count_label(len(rows)))
-            except Exception as exc:warning.setText('Erreur du journal : '+str(exc))
+                # Validate the complete snapshot before modifying the visible table.
+                cells=[transfer_row_cells(row) for row in rows]
+                table.setRowCount(0)
+                table.setRowCount(len(cells))
+                for row_index,row in enumerate(cells):
+                    for col_index,value in enumerate(row):table.setItem(row_index,col_index,QTableWidgetItem(value))
+                warning.setText(transfer_count_label(len(cells)))
+            except Exception:
+                # Do not retain stale results or expose local paths in exception messages.
+                table.setRowCount(0)
+                warning.setText('Historique indisponible : consultez le diagnostic local.')
         refresh.clicked.connect(populate);state.currentTextChanged.connect(populate);connection.currentIndexChanged.connect(populate)
         populate()
         self.transfer_history_refresh=populate
