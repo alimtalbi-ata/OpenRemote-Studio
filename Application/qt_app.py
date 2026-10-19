@@ -3026,22 +3026,23 @@ class Main(QMainWindow):
         pane=QWidget();pane.setObjectName('transferHistoryTab')
         layout=QVBoxLayout(pane);controls=QHBoxLayout();layout.addLayout(controls)
         controls.addWidget(QLabel('État'))
-        state=QComboBox();state.addItems(['Tous','waiting','running','done','failed','cancelled','interrupted']);controls.addWidget(state)
+        from transfer_presentation import TRANSFER_COLUMNS, TRANSFER_STATES, transfer_query_state, transfer_row_cells, transfer_count_label
+        state=QComboBox();state.addItems(list(TRANSFER_STATES));controls.addWidget(state)
         controls.addWidget(QLabel('Connexion'))
         connection=QComboBox();connection.addItem('Toutes','')
         for item in self.store.items:connection.addItem(item.get('name',item['id']),item['id'])
         controls.addWidget(connection)
         refresh=QPushButton('Actualiser');controls.addWidget(refresh)
-        table=QTableWidget(0,8);table.setHorizontalHeaderLabels(['ID','Connexion','Opération','Chemin distant','Chemin local','État','Progression','Mise à jour']);table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table=QTableWidget(0,8);table.setHorizontalHeaderLabels(list(TRANSFER_COLUMNS));table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         layout.addWidget(table)
         warning=QLabel('Historique en lecture seule : aucun transfert n’est relancé automatiquement.');layout.addWidget(warning)
         def populate():
             try:
-                rows=self.transfer_journal.search(None if state.currentText()=='Tous' else state.currentText(),connection.currentData() or None)
+                rows=self.transfer_journal.search(transfer_query_state(state.currentText()),connection.currentData() or None)
                 table.setRowCount(len(rows))
                 for row_index,row in enumerate(rows):
-                    for col_index,value in enumerate(row):table.setItem(row_index,col_index,QTableWidgetItem(str(value)))
-                warning.setText(f'{len(rows)} entrées · consultation uniquement')
+                    for col_index,value in enumerate(transfer_row_cells(row)):table.setItem(row_index,col_index,QTableWidgetItem(value))
+                warning.setText(transfer_count_label(len(rows)))
             except Exception as exc:warning.setText('Erreur du journal : '+str(exc))
         refresh.clicked.connect(populate);state.currentTextChanged.connect(populate);connection.currentIndexChanged.connect(populate)
         populate()
