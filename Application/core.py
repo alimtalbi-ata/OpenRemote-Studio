@@ -5,6 +5,8 @@ PROTOCOLS = ('SSH','RDP','SFTP','WEB','VNC')
 HOST = re.compile(r'^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$')
 
 def validate(entry):
+    if not isinstance(entry, dict):
+        raise ValueError('Connexion invalide : objet JSON attendu')
     entry = {k: str(entry.get(k, '')).strip() for k in ('id','name','host','protocol','user','group','port','tags')}
     entry['protocol'] = entry['protocol'].upper()
     if not entry['name'] or len(entry['name']) > 150: raise ValueError('Nom requis (150 caractères maximum)')
