@@ -54,6 +54,10 @@ class TestCore(unittest.TestCase):
     store.import_json(incoming)
    self.assertEqual(store.path.read_bytes(),before)
    self.assertEqual(len(store.items),1)
+ def test_optional_null_fields_are_empty_not_literal_none(self):
+  entry=validate({'name':'server','host':'example.com','protocol':'SSH','user':None,'port':None,'group':None,'tags':None})
+  for key in ('user','port','group','tags'):
+   self.assertEqual(entry[key],'')
  def test_store(self):
   with tempfile.TemporaryDirectory() as d:
    s=Store(Path(d)/'connections.json');s.upsert({'name':'server','host':'example.com','protocol':'SSH'})
