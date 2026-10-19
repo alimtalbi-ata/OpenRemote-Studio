@@ -77,8 +77,10 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     if not target.parent.is_dir():raise FileNotFoundError('Répertoire local introuvable')
     token=hashlib.sha256((identity+'\0'+remote_path+'\0'+str(target.resolve())).encode()).hexdigest()[:20]
     partial=target.parent/('.openremote-'+token+'.part')
-    total=int(sftp.stat(remote_path).st_size)
-    if total<0:raise ValueError('Taille distante invalide')
+    remote_size = sftp.stat(remote_path).st_size
+    if type(remote_size) is not int or remote_size < 0:
+        raise ValueError('Taille distante invalide')
+    total = remote_size
     have=partial.stat().st_size if partial.exists() else 0
     if have>total:raise ValueError('Fichier partiel plus grand que le fichier distant')
     with sftp.open(remote_path,'rb') as remote:
@@ -101,5 +103,10 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
                 if callback:callback(done,total)
             output.flush();os.fsync(output.fileno())
     if partial.stat().st_size!=total:raise OSError('Taille de transfert incorrecte')
+    # Re-stat before publishing: refuse a file whose size changed during
+    # transfer, even when all downloaded chunks appeared valid.
+    final_size = sftp.stat(remote_path).st_size
+    if type(final_size) is not int or final_size != total:
+        raise ValueError('Fichier distant modifié pendant le transfert')
     os.replace(partial,target)
     return total
