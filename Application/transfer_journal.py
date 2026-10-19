@@ -45,7 +45,7 @@ class TransferJournal:
         return cursor.lastrowid
     def update(self,transfer_id,state,progress=None):
         if state not in STATES:raise ValueError('État invalide')
-        if progress is not None and (not isinstance(progress,int) or not 0<=progress<=100):
+        if progress is not None and (type(progress) is not int or not 0<=progress<=100):
             raise ValueError('Progression invalide')
         # Terminal outcomes are immutable. Use a guarded SQL update so competing
         # callbacks cannot overwrite a completed or cancelled transfer.
