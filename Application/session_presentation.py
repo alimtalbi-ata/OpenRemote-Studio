@@ -28,6 +28,11 @@ def selected_reconnect_allowed(rows, connection_id, pid):
     if connection_id is None or pid is None:return False
     selected=selected_session(rows, connection_id, pid)
     if not can_reconnect(selected):return False
+    if not isinstance(rows, (list, tuple)):
+        return False
+    # Malformed sibling rows cannot establish that a reconnect is safe.
+    if any(not isinstance(r, dict) for r in rows):
+        return False
     return not any(r.get('connection_id')==connection_id and r.get('status') in ('running','unknown') for r in rows)
 
 
