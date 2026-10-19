@@ -78,6 +78,21 @@ jobs:
       - name: Execute official Windows build entry point
         shell: cmd
         run: call 02-Compilation\BUILD-WINDOWS.cmd
+      - name: Assemble and verify cumulative ZIP
+        shell: pwsh
+        run: |
+          python 02-Compilation/build_cumulative_v318.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $zip = 'Binary/OpenRemote-Studio-V31.8-Windows-Cumulative.zip'
+          python 02-Compilation/verify_cumulative_v318.py $zip --expected-commit (git rev-parse HEAD)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload cumulative ZIP
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openremote-v318-cumulative
+          path: Binary/OpenRemote-Studio-V31.8-Windows-Cumulative.zip
+          if-no-files-found: error
       - name: Upload Windows build output and logs
         if: always()
         uses: actions/upload-artifact@v4
