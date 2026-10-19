@@ -47,6 +47,8 @@ def main():
         path = ROOT / name
         if path.is_file():
             add("03-Sources/" + name, path.read_bytes())
+            if name.startswith(("02-Compilation/", "04-Tests-et-Qualification/", "05-Documentation/")):
+                add(name, path.read_bytes())
     add("01-Application/Installer/" + installer.name, installer.read_bytes())
     add("01-Application/Portable/" + portable.name, portable.read_bytes())
     for path in docs:
