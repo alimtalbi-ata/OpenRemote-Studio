@@ -48,6 +48,13 @@ jobs:
           run_id=$env:GITHUB_RUN_ID
           version=$(Get-Content VERSION.txt -Raw)
           "@ | Set-Content Binary/Qualification/build-provenance.txt
+      - name: Refresh and validate source integrity manifest
+        shell: pwsh
+        run: |
+          python 02-Compilation/refresh_source_manifest_v318.py .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python VERIFY-RELEASE.py .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Execute official Windows build entry point
         shell: cmd
         run: call 02-Compilation\BUILD-WINDOWS.cmd
