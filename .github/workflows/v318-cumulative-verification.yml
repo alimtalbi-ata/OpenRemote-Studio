@@ -1,0 +1,45 @@
+name: V31.8 cumulative verification
+on:
+  push:
+    branches: [develop/v31.8-windows-ci]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-verifier:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run archive verifier regression tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s 04-Tests-et-Qualification -p test_verify_cumulative_v318.py -v
+      - name: Compile verifier sources
+        shell: pwsh
+        run: |
+          python -m py_compile 02-Compilation/verify_cumulative_v318.py 04-Tests-et-Qualification/test_verify_cumulative_v318.py
+
+  windows-native-build:
+    runs-on: windows-latest
+    needs: archive-verifier
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute official Windows build entry point
+        shell: cmd
+        run: call 02-Compilation\BUILD-WINDOWS.cmd
+      - name: Upload Windows build output and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v318-windows-build-evidence
+          path: |
+            Binary/**
+          if-no-files-found: warn
