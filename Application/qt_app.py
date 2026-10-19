@@ -2035,6 +2035,9 @@ class Main(QMainWindow):
                 if proc.state()!=proc.NotRunning:proc.kill();proc.waitForFinished(1000)
                 self.processes.remove(proc)
         self.tabs.removeTab(index)
+        if widget is getattr(self,'transfer_history_tab',None):
+            self.transfer_history_tab=None
+            self.transfer_history_refresh=None
         if widget is getattr(self,'session_overview',None):
             self.session_refresh_timer.stop()
             self.session_overview=None
