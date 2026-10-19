@@ -38,3 +38,26 @@ class ResumeTests(unittest.TestCase):
    self.assertEqual(len(list(Path(d).glob('*.part'))),1)
  def test_invalid_chunk(self):
   with self.assertRaises(ValueError):download_resume_verified(Remote(b''),'/x','/tmp/x','id',chunk_size=0)
+
+class ChangingRemote(Remote):
+ def __init__(self,data,second_size):
+  super().__init__(data);self.calls=0;self.second_size=second_size
+ def stat(self,path):
+  self.calls+=1
+  size=len(self.data) if self.calls==1 else self.second_size
+  return type('Stat',(),{'st_size':size})()
+
+class ResumePublishIntegrityTests(unittest.TestCase):
+ def test_remote_size_change_blocks_publication(self):
+  with tempfile.TemporaryDirectory() as d:
+   target=Path(d)/'existing';target.write_bytes(b'old')
+   with self.assertRaisesRegex(ValueError,'modifié'):
+    download_resume_verified(ChangingRemote(b'abcdef',7),'/file',target,'id')
+   self.assertEqual(target.read_bytes(),b'old')
+   self.assertEqual(len(list(Path(d).glob('*.part'))),1)
+ def test_boolean_remote_size_rejected(self):
+  class BadRemote(Remote):
+   def stat(self,path):return type('Stat',(),{'st_size':True})()
+  with tempfile.TemporaryDirectory() as d:
+   with self.assertRaises(ValueError):
+    download_resume_verified(BadRemote(b'x'),'/file',Path(d)/'file','id')
