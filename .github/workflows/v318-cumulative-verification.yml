@@ -38,7 +38,20 @@ jobs:
     needs: archive-verifier
     timeout-minutes: 90
     steps:
+      - name: Preserve checkout bytes on Windows
+        shell: pwsh
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Configure UTF-8 for legacy tests and build tools
+        shell: pwsh
+        run: |
+          'PYTHONUTF8=1' >> $env:GITHUB_ENV
+          'PYTHONIOENCODING=utf-8' >> $env:GITHUB_ENV
+          'PY_PYTHON=3.12' >> $env:GITHUB_ENV
+          'PY_PYTHON3=3.12' >> $env:GITHUB_ENV
       - name: Record source revision
         shell: pwsh
         run: |
