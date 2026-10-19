@@ -29,6 +29,16 @@ class TransferJournalIntegrityTests(unittest.TestCase):
             self.assertEqual(journal.search()[0][6], 80)
             journal.close()
 
+    def test_boolean_progress_is_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            journal = TransferJournal(Path(d) / 'journal.db')
+            item = journal.add('server', 'download', '/remote', 'local')
+            for value in (True, False):
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    journal.update(item, 'running', value)
+            self.assertEqual(journal.search()[0][6], 0)
+            journal.close()
+
     def test_restart_keeps_terminal_outcome(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "journal.db"
