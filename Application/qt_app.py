@@ -3021,6 +3021,7 @@ class Main(QMainWindow):
     def show_transfer_history(self):
         """Consult persisted transfer outcomes without executing remote operations."""
         if hasattr(self, 'transfer_history_tab') and self.tabs.indexOf(self.transfer_history_tab) >= 0:
+            self.transfer_history_refresh()
             self.tabs.setCurrentWidget(self.transfer_history_tab)
             return
         pane=QWidget();pane.setObjectName('transferHistoryTab')
@@ -3046,6 +3047,7 @@ class Main(QMainWindow):
             except Exception as exc:warning.setText('Erreur du journal : '+str(exc))
         refresh.clicked.connect(populate);state.currentTextChanged.connect(populate);connection.currentIndexChanged.connect(populate)
         populate()
+        self.transfer_history_refresh=populate
         self.transfer_history_tab=pane
         self.tabs.addTab(pane,'Transferts')
         self.tabs.setCurrentWidget(pane)
