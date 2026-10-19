@@ -13,6 +13,10 @@ class TransferWorkspaceTabTests(unittest.TestCase):
         self.assertIn("self.tabs.setCurrentWidget(pane)", section)
         self.assertNotIn("dialog.exec()", section)
 
+    def test_reopening_closed_tab_checks_for_none_before_qt_index(self):
+        section = SOURCE.split('    def show_transfer_history(self):', 1)[1].split('    def closeEvent(', 1)[0]
+        self.assertIn("getattr(self, 'transfer_history_tab', None) is not None", section)
+
     def test_revisiting_tab_refreshes_persisted_history(self):
         section = SOURCE.split('    def show_transfer_history(self):', 1)[1].split('    def closeEvent(', 1)[0]
         self.assertIn('self.transfer_history_refresh()', section)
