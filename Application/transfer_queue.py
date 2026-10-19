@@ -23,8 +23,15 @@ class TransferQueue:
         return entry
     def progress(self,entry,value):
         if self.active is not entry:return
-        entry["progress"]=max(0,min(100,int(value)))
+        if type(value) is not int:
+            raise ValueError("Progression invalide")
+        next_value = max(0, min(100, value))
+        if next_value < entry["progress"]:
+            raise ValueError("Progression régressive")
+        entry["progress"] = next_value
     def complete(self,entry,ok):
+        if type(ok) is not bool:
+            raise ValueError("Résultat de transfert invalide")
         if self.active is not entry:raise ValueError("Opération non active")
         entry["state"]="done" if ok else "failed"
         self.history.append(entry)
@@ -35,4 +42,7 @@ class TransferQueue:
             entry["state"]="cancelled"
             self.history.append(entry)
     def cancel_active(self):
-        if self.active is not None:self.active["job"].cancel()
+        if self.active is not None:
+            self.active["job"].cancel()
+            # Cancellation is a request; the worker must report its outcome.
+            # Keep the active slot until completion to prevent overlapping jobs.
