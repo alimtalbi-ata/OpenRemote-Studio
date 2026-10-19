@@ -34,6 +34,26 @@ class TestCore(unittest.TestCase):
     with self.assertRaises(OSError):
      store.upsert({'name':'replacement','host':'two.example','protocol':'SSH'})
    self.assertEqual(store.items,before)
+ def test_malformed_records_fail_with_domain_error(self):
+  for raw in (None, [], 'host', 12):
+   with self.assertRaisesRegex(ValueError,'objet JSON attendu'):
+    validate(raw)
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'connections.json'
+   path.write_text(json.dumps([{'name':'valid','host':'valid.example','protocol':'SSH'},None]),encoding='utf-8')
+   with self.assertRaisesRegex(ValueError,'objet JSON attendu'):
+    Store(path)
+ def test_import_malformed_is_atomic(self):
+  with tempfile.TemporaryDirectory() as d:
+   store=Store(Path(d)/'connections.json')
+   store.upsert({'name':'existing','host':'existing.example','protocol':'SSH'})
+   before=store.path.read_bytes()
+   incoming=Path(d)/'import.json'
+   incoming.write_text(json.dumps([{'name':'new','host':'new.example','protocol':'SSH'},None]),encoding='utf-8')
+   with self.assertRaisesRegex(ValueError,'objet JSON attendu'):
+    store.import_json(incoming)
+   self.assertEqual(store.path.read_bytes(),before)
+   self.assertEqual(len(store.items),1)
  def test_store(self):
   with tempfile.TemporaryDirectory() as d:
    s=Store(Path(d)/'connections.json');s.upsert({'name':'server','host':'example.com','protocol':'SSH'})
