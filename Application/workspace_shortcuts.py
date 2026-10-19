@@ -13,6 +13,7 @@ SHORTCUTS = (
     ("Ctrl+1", "show_home"),
     ("Ctrl+2", "show_session_overview"),
     ("Ctrl+3", "show_local_readiness"),
+    ("Ctrl+4", "show_transfer_history"),
     ("Ctrl+Shift+S", "show_session_overview"),
     ("F1", "show_quick_guide"),
 )
