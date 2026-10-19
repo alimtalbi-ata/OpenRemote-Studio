@@ -13,6 +13,11 @@ class TransferWorkspaceTabTests(unittest.TestCase):
         self.assertIn("self.tabs.setCurrentWidget(pane)", section)
         self.assertNotIn("dialog.exec()", section)
 
+    def test_revisiting_tab_refreshes_persisted_history(self):
+        section = SOURCE.split('    def show_transfer_history(self):', 1)[1].split('    def closeEvent(', 1)[0]
+        self.assertIn('self.transfer_history_refresh()', section)
+        self.assertIn('self.transfer_history_refresh=populate', section)
+
     def test_primary_navigation_tracks_transfer_tab(self):
         section = SOURCE.split("    def _sync_primary_navigation(self, *_):", 1)[1].split("    def show_home(", 1)[0]
         self.assertIn("current.objectName() == 'transferHistoryTab'", section)
