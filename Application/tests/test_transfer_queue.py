@@ -14,7 +14,8 @@ class QueueTests(unittest.TestCase):
  def test_progress_clamped(self):
   q=TransferQueue();a=q.submit(FakeJob());q.start_next()
   q.progress(a,150);self.assertEqual(a['progress'],100)
-  q.progress(a,-1);self.assertEqual(a['progress'],0)
+  with self.assertRaises(ValueError):q.progress(a,-1)
+  self.assertEqual(a['progress'],100)
  def test_cancel_pending(self):
   q=TransferQueue();a=q.submit(FakeJob());b=q.submit(FakeJob())
   q.start_next();q.cancel_pending()
@@ -31,3 +32,17 @@ class QueueTests(unittest.TestCase):
  def test_no_duplicate_completion(self):
   q=TransferQueue();a=q.submit(FakeJob());q.start_next();q.complete(a,True)
   with self.assertRaises(ValueError):q.complete(a,True)
+
+ def test_progress_rejects_bool_and_fraction(self):
+  q=TransferQueue();a=q.submit(FakeJob());q.start_next()
+  for value in (True,False,4.5,'10'):
+   with self.subTest(value=value),self.assertRaises(ValueError):q.progress(a,value)
+  self.assertEqual(a['progress'],0)
+ def test_cancel_keeps_active_until_worker_finishes(self):
+  q=TransferQueue();a=q.submit(FakeJob());b=q.submit(FakeJob());q.start_next()
+  q.cancel_active();self.assertIsNone(q.start_next())
+  q.complete(a,False);self.assertIs(q.start_next(),b)
+ def test_complete_rejects_non_boolean(self):
+  q=TransferQueue();a=q.submit(FakeJob());q.start_next()
+  with self.assertRaises(ValueError):q.complete(a,1)
+  self.assertIs(q.active,a)
