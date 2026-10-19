@@ -45,10 +45,15 @@ class Store:
     def save(self):
         # Validate the complete snapshot before creating or replacing any file.
         # A caller must never persist malformed or duplicate connection records.
-        validated = [validate(item) for item in self.items]
-        ids = [item['id'] for item in validated]
-        if len(ids) != len(set(ids)):
-            raise ValueError('Identifiants de connexions dupliqués')
+        if type(self) is Store:
+            validated = [validate(item) for item in self.items]
+            ids = [item['id'] for item in validated]
+            if len(ids) != len(set(ids)):
+                raise ValueError('Identifiants de connexions dupliqués')
+        else:
+            # Subclasses persist different schemas (routes, PAM profiles).
+            # Their own validators must run in their mutation/read paths.
+            validated = self.items
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp = tempfile.mkstemp(prefix='.connections-', suffix='.tmp', dir=self.path.parent)
         try:
