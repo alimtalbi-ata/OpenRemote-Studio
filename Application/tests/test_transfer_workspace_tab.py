@@ -29,6 +29,13 @@ class TransferWorkspaceTabTests(unittest.TestCase):
         self.assertIn("current.objectName() == 'transferHistoryTab'", section)
         self.assertIn("'show_transfer_history'", section)
 
+    def test_corrupt_journal_clears_stale_rows_without_leaking_paths(self):
+        section = SOURCE.split('    def show_transfer_history(self):', 1)[1].split('    def closeEvent(', 1)[0]
+        self.assertIn('cells=[transfer_row_cells(row) for row in rows]', section)
+        self.assertIn("warning.setText('Historique indisponible", section)
+        self.assertIn('except Exception:', section)
+        self.assertNotIn("'Erreur du journal : '+str(exc)", section)
+
     def test_transfer_history_is_read_only(self):
         section = SOURCE.split("    def show_transfer_history(self):", 1)[1].split("    def closeEvent(", 1)[0]
         self.assertIn("QAbstractItemView.NoEditTriggers", section)
