@@ -23,6 +23,13 @@ def validate_profile(raw):
     return {'name':name.strip(),'provider':provider,'endpoint':endpoint.rstrip('/')}
 
 class PamProfileStore(Store):
+    def _snapshot_for_save(self):
+        profiles = [validate_profile(x) for x in self.items]
+        names = [x['name'].casefold() for x in profiles]
+        if len(names) != len(set(names)):
+            raise ValueError('Profils PAM dupliqués')
+        return profiles
+
     def read(self):
         if not self.path.exists():return []
         import json
