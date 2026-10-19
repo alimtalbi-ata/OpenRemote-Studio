@@ -43,11 +43,17 @@ class Store:
             raise ValueError('Identifiants de connexions dupliqués')
         return items
     def save(self):
+        # Validate the complete snapshot before creating or replacing any file.
+        # A caller must never persist malformed or duplicate connection records.
+        validated = [validate(item) for item in self.items]
+        ids = [item['id'] for item in validated]
+        if len(ids) != len(set(ids)):
+            raise ValueError('Identifiants de connexions dupliqués')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp = tempfile.mkstemp(prefix='.connections-', suffix='.tmp', dir=self.path.parent)
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                json.dump(self.items, f, indent=2, ensure_ascii=False)
+                json.dump(validated, f, indent=2, ensure_ascii=False)
                 f.flush(); os.fsync(f.fileno())
             if os.name != 'nt':
                 os.chmod(temp, 0o600)
