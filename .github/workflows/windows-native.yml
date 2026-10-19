@@ -33,6 +33,12 @@ jobs:
           "PYTHONIOENCODING=utf-8" >> $env:GITHUB_ENV
           "PY_PYTHON=3.12" >> $env:GITHUB_ENV
           "PY_PYTHON3=3.12" >> $env:GITHUB_ENV
+      - name: Generate versioned release documentation
+        run: |
+          python -m pip install python-docx reportlab
+          if ($LASTEXITCODE -ne 0) { throw "Documentation dependencies failed" }
+          python 02-Compilation/generate_release_dossier.py
+          if ($LASTEXITCODE -ne 0) { throw "Documentation generation failed" }
       - name: Validate checked-out source and refresh CI integrity manifest
         run: |
           $changed = @(git diff --name-only --exit-code)
@@ -44,7 +50,7 @@ jobs:
           root = Path.cwd()
           names = subprocess.check_output(["git", "ls-files", "-z"]).decode("utf-8").split("\0")
           manifest = Path("07-Manifestes/FILES-SHA256.txt")
-          names = sorted(name for name in names if name and name != manifest.as_posix())
+          names = sorted(set(name for name in names if name and name != manifest.as_posix()) | {str(p.as_posix()) for p in Path("05-Documentation").glob("Dossier-V*") if p.suffix in (".docx", ".pdf")})
           manifest.write_text("".join(hashlib.sha256((root / name).read_bytes()).hexdigest() + "  " + name + "\n" for name in names), encoding="utf-8")
           '@ | python -
           if ($LASTEXITCODE -ne 0) { throw "Failed to prepare CI integrity manifest" }
