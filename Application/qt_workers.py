@@ -33,7 +33,8 @@ class SftpJob(QRunnable):
                         if self.cancel_event.is_set():raise InterruptedError('Opération annulée')
                         self.signals.progress.emit(int(done*100/total) if total else 100)
                     if self.operation=='upload':
-                        upload_exclusive(sftp,self.local_path,self.remote_path,callback=callback,\n                                         cancelled=self.cancel_event.is_set)
+                        upload_exclusive(sftp,self.local_path,self.remote_path,callback=callback,
+                                         cancelled=self.cancel_event.is_set)
                     elif self.operation=='download':
                         download_atomic(sftp,self.remote_path,self.local_path,callback=callback,
                             cancelled=self.cancel_event.is_set)
