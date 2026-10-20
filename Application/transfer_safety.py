@@ -91,7 +91,8 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     if not target.parent.is_dir():raise FileNotFoundError('Répertoire local introuvable')
     token=hashlib.sha256((identity+'\0'+remote_path+'\0'+str(target.resolve())).encode()).hexdigest()[:20]
     partial=target.parent/('.openremote-'+token+'.part')
-    remote_size = sftp.stat(remote_path).st_size
+    initial_stat = sftp.stat(remote_path)
+    remote_size = initial_stat.st_size
     if type(remote_size) is not int or remote_size < 0:
         raise ValueError('Taille distante invalide')
     total = remote_size
@@ -99,7 +100,6 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     if have>total:raise ValueError('Fichier partiel plus grand que le fichier distant')
     # Reject changed remote metadata before validating the partial prefix.
     # Modification time is advisory: some SFTP servers provide only second precision.
-    initial_stat = sftp.stat(remote_path)
     initial_mtime = getattr(initial_stat, 'st_mtime', None)
     initial_mode = getattr(initial_stat, 'st_mode', None)
     with sftp.open(remote_path,'rb') as remote:
@@ -130,10 +130,10 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     if partial.stat().st_size!=total:raise OSError('Taille de transfert incorrecte')
     # Re-stat before publishing: refuse a file whose size changed during
     # transfer, even when all downloaded chunks appeared valid.
-    final_size = sftp.stat(remote_path).st_size
+    final_stat = sftp.stat(remote_path)
+    final_size = final_stat.st_size
     if type(final_size) is not int or final_size != total:
         raise ValueError('Fichier distant modifié pendant le transfert')
-    final_stat = sftp.stat(remote_path)
     final_mtime = getattr(final_stat, 'st_mtime', None)
     if initial_mtime is not None and final_mtime is not None and final_mtime != initial_mtime:
         raise ValueError('Horodatage distant modifié pendant le transfert')
