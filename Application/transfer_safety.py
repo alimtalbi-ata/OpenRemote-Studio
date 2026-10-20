@@ -161,6 +161,8 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     """
     if not isinstance(chunk_size, int) or not 1 <= chunk_size <= 16*1024*1024:
         raise ValueError('Taille de bloc invalide')
+    if cancelled is not None and cancelled():
+        raise InterruptedError('Reprise annulée avant verrouillage')
     if not isinstance(identity, str) or not identity:
         raise ValueError('Identité de connexion requise')
     if not isinstance(remote_path, str) or not remote_path:
