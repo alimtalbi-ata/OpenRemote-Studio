@@ -95,6 +95,9 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     if not target.parent.is_dir():raise FileNotFoundError('Répertoire local introuvable')
     token=hashlib.sha256((identity+'\0'+remote_path+'\0'+str(target.resolve())).encode()).hexdigest()[:20]
     partial=target.parent/('.openremote-'+token+'.part')
+    # Never append through a pre-existing symlink (including dangling links).
+    if partial.is_symlink():
+        raise ValueError('Fichier partiel symbolique interdit')
     initial_stat = sftp.stat(remote_path)
     remote_size = initial_stat.st_size
     if type(remote_size) is not int or remote_size < 0:
