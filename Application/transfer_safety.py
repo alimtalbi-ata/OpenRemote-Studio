@@ -69,7 +69,7 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
 
 import hashlib
 
-def download_resume_verified(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024):
+def download_resume_verified(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024, cancelled=None):
     """Resume to a stable .part, validating all existing bytes against remote.
 
     A changed remote prefix is rejected, not silently reused. Final size is
@@ -77,6 +77,8 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     """
     if not isinstance(chunk_size,int) or not 1<=chunk_size<=16*1024*1024:
         raise ValueError('Taille de bloc invalide')
+    if cancelled is not None and cancelled():
+        raise InterruptedError('Reprise annulée')
     if not isinstance(identity,str) or not identity:
         raise ValueError('Identité de connexion requise')
     target=Path(local_path)
@@ -94,6 +96,8 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
             with partial.open('rb') as existing:
                 remaining=have
                 while remaining:
+                    if cancelled is not None and cancelled():
+                        raise InterruptedError('Reprise annulée')
                     n=min(chunk_size,remaining)
                     a=existing.read(n);b=remote.read(n)
                     if len(a)!=n or a!=b:
@@ -103,16 +107,22 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
             done=have
             if callback:callback(done,total)
             while done<total:
+                if cancelled is not None and cancelled():
+                    raise InterruptedError('Reprise annulée')
                 data=remote.read(min(chunk_size,total-done))
                 if not data:raise OSError('Fin prématurée du fichier distant')
                 output.write(data);done+=len(data)
                 if callback:callback(done,total)
             output.flush();os.fsync(output.fileno())
+    if cancelled is not None and cancelled():
+        raise InterruptedError('Reprise annulée')
     if partial.stat().st_size!=total:raise OSError('Taille de transfert incorrecte')
     # Re-stat before publishing: refuse a file whose size changed during
     # transfer, even when all downloaded chunks appeared valid.
     final_size = sftp.stat(remote_path).st_size
     if type(final_size) is not int or final_size != total:
         raise ValueError('Fichier distant modifié pendant le transfert')
+    if cancelled is not None and cancelled():
+        raise InterruptedError('Reprise annulée avant publication')
     os.replace(partial,target)
     return total
