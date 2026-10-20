@@ -74,6 +74,23 @@ class ResumeCancellationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b'old')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'abcdef')
 
+    def test_symlink_partial_is_rejected_without_modifying_victim(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            victim = root / 'victim'
+            victim.write_bytes(b'keep')
+            target = root / 'result'
+            partial = partial_path('connection', '/remote', target)
+            try:
+                partial.symlink_to(victim)
+            except (OSError, NotImplementedError):
+                self.skipTest('Symlinks unavailable on this Windows runner')
+            with self.assertRaisesRegex(ValueError, 'partiel symbolique'):
+                download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                         'connection', chunk_size=2)
+            self.assertEqual(victim.read_bytes(), b'keep')
+            self.assertFalse(target.exists())
+
     def test_symlink_target_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
