@@ -31,7 +31,7 @@ def remote_exists(sftp,path):
         return False
 
 
-def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=256*1024):
+def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=256*1024, cancelled=None):
     """Create a remote file exclusively, never overwrite an existing path.
 
     Requires server support for SSH_FXF_EXCL (Paramiko 'x' mode). On error,
@@ -43,16 +43,22 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
     total=source.stat().st_size
     written=0
     created=False
+    if cancelled is not None and cancelled():
+        raise InterruptedError('Upload cancelled before remote creation')
     try:
         with source.open('rb') as local:
             with sftp.open(remote_path,'xb') as remote:
                 created=True
                 while True:
+                    if cancelled is not None and cancelled():
+                        raise InterruptedError('Upload cancelled')
                     data=local.read(chunk_size)
                     if not data:break
                     remote.write(data)
                     written+=len(data)
                     if callback:callback(written,total)
+                    if cancelled is not None and cancelled():
+                        raise InterruptedError('Upload cancelled')
         return written
     except Exception:
         if created:
