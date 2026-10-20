@@ -91,6 +91,10 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     total = remote_size
     have=partial.stat().st_size if partial.exists() else 0
     if have>total:raise ValueError('Fichier partiel plus grand que le fichier distant')
+    # Reject changed remote metadata before validating the partial prefix.
+    # Modification time is advisory: some SFTP servers provide only second precision.
+    initial_stat = sftp.stat(remote_path)
+    initial_mtime = getattr(initial_stat, 'st_mtime', None)
     with sftp.open(remote_path,'rb') as remote:
         if have:
             with partial.open('rb') as existing:
@@ -122,6 +126,10 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     final_size = sftp.stat(remote_path).st_size
     if type(final_size) is not int or final_size != total:
         raise ValueError('Fichier distant modifié pendant le transfert')
+    final_stat = sftp.stat(remote_path)
+    final_mtime = getattr(final_stat, 'st_mtime', None)
+    if initial_mtime is not None and final_mtime is not None and final_mtime != initial_mtime:
+        raise ValueError('Horodatage distant modifié pendant le transfert')
     if cancelled is not None and cancelled():
         raise InterruptedError('Reprise annulée avant publication')
     os.replace(partial,target)
