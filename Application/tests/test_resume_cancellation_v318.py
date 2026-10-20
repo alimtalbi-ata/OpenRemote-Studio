@@ -73,6 +73,31 @@ class ResumeCancellationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b'old')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'abcdef')
 
+    def test_remote_size_change_blocks_publication(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            target.write_bytes(b'original')
+            sftp = SFTP(b'abcdef')
+            def progress(done, total):
+                if done >= 2:
+                    sftp.data = b'abcdefg'
+            with self.assertRaisesRegex(ValueError, 'modifié'):
+                download_resume_verified(sftp, '/remote', target, 'connection',
+                                         callback=progress, chunk_size=2)
+            self.assertEqual(target.read_bytes(), b'original')
+            self.assertTrue(partial_path('connection', '/remote', target).exists())
+
+    def test_changed_remote_prefix_rejects_resume(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            target.write_bytes(b'original')
+            partial_path('connection', '/remote', target).write_bytes(b'bad')
+            with self.assertRaisesRegex(ValueError, 'reprise refusée'):
+                download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                         'connection', chunk_size=2)
+            self.assertEqual(target.read_bytes(), b'original')
+            self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'bad')
+
     def test_successful_resume_publishes_complete_file(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "result"
