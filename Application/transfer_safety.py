@@ -83,7 +83,11 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
         raise ValueError('Identité de connexion requise')
     if not isinstance(remote_path, str) or not remote_path:
         raise ValueError('Chemin distant requis')
+    if not isinstance(local_path, (str, os.PathLike)):
+        raise TypeError('Chemin local invalide')
     target=Path(local_path)
+    if target.is_symlink():
+        raise ValueError('Destination symbolique interdite')
     if not target.parent.is_dir():raise FileNotFoundError('Répertoire local introuvable')
     token=hashlib.sha256((identity+'\0'+remote_path+'\0'+str(target.resolve())).encode()).hexdigest()[:20]
     partial=target.parent/('.openremote-'+token+'.part')
