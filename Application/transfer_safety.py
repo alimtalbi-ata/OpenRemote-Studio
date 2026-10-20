@@ -73,7 +73,7 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
 
 import hashlib
 
-def download_resume_verified(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024, cancelled=None):
+def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024, cancelled=None):
     """Resume to a stable .part, validating all existing bytes against remote.
 
     A changed remote prefix is rejected, not silently reused. Final size is
@@ -151,3 +151,33 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
         raise InterruptedError('Reprise annulée avant publication')
     os.replace(partial,target)
     return total
+
+
+def download_resume_verified(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024, cancelled=None):
+    """Serialize concurrent resumes of the same connection/path/target.
+
+    A lock is acquired with atomic exclusive creation. A stale lock is never
+    removed automatically: doing so could corrupt an active transfer.
+    """
+    if not isinstance(identity, str) or not identity:
+        raise ValueError('Identité de connexion requise')
+    if not isinstance(remote_path, str) or not remote_path:
+        raise ValueError('Chemin distant requis')
+    target = Path(local_path)
+    if target.is_symlink():
+        raise ValueError('Destination symbolique interdite')
+    if not target.parent.is_dir():
+        raise FileNotFoundError('Répertoire local introuvable')
+    token = hashlib.sha256((identity+'\\0'+remote_path+'\\0'+str(target.resolve())).encode()).hexdigest()[:20]
+    lock = target.parent / ('.openremote-' + token + '.lock')
+    try:
+        fd = os.open(str(lock), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as exc:
+        raise RuntimeError('Reprise déjà en cours ou verrou résiduel : ' + str(lock)) from exc
+    try:
+        os.close(fd)
+        return _download_resume_verified_unlocked(sftp, remote_path, local_path, identity,
+                                                   callback=callback, chunk_size=chunk_size,
+                                                   cancelled=cancelled)
+    finally:
+        lock.unlink(missing_ok=True)
