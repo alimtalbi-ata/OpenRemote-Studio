@@ -168,7 +168,7 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
         raise ValueError('Destination symbolique interdite')
     if not target.parent.is_dir():
         raise FileNotFoundError('Répertoire local introuvable')
-    token = hashlib.sha256((identity+'\\0'+remote_path+'\\0'+str(target.resolve())).encode()).hexdigest()[:20]
+    token = hashlib.sha256((identity+'\0'+remote_path+'\0'+str(target.resolve())).encode()).hexdigest()[:20]
     lock = target.parent / ('.openremote-' + token + '.lock')
     try:
         fd = os.open(str(lock), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
