@@ -30,10 +30,10 @@ jobs:
       - name: Compile critical SFTP sources and run cancellation regressions
         shell: pwsh
         run: |
-          python -m py_compile Application/transfer_safety.py Application/qt_workers.py Application/tests/test_upload_cancellation_v318.py
+          python -m py_compile Application/transfer_safety.py Application/qt_workers.py Application/tests/test_upload_cancellation_v318.py Application/tests/test_resume_cancellation_v318.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:PYTHONPATH = 'Application'
-          python -m unittest discover -s Application/tests -p test_upload_cancellation_v318.py -v
+          python -m unittest discover -s Application/tests -p 'test_*cancellation_v318.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile verifier sources
         shell: pwsh
