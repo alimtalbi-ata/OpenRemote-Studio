@@ -150,6 +150,17 @@ class ResumeCancellationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b'original')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'bad')
 
+    def test_cancelled_request_does_not_touch_residual_lock(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            lock = partial_path('connection', '/remote', target).with_suffix('.lock')
+            lock.write_text('owner', encoding='utf-8')
+            with self.assertRaises(InterruptedError):
+                download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                         'connection', cancelled=lambda: True)
+            self.assertEqual(lock.read_text(encoding='utf-8'), 'owner')
+            self.assertFalse(target.exists())
+
     def test_residual_lock_is_not_deleted_or_overridden(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / 'result'
