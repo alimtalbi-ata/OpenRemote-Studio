@@ -81,6 +81,8 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
         raise InterruptedError('Reprise annulée')
     if not isinstance(identity,str) or not identity:
         raise ValueError('Identité de connexion requise')
+    if not isinstance(remote_path, str) or not remote_path:
+        raise ValueError('Chemin distant requis')
     target=Path(local_path)
     if not target.parent.is_dir():raise FileNotFoundError('Répertoire local introuvable')
     token=hashlib.sha256((identity+'\0'+remote_path+'\0'+str(target.resolve())).encode()).hexdigest()[:20]
@@ -95,6 +97,7 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     # Modification time is advisory: some SFTP servers provide only second precision.
     initial_stat = sftp.stat(remote_path)
     initial_mtime = getattr(initial_stat, 'st_mtime', None)
+    initial_mode = getattr(initial_stat, 'st_mode', None)
     with sftp.open(remote_path,'rb') as remote:
         if have:
             with partial.open('rb') as existing:
@@ -130,6 +133,9 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     final_mtime = getattr(final_stat, 'st_mtime', None)
     if initial_mtime is not None and final_mtime is not None and final_mtime != initial_mtime:
         raise ValueError('Horodatage distant modifié pendant le transfert')
+    final_mode = getattr(final_stat, 'st_mode', None)
+    if initial_mode is not None and final_mode is not None and final_mode != initial_mode:
+        raise ValueError('Type ou permissions du fichier distant modifiés pendant le transfert')
     if cancelled is not None and cancelled():
         raise InterruptedError('Reprise annulée avant publication')
     os.replace(partial,target)
