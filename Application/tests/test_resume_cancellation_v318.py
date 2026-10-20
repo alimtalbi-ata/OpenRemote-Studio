@@ -16,13 +16,14 @@ class Remote(io.BytesIO):
 
 
 class SFTP:
-    def __init__(self, data, mtime=100):
+    def __init__(self, data, mtime=100, mode=0o100644):
         self.data = data
         self.mtime = mtime
+        self.mode = mode
         self.stat_calls = 0
     def stat(self, path):
         self.stat_calls += 1
-        return SimpleNamespace(st_size=len(self.data), st_mtime=self.mtime)
+        return SimpleNamespace(st_size=len(self.data), st_mtime=self.mtime, st_mode=self.mode)
     def open(self, path, mode):
         if mode != "rb":
             raise AssertionError(mode)
@@ -72,6 +73,25 @@ class ResumeCancellationTests(unittest.TestCase):
                                          callback=progress, chunk_size=2)
             self.assertEqual(target.read_bytes(), b'old')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'abcdef')
+
+    def test_remote_mode_change_blocks_publication(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            target.write_bytes(b'original')
+            sftp = SFTP(b'abcdef')
+            def progress(done, total):
+                if done >= 2:
+                    sftp.mode = 0o100600
+            with self.assertRaisesRegex(ValueError, 'permissions'):
+                download_resume_verified(sftp, '/remote', target, 'connection',
+                                         callback=progress, chunk_size=2)
+            self.assertEqual(target.read_bytes(), b'original')
+
+    def test_empty_remote_path_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError, 'Chemin distant'):
+                download_resume_verified(SFTP(b'abcdef'), '', Path(folder) / 'result',
+                                         'connection')
 
     def test_remote_size_change_blocks_publication(self):
         with tempfile.TemporaryDirectory() as folder:
