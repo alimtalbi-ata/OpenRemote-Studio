@@ -10,6 +10,8 @@ def download_atomic(sftp,remote_path,local_path,callback=None,cancelled=None):
     if cancelled is not None and cancelled():
         raise InterruptedError("Téléchargement annulé")
     target=Path(local_path)
+    if target.is_symlink():
+        raise ValueError('Destination symbolique interdite')
     if not target.parent.is_dir():
         raise FileNotFoundError("Répertoire local introuvable")
     fd,tmp=tempfile.mkstemp(prefix=".openremote-",suffix=".part",dir=str(target.parent))
@@ -18,6 +20,8 @@ def download_atomic(sftp,remote_path,local_path,callback=None,cancelled=None):
         sftp.get(remote_path,tmp,callback=callback)
         if cancelled is not None and cancelled():
             raise InterruptedError("Téléchargement annulé avant publication")
+        if target.is_symlink():
+            raise ValueError('Destination symbolique interdite avant publication')
         os.replace(tmp,target)
     finally:
         try:os.unlink(tmp)
