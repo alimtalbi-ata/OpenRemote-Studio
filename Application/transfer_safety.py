@@ -159,10 +159,14 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     A lock is acquired with atomic exclusive creation. A stale lock is never
     removed automatically: doing so could corrupt an active transfer.
     """
+    if not isinstance(chunk_size, int) or not 1 <= chunk_size <= 16*1024*1024:
+        raise ValueError('Taille de bloc invalide')
     if not isinstance(identity, str) or not identity:
         raise ValueError('Identité de connexion requise')
     if not isinstance(remote_path, str) or not remote_path:
         raise ValueError('Chemin distant requis')
+    if not isinstance(local_path, (str, os.PathLike)):
+        raise TypeError('Chemin local invalide')
     target = Path(local_path)
     if target.is_symlink():
         raise ValueError('Destination symbolique interdite')
