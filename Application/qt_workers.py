@@ -6,6 +6,7 @@ from transfer_safety import download_atomic,upload_exclusive,download_resume_ver
 class SftpSignals(QObject):
     finished = Signal(object)
     failed = Signal(str)
+    cancelled = Signal()
     progress = Signal(int)
 
 class SftpJob(QRunnable):
@@ -45,6 +46,11 @@ class SftpJob(QRunnable):
                     else:raise ValueError('Unknown SFTP operation')
                     result=True
             self.signals.finished.emit(result)
+        except InterruptedError as exc:
+            if self.cancel_event.is_set():
+                self.signals.cancelled.emit()
+            else:
+                self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
         except Exception as exc:
             self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
         finally:

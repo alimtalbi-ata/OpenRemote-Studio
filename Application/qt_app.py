@@ -3352,7 +3352,8 @@ class Main(QMainWindow):
             for entry in entries:
                 queue_list.addItem(f"#{entry['id']} · {entry['state']} · {entry['progress']}%")
         def journal_failure(item,exc):
-            # Fail closed: prevent any further I/O at the next cancellation checkpoint.
+            # An audit failure must not be classified as a user cancellation.
+            item._journal_failed=True
             item.cancel()
             status.setText('Journal indisponible : transfert interrompu par sécurité : '+str(exc))
 
@@ -3412,17 +3413,36 @@ class Main(QMainWindow):
                     finally:advance()
                 def error(message):
                     queue.complete(current,False)
+                    journal_error=None
                     if current.get('journal_id') is not None:
                         try:self.transfer_journal.update(current['journal_id'],'failed')
-                        except Exception as exc:status.setText('Journal indisponible : '+str(exc))
+                        except Exception as exc:journal_error=exc
                     if item in active_jobs:active_jobs.remove(item)
                     if item in self.sftp_jobs:self.sftp_jobs.remove(item)
-                    status.setText('Erreur : '+message)
+                    status.setText('Erreur : '+message if journal_error is None else
+                                   'Erreur ; audit non confirmé : '+str(journal_error))
+                    render_queue()
+                    advance()
+                def on_cancelled():
+                    # Typed signal: never parse localized exception messages.
+                    confirmed=bool(current.get('cancel_requested')) and not getattr(item,'_journal_failed',False)
+                    queue.complete(current,False,cancelled=confirmed)
+                    state='cancelled' if confirmed else 'failed'
+                    journal_error=None
+                    if current.get('journal_id') is not None:
+                        try:self.transfer_journal.update(current['journal_id'],state)
+                        except Exception as exc:journal_error=exc
+                    if item in active_jobs:active_jobs.remove(item)
+                    if item in self.sftp_jobs:self.sftp_jobs.remove(item)
+                    status.setText(('Annulé' if confirmed else 'Transfert interrompu par sécurité')
+                                   if journal_error is None else
+                                   'Transfert interrompu ; audit non confirmé : '+str(journal_error))
                     render_queue()
                     advance()
                 item.signals.progress.connect(on_progress)
                 item.signals.finished.connect(finish)
                 item.signals.failed.connect(error)
+                item.signals.cancelled.connect(on_cancelled)
                 self.pool.start(item)
                 render_queue()
             if queue.active is None:advance()
@@ -3501,8 +3521,13 @@ class Main(QMainWindow):
             status.setText('Erreur : '+message)
             if job in self.sftp_jobs:self.sftp_jobs.remove(job)
             if active_jobs is not None and job in active_jobs:active_jobs.remove(job)
+        def cancelled():
+            status.setText('Annulé')
+            if job in self.sftp_jobs:self.sftp_jobs.remove(job)
+            if active_jobs is not None and job in active_jobs:active_jobs.remove(job)
         job.signals.finished.connect(finish)
         job.signals.failed.connect(error)
+        job.signals.cancelled.connect(cancelled)
         self.pool.start(job)
 
     def _sftp_client(self,c):
