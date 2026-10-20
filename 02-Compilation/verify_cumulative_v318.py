@@ -24,7 +24,8 @@ def verify(path, expected_commit=None):
     if not path.is_file():
         return {"archive": str(path), "sha256": None, "status": "FAIL",
                 "errors": ["archive missing"]}
-    digest = hashlib.file_digest(path.open("rb"), "sha256").hexdigest()
+    with path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
     try:
         with zipfile.ZipFile(path) as archive:
             infos = archive.infolist()
