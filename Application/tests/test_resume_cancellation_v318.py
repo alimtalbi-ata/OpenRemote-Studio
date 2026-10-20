@@ -150,6 +150,22 @@ class ResumeCancellationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b'original')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'bad')
 
+    def test_concurrent_resume_is_rejected_and_lock_released(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            attempted = []
+            def progress(done, total):
+                if not attempted:
+                    with self.assertRaisesRegex(RuntimeError, 'Reprise déjà en cours'):
+                        download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                                 'connection', chunk_size=2)
+                    attempted.append(True)
+            self.assertEqual(download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                                      'connection', callback=progress,
+                                                      chunk_size=2), 6)
+            self.assertEqual(attempted, [True])
+            self.assertEqual(list(Path(folder).glob('.openremote-*.lock')), [])
+
     def test_metadata_uses_two_consistent_snapshots(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / 'result'
