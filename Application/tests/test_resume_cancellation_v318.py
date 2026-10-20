@@ -150,6 +150,29 @@ class ResumeCancellationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b'original')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'bad')
 
+    def test_residual_lock_is_not_deleted_or_overridden(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            lock = partial_path('connection', '/remote', target).with_suffix('.lock')
+            lock.write_text('existing owner', encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError, 'verrou résiduel'):
+                download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                         'connection', chunk_size=2)
+            self.assertEqual(lock.read_text(encoding='utf-8'), 'existing owner')
+            self.assertFalse(target.exists())
+
+    def test_lock_is_removed_on_transfer_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            lock = partial_path('connection', '/remote', target).with_suffix('.lock')
+            with self.assertRaisesRegex(OSError, 'network failure'):
+                class FailingSFTP(SFTP):
+                    def open(self, path, mode):
+                        raise OSError('network failure')
+                download_resume_verified(FailingSFTP(b'abcdef'), '/remote', target,
+                                         'connection', chunk_size=2)
+            self.assertFalse(lock.exists())
+
     def test_concurrent_resume_is_rejected_and_lock_released(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / 'result'
