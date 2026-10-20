@@ -16,10 +16,13 @@ class Remote(io.BytesIO):
 
 
 class SFTP:
-    def __init__(self, data):
+    def __init__(self, data, mtime=100):
         self.data = data
+        self.mtime = mtime
+        self.stat_calls = 0
     def stat(self, path):
-        return SimpleNamespace(st_size=len(self.data))
+        self.stat_calls += 1
+        return SimpleNamespace(st_size=len(self.data), st_mtime=self.mtime)
     def open(self, path, mode):
         if mode != "rb":
             raise AssertionError(mode)
@@ -55,6 +58,20 @@ class ResumeCancellationTests(unittest.TestCase):
                                          cancelled=lambda: state["stop"])
             self.assertEqual(target.read_bytes(), b"old")
             self.assertEqual(partial_path("connection", "/remote", target).read_bytes(), b"ab")
+
+    def test_remote_mtime_change_blocks_publication(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            target.write_bytes(b'old')
+            sftp = SFTP(b'abcdef')
+            def progress(done, total):
+                if done >= 2:
+                    sftp.mtime = 101
+            with self.assertRaisesRegex(ValueError, 'Horodatage'):
+                download_resume_verified(sftp, '/remote', target, 'connection',
+                                         callback=progress, chunk_size=2)
+            self.assertEqual(target.read_bytes(), b'old')
+            self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'abcdef')
 
     def test_successful_resume_publishes_complete_file(self):
         with tempfile.TemporaryDirectory() as folder:
