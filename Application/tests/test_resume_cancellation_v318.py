@@ -133,6 +133,15 @@ class ResumeCancellationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b'original')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'bad')
 
+    def test_metadata_uses_two_consistent_snapshots(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            sftp = SFTP(b'abcdef')
+            self.assertEqual(download_resume_verified(sftp, '/remote', target,
+                                                      'connection', chunk_size=2), 6)
+            self.assertEqual(sftp.stat_calls, 2)
+            self.assertEqual(target.read_bytes(), b'abcdef')
+
     def test_successful_resume_publishes_complete_file(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "result"
