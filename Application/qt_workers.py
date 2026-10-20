@@ -40,7 +40,8 @@ class SftpJob(QRunnable):
                             cancelled=self.cancel_event.is_set)
                     elif self.operation=='resume_download':
                         download_resume_verified(sftp,self.remote_path,self.local_path,
-                            self.connection['id'],callback=callback)
+                            self.connection['id'],callback=callback,
+                                cancelled=self.cancel_event.is_set)
                     else:raise ValueError('Unknown SFTP operation')
                     result=True
             self.signals.finished.emit(result)
