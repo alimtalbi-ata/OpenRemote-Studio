@@ -150,6 +150,35 @@ class ResumeCancellationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b'original')
             self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'bad')
 
+    def test_directory_partial_is_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'result'
+            partial = partial_path('connection', '/remote', target)
+            partial.mkdir()
+            with self.assertRaisesRegex(ValueError, 'non régulier'):
+                download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                         'connection', chunk_size=2)
+            self.assertTrue(partial.is_dir())
+            self.assertFalse(target.exists())
+
+    def test_target_symlink_created_during_resume_is_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            target = root / 'result'
+            victim = root / 'victim'
+            victim.write_bytes(b'untouched')
+            def progress(done, total):
+                if done >= total and not target.exists() and not target.is_symlink():
+                    try:
+                        target.symlink_to(victim)
+                    except (OSError, NotImplementedError):
+                        self.skipTest('Symlinks unavailable')
+            with self.assertRaisesRegex(ValueError, 'symbolique'):
+                download_resume_verified(SFTP(b'abcdef'), '/remote', target,
+                                         'connection', callback=progress, chunk_size=2)
+            self.assertEqual(victim.read_bytes(), b'untouched')
+            self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'abcdef')
+
     def test_cancelled_request_does_not_touch_residual_lock(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / 'result'
