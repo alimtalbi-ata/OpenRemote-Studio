@@ -1,0 +1,38 @@
+name: SFTP OpenSSH live integration
+on:
+  push:
+    branches: [develop/v31.8-windows-ci]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  openssh-sftp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Start real OpenSSH SFTP server
+        run: |
+          docker run -d --name openremote-sftp -p 127.0.0.1:2222:22 atmoz/sftp tester:testpassword:::upload
+          for i in $(seq 1 40); do
+            if bash -c 'echo > /dev/tcp/127.0.0.1/2222' 2>/dev/null; then exit 0; fi
+            sleep 1
+          done
+          docker logs openremote-sftp
+          exit 1
+      - name: Install Paramiko
+        run: python -m pip install 'paramiko>=3.4,<5'
+      - name: Execute live SFTP transfer scenarios
+        env:
+          PYTHONPATH: Application
+          SFTP_TEST_HOST: 127.0.0.1
+          SFTP_TEST_PORT: '2222'
+        run: python Application/tests/live_sftp_openssh_v318.py
+      - name: Show OpenSSH server logs on failure
+        if: failure()
+        run: docker logs openremote-sftp
