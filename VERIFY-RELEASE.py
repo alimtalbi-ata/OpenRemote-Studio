@@ -30,9 +30,12 @@ def _checks(read, names):
 
 def validate(root):
     root=Path(root)
-    metadata={'.git','__pycache__','.pytest_cache','.venv'}
+    metadata={'.git','__pycache__','.pytest_cache','.venv','.venv-build','dist','build'}
     names={p.relative_to(root).as_posix() for p in root.rglob('*')
-           if p.is_file() and not metadata.intersection(p.relative_to(root).parts)}
+           if p.is_file() and not metadata.intersection(p.relative_to(root).parts)
+           and not (p.relative_to(root).as_posix().startswith('Binary/') and
+                    (p.name.endswith('.log') or p.name == '.windows-build.lock' or
+                     '/Qualification/' in p.relative_to(root).as_posix()))}
     return _checks(lambda n:(root/n).read_bytes(),names)
 
 def validate_archive(path):

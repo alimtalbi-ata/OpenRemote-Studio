@@ -45,12 +45,21 @@ class TransferJournal:
         return cursor.lastrowid
     def update(self,transfer_id,state,progress=None):
         if state not in STATES:raise ValueError('État invalide')
-        if progress is not None and (not isinstance(progress,int) or not 0<=progress<=100):
+        if progress is not None and (type(progress) is not int or not 0<=progress<=100):
             raise ValueError('Progression invalide')
+        # Terminal outcomes are immutable. Use a guarded SQL update so competing
+        # callbacks cannot overwrite a completed or cancelled transfer.
         with self.db:
-            cursor=self.db.execute("""UPDATE transfers SET state=?,progress=COALESCE(?,progress),updated_at=?
-                WHERE id=?""",(state,progress,self.now(),transfer_id))
-        if cursor.rowcount!=1:raise KeyError(transfer_id)
+            cursor=self.db.execute("""UPDATE transfers
+                SET state=?,progress=COALESCE(?,progress),updated_at=?
+                WHERE id=? AND state IN ('waiting','running')
+                  AND (? IS NULL OR progress<=?)""",
+                (state,progress,self.now(),transfer_id,progress,progress))
+            if cursor.rowcount!=1:
+                row=self.db.execute("SELECT state,progress FROM transfers WHERE id=?",
+                                    (transfer_id,)).fetchone()
+                if row is None:raise KeyError(transfer_id)
+                raise ValueError('Transfert terminé ou progression régressive')
     def recent(self,limit=50):
         if not isinstance(limit,int) or not 1<=limit<=500:raise ValueError('Limite invalide')
         return self.db.execute("""SELECT id,connection_id,operation,remote_path,local_path,state,progress

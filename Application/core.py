@@ -5,7 +5,9 @@ PROTOCOLS = ('SSH','RDP','SFTP','WEB','VNC')
 HOST = re.compile(r'^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$')
 
 def validate(entry):
-    entry = {k: str(entry.get(k, '')).strip() for k in ('id','name','host','protocol','user','group','port','tags')}
+    if not isinstance(entry, dict):
+        raise ValueError('Connexion invalide : objet JSON attendu')
+    entry = {k: ('' if entry.get(k) is None else str(entry.get(k)).strip()) for k in ('id','name','host','protocol','user','group','port','tags')}
     entry['protocol'] = entry['protocol'].upper()
     if not entry['name'] or len(entry['name']) > 150: raise ValueError('Nom requis (150 caractères maximum)')
     if entry['protocol'] not in PROTOCOLS: raise ValueError('Protocole inconnu')
@@ -40,12 +42,25 @@ class Store:
         if len(ids) != len(set(ids)):
             raise ValueError('Identifiants de connexions dupliqués')
         return items
+    def _snapshot_for_save(self):
+        """Return a validated snapshot. Subclasses may override for their schema."""
+        if type(self) is not Store:
+            return self.items
+        validated = [validate(item) for item in self.items]
+        ids = [item['id'] for item in validated]
+        if len(ids) != len(set(ids)):
+            raise ValueError('Identifiants de connexions dupliqués')
+        return validated
+
     def save(self):
+        # Validate the complete snapshot before creating or replacing any file.
+        # A caller must never persist malformed or duplicate connection records.
+        validated = self._snapshot_for_save()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp = tempfile.mkstemp(prefix='.connections-', suffix='.tmp', dir=self.path.parent)
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                json.dump(self.items, f, indent=2, ensure_ascii=False)
+                json.dump(validated, f, indent=2, ensure_ascii=False)
                 f.flush(); os.fsync(f.fileno())
             if os.name != 'nt':
                 os.chmod(temp, 0o600)

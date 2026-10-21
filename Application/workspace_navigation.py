@@ -5,6 +5,7 @@ PRIMARY_VIEWS = (
     ("Connexions", "show_home", "Ctrl+1"),
     ("Sessions", "show_session_overview", "Ctrl+2"),
     ("Diagnostics", "show_local_readiness", "Ctrl+3"),
+    ("Transferts", "show_transfer_history", "Ctrl+4"),
 )
 
 def primary_views():

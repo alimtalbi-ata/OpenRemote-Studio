@@ -33,13 +33,15 @@ class SftpJob(QRunnable):
                         if self.cancel_event.is_set():raise InterruptedError('Opération annulée')
                         self.signals.progress.emit(int(done*100/total) if total else 100)
                     if self.operation=='upload':
-                        upload_exclusive(sftp,self.local_path,self.remote_path,callback=callback)
+                        upload_exclusive(sftp,self.local_path,self.remote_path,callback=callback,
+                                         cancelled=self.cancel_event.is_set)
                     elif self.operation=='download':
                         download_atomic(sftp,self.remote_path,self.local_path,callback=callback,
                             cancelled=self.cancel_event.is_set)
                     elif self.operation=='resume_download':
                         download_resume_verified(sftp,self.remote_path,self.local_path,
-                            self.connection['id'],callback=callback)
+                            self.connection['id'],callback=callback,
+                                cancelled=self.cancel_event.is_set)
                     else:raise ValueError('Unknown SFTP operation')
                     result=True
             self.signals.finished.emit(result)

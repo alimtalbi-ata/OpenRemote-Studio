@@ -839,7 +839,7 @@ class Main(QMainWindow):
             ('3 · Vérifier avant ouverture', 'Sélectionnez une connexion puis utilisez Vérifier accès ou Diagnostic.'),
             ('4 · Ouvrir la session', 'Double-cliquez sur la connexion ou choisissez Connecter.'),
             ('5 · Gérer les accès indirects', 'Connexions → Passerelle / Rebond ; configurez la route avant de vous connecter.'),
-            ('Raccourcis clavier', 'F1 : aide · Ctrl+F : rechercher · Ctrl+Maj+F : effacer filtres · Ctrl+E : favoris · Ctrl+1/2/3 : Connexions/Sessions/Diagnostics.')]:
+            ('Raccourcis clavier', 'F1 : aide · Ctrl+F : rechercher · Ctrl+Maj+F : effacer filtres · Ctrl+E : favoris · Ctrl+1/2/3/4 : Connexions/Sessions/Diagnostics/Transferts.')]:
             title=QLabel(label);title.setWordWrap(True)
             body=QLabel(details);body.setWordWrap(True)
             layout.addWidget(title);layout.addWidget(body)
@@ -2035,6 +2035,9 @@ class Main(QMainWindow):
                 if proc.state()!=proc.NotRunning:proc.kill();proc.waitForFinished(1000)
                 self.processes.remove(proc)
         self.tabs.removeTab(index)
+        if widget is getattr(self,'transfer_history_tab',None):
+            self.transfer_history_tab=None
+            self.transfer_history_refresh=None
         if widget is getattr(self,'session_overview',None):
             self.session_refresh_timer.stop()
             self.session_overview=None
@@ -2089,6 +2092,7 @@ class Main(QMainWindow):
         active = ('show_home' if current is getattr(self, 'home', None)
                   else 'show_session_overview' if current is getattr(self, 'session_overview', None)
                   else 'show_local_readiness' if current is not None and current.objectName() == 'localReadinessTab'
+                  else 'show_transfer_history' if current is not None and current.objectName() == 'transferHistoryTab'
                   else None)
         for button in self.primary_navigation_buttons:
             button.setChecked(button.objectName() == 'primaryNavigation' + active if active else False)
@@ -3019,28 +3023,43 @@ class Main(QMainWindow):
 
     def show_transfer_history(self):
         """Consult persisted transfer outcomes without executing remote operations."""
-        dialog=QDialog(self);dialog.setWindowTitle('Historique des transferts SFTP');dialog.resize(980,520)
-        layout=QVBoxLayout(dialog);controls=QHBoxLayout();layout.addLayout(controls)
+        if getattr(self, 'transfer_history_tab', None) is not None and self.tabs.indexOf(self.transfer_history_tab) >= 0:
+            self.transfer_history_refresh()
+            self.tabs.setCurrentWidget(self.transfer_history_tab)
+            return
+        pane=QWidget();pane.setObjectName('transferHistoryTab')
+        layout=QVBoxLayout(pane);controls=QHBoxLayout();layout.addLayout(controls)
         controls.addWidget(QLabel('État'))
-        state=QComboBox();state.addItems(['Tous','waiting','running','done','failed','cancelled','interrupted']);controls.addWidget(state)
+        from transfer_presentation import TRANSFER_COLUMNS, TRANSFER_STATES, transfer_query_state, transfer_row_cells, transfer_count_label
+        state=QComboBox();state.addItems(list(TRANSFER_STATES));controls.addWidget(state)
         controls.addWidget(QLabel('Connexion'))
         connection=QComboBox();connection.addItem('Toutes','')
         for item in self.store.items:connection.addItem(item.get('name',item['id']),item['id'])
         controls.addWidget(connection)
         refresh=QPushButton('Actualiser');controls.addWidget(refresh)
-        table=QTableWidget(0,8);table.setHorizontalHeaderLabels(['ID','Connexion','Opération','Chemin distant','Chemin local','État','Progression','Mise à jour']);table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table=QTableWidget(0,8);table.setHorizontalHeaderLabels(list(TRANSFER_COLUMNS));table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         layout.addWidget(table)
         warning=QLabel('Historique en lecture seule : aucun transfert n’est relancé automatiquement.');layout.addWidget(warning)
         def populate():
             try:
-                rows=self.transfer_journal.search(None if state.currentText()=='Tous' else state.currentText(),connection.currentData() or None)
-                table.setRowCount(len(rows))
-                for row_index,row in enumerate(rows):
-                    for col_index,value in enumerate(row):table.setItem(row_index,col_index,QTableWidgetItem(str(value)))
-                warning.setText(f'{len(rows)} entrées · consultation uniquement')
-            except Exception as exc:warning.setText('Erreur du journal : '+str(exc))
+                rows=self.transfer_journal.search(transfer_query_state(state.currentText()),connection.currentData() or None)
+                # Validate the complete snapshot before modifying the visible table.
+                cells=[transfer_row_cells(row) for row in rows]
+                table.setRowCount(0)
+                table.setRowCount(len(cells))
+                for row_index,row in enumerate(cells):
+                    for col_index,value in enumerate(row):table.setItem(row_index,col_index,QTableWidgetItem(value))
+                warning.setText(transfer_count_label(len(cells)))
+            except Exception:
+                # Do not retain stale results or expose local paths in exception messages.
+                table.setRowCount(0)
+                warning.setText('Historique indisponible : consultez le diagnostic local.')
         refresh.clicked.connect(populate);state.currentTextChanged.connect(populate);connection.currentIndexChanged.connect(populate)
-        populate();dialog.exec()
+        populate()
+        self.transfer_history_refresh=populate
+        self.transfer_history_tab=pane
+        self.tabs.addTab(pane,'Transferts')
+        self.tabs.setCurrentWidget(pane)
 
     def closeEvent(self,event):
         # Exit is two-phase: do not block the GUI event loop while PTYs stop.

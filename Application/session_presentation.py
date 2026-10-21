@@ -4,6 +4,7 @@ import unicodedata
 from session_selection import selected_session
 
 def session_status_label(row):
+    if not isinstance(row, dict): return 'État local inconnu'
     status=row.get('status')
     if status=='running':return 'Active (processus local)'
     if status=='exited':
@@ -19,7 +20,7 @@ def session_empty_message(total, query='', state='all'):
     return ''
 
 def can_reconnect(row):
-    return bool(row and row.get('status')=='exited')
+    return isinstance(row, dict) and row.get('status') == 'exited'
 
 
 def selected_reconnect_allowed(rows, connection_id, pid):
@@ -27,11 +28,18 @@ def selected_reconnect_allowed(rows, connection_id, pid):
     if connection_id is None or pid is None:return False
     selected=selected_session(rows, connection_id, pid)
     if not can_reconnect(selected):return False
+    if not isinstance(rows, (list, tuple)):
+        return False
+    # Malformed sibling rows cannot establish that a reconnect is safe.
+    if any(not isinstance(r, dict) for r in rows):
+        return False
     return not any(r.get('connection_id')==connection_id and r.get('status') in ('running','unknown') for r in rows)
 
 
 def session_visual_state(row):
     """Semantic state for a local process; never imply remote connectivity."""
+    if not isinstance(row, dict):
+        return ('unknown', 'État du processus local inconnu')
     status=row.get('status')
     if status=='running':
         return ('running', 'Processus local actif ; connexion distante non vérifiée')

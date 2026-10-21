@@ -7,6 +7,20 @@ from gateways import validate_route
 from pam_refs import parse_reference
 
 class RouteStore(Store):
+    def _snapshot_for_save(self):
+        routes = []
+        seen = set()
+        for raw in self.items:
+            if not isinstance(raw, dict) or not isinstance(raw.get('id'), str) or not raw['id']:
+                raise ValueError('Identifiant de route invalide')
+            if raw['id'] in seen:
+                raise ValueError('Routes dupliquées')
+            seen.add(raw['id'])
+            route = validate_route(raw.get('route'))
+            parse_reference(route.get('vault_ref', ''))
+            routes.append({'id': raw['id'], 'route': route})
+        return routes
+
     def __init__(self,path):
         self.invalid_routes={}
         super().__init__(path)

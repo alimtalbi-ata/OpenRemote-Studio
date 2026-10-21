@@ -3,9 +3,11 @@ from pathlib import Path
 from workspace_navigation import primary_views, resolve_view
 ROOT=Path(__file__).resolve().parents[1]
 class NavigationTests(unittest.TestCase):
-    def test_three_views(self): self.assertEqual(len(primary_views()),3)
-    def test_labels_unique(self): self.assertEqual(len({x[0] for x in primary_views()}),3)
-    def test_shortcuts_unique(self): self.assertEqual(len({x[2] for x in primary_views()}),3)
+    def test_four_views(self): self.assertEqual(len(primary_views()),4)
+    def test_labels_unique(self): self.assertEqual(len({x[0] for x in primary_views()}),4)
+    def test_shortcuts_unique(self):
+        shortcuts = [x[2] for x in primary_views() if x[2].startswith('Ctrl+')]
+        self.assertEqual(len(shortcuts), len(set(shortcuts)))
     def test_resolve_sessions(self): self.assertEqual(resolve_view('Sessions'),'show_session_overview')
     def test_invalid_fails_closed(self):
         with self.assertRaises(ValueError): resolve_view('Unknown')
