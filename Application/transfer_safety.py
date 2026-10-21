@@ -38,7 +38,7 @@ def remote_exists(sftp,path):
 def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=256*1024, cancelled=None):
     """Create a remote file exclusively, never overwrite an existing path.
 
-    Requires server support for SSH_FXF_EXCL (Paramiko 'x' mode). On error,
+    Requires server support for SSH_FXF_EXCL (Paramiko 'wbx' mode). On error,
     a newly created incomplete file is removed on a best-effort basis.
     """
     if not isinstance(chunk_size,int) or chunk_size<1 or chunk_size>16*1024*1024:
