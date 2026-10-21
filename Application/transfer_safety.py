@@ -72,6 +72,7 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
 
 
 import hashlib
+import stat
 
 def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024, cancelled=None):
     """Resume to a stable .part, validating all existing bytes against remote.
@@ -98,6 +99,8 @@ def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, 
     # Never append through a pre-existing symlink (including dangling links).
     if partial.is_symlink():
         raise ValueError('Fichier partiel symbolique interdit')
+    if partial.exists() and not stat.S_ISREG(partial.stat().st_mode):
+        raise ValueError('Fichier partiel non régulier interdit')
     initial_stat = sftp.stat(remote_path)
     remote_size = initial_stat.st_size
     if type(remote_size) is not int or remote_size < 0:
