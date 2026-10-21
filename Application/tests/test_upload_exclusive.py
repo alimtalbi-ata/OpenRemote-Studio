@@ -23,7 +23,7 @@ class UploadTests(unittest.TestCase):
    p=Path(d)/'x';p.write_bytes(b'abcdef')
    s=FakeSFTP();progress=[]
    self.assertEqual(upload_exclusive(s,p,'/x',lambda done,total:progress.append((done,total)),2),6)
-   self.assertEqual(s.data,b'abcdef');self.assertEqual(s.mode,'xb');self.assertEqual(progress[-1],(6,6))
+   self.assertEqual(s.data,b'abcdef');self.assertEqual(s.mode,'wbx');self.assertEqual(progress[-1],(6,6))
  def test_existing_not_removed(self):
   with tempfile.TemporaryDirectory() as d:
    p=Path(d)/'x';p.write_bytes(b'new');s=FakeSFTP(exists=True)
