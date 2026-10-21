@@ -22,7 +22,7 @@ class FakeSFTP:
         self.data = b""
         self.removed = []
     def open(self, path, mode):
-        assert mode == "xb"
+        assert mode == "wbx"
         if self.exists:
             raise FileExistsError(path)
         self.exists = True
