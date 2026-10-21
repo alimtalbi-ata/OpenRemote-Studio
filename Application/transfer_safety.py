@@ -152,6 +152,8 @@ def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, 
         raise ValueError('Type ou permissions du fichier distant modifiés pendant le transfert')
     if cancelled is not None and cancelled():
         raise InterruptedError('Reprise annulée avant publication')
+    if target.is_symlink():
+        raise ValueError('Destination symbolique interdite avant publication')
     os.replace(partial,target)
     return total
 
