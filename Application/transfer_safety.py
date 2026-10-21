@@ -51,6 +51,9 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
         raise InterruptedError('Upload cancelled before remote creation')
     try:
         with source.open('rb') as local:
+            source_snapshot = os.fstat(local.fileno())
+            if source_snapshot.st_size != total:
+                raise OSError('Local source changed before upload')
             with sftp.open(remote_path,'xb') as remote:
                 created=True
                 while True:
@@ -63,6 +66,11 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
                     if callback:callback(written,total)
                     if cancelled is not None and cancelled():
                         raise InterruptedError('Upload cancelled')
+                # Reject silent success if the source is truncated or rewritten.
+                final_snapshot = os.fstat(local.fileno())
+                if (written != total or final_snapshot.st_size != source_snapshot.st_size
+                        or final_snapshot.st_mtime_ns != source_snapshot.st_mtime_ns):
+                    raise OSError('Local source changed during upload')
         return written
     except Exception:
         if created:
@@ -120,8 +128,17 @@ def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, 
                     if cancelled is not None and cancelled():
                         raise InterruptedError('Reprise annulée')
                     n=min(chunk_size,remaining)
-                    a=existing.read(n);b=remote.read(n)
-                    if len(a)!=n or a!=b:
+                    a=existing.read(n)
+                    # SFTP may return fewer bytes than requested without EOF.
+                    b=bytearray()
+                    while len(b)<n:
+                        if cancelled is not None and cancelled():
+                            raise InterruptedError('Reprise annulée')
+                        fragment=remote.read(n-len(b))
+                        if not fragment:
+                            break
+                        b.extend(fragment)
+                    if len(a)!=n or a!=bytes(b):
                         raise ValueError('Fichier distant modifié : reprise refusée')
                     remaining-=n
         with partial.open('ab') as output:
