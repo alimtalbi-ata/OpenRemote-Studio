@@ -51,7 +51,7 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
         raise InterruptedError('Upload cancelled before remote creation')
     try:
         with source.open('rb') as local:
-            with sftp.open(remote_path,'xb') as remote:
+            with sftp.open(remote_path,'wbx') as remote:
                 created=True
                 while True:
                     if cancelled is not None and cancelled():
