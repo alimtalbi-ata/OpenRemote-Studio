@@ -177,7 +177,7 @@ class ResumeCancellationTests(unittest.TestCase):
                 download_resume_verified(SFTP(b'abcdef'), '/remote', target,
                                          'connection', callback=progress, chunk_size=2)
             self.assertEqual(victim.read_bytes(), b'untouched')
-            self.assertEqual(partial_path('connection', '/remote', target).read_bytes(), b'abcdef')
+            self.assertEqual(list(root.glob('.openremote-*.part')), [partial_path('connection', '/remote', target)])
 
     def test_cancelled_request_does_not_touch_residual_lock(self):
         with tempfile.TemporaryDirectory() as folder:
