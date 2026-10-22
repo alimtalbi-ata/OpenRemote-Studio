@@ -46,9 +46,14 @@ class SftpJob(QRunnable):
                     result=True
             self.signals.finished.emit(result)
         except Exception as exc:
-            self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
+            self.signals.failed.emit(type(exc).__name__)
         finally:
-            if client:client.close()
+            if client:
+                try:
+                    client.close()
+                except Exception:
+                    # Closing a failed SSH client must not crash the Qt worker.
+                    pass
 
 class TcpJob(QRunnable):
     def __init__(self,host,port):
