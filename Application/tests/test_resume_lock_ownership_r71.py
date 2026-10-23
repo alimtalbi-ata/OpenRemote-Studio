@@ -95,6 +95,18 @@ class LockOwnershipR71(unittest.TestCase):
         self.assertEqual(self.lock.read_bytes(), b'Z' * 32)
         self.assertFalse(self.target.exists())
 
+    def test_existing_destination_survives_replaced_lock(self):
+        """A failed resume must never overwrite a pre-existing local file."""
+        self.target.write_bytes(b'previous-local-content')
+        def replace():
+            self.lock.unlink()
+            self.lock.write_bytes(b'foreign-owner')
+        with self.assertRaisesRegex(RuntimeError, 'Verrou'):
+            self.resume(replace)
+        self.assertEqual(self.target.read_bytes(), b'previous-local-content')
+        self.assertEqual(self.lock.read_bytes(), b'foreign-owner')
+        self.assertTrue(self.partial.exists())
+
 
 if __name__ == '__main__':
     unittest.main()
