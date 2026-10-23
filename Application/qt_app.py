@@ -3324,7 +3324,9 @@ class Main(QMainWindow):
         panels.addWidget(local_panel)
         remote_panel=QWidget();rv=QVBoxLayout(remote_panel)
         rv.addWidget(QLabel('Distant · '+c['name']))
-        path=QLineEdit('/');rv.addWidget(path)
+        # Start in the authenticated account's home directory, not filesystem root.
+        # Many SFTP accounts are chrooted or cannot list '/'.
+        path=QLineEdit('.');rv.addWidget(path)
         listing=QListWidget();rv.addWidget(listing)
         remote_refresh=QPushButton('Actualiser distant');rv.addWidget(remote_refresh)
         panels.addWidget(remote_panel)
