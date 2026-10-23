@@ -340,7 +340,12 @@ class App:
             try:state,callback,args=self.ui_events.get_nowait()
             except queue.Empty:break
             if not state['closed']:
-                callback(*args)
+                try:
+                    callback(*args)
+                except Exception as exc:
+                    # An invalid/closed widget must not kill the Tk event pump:
+                    # SSH output and SFTP progress depend on subsequent polls.
+                    self.note('Erreur interface : ' + str(exc) + '\\n')
         for session in list(self.sessions):
             if not session['closed']:
                 session['bridge'].drain(limit=100)
