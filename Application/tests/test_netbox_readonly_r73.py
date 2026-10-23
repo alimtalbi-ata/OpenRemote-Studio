@@ -45,11 +45,14 @@ class NetBoxR73Tests(unittest.TestCase):
                 NetBoxReadOnly(origin)
 
     def test_two_pages_read_only_and_whitelist(self):
-        fake = FakeOpen(page([1], '/api/dcim/devices/?limit=2&offset=2'), page([2]))
+        first = page([1], '/api/dcim/devices/?limit=2&offset=2')
+        first['results'][0]['primary_ip4'] = {'address': '192.0.2.1/24'}
+        fake = FakeOpen(first, page([2]))
         result = NetBoxReadOnly(ORIGIN, 'sensitive', opener=fake, page_size=2).devices(online=True)
         self.assertEqual(result['pages'], 2)
         self.assertEqual([d['id'] for d in result['devices']], [1, 2])
         self.assertEqual(result['devices'][0]['site'], 'PAR')
+        self.assertEqual(result['devices'][0]['primary_ip4'], '192.0.2.1/24')
         self.assertEqual(set(result['devices'][0]), {'id','name','site','status','device_type','primary_ip4'})
         self.assertEqual([r.get_method() for r, _ in fake.requests], ['GET', 'GET'])
         self.assertEqual(fake.requests[0][0].get_header('Authorization'), 'Token sensitive')
