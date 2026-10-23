@@ -181,13 +181,22 @@ class App:
         ttk.Label(win,textvariable=status).pack(fill='x',padx=8)
         scope=NetworkResourceScope();self.network_scopes.append(scope)
         state={'closed':False,'client':None,'sftp':None,'busy':False}
-        def task(fn):
+        def task(fn, on_success=None):
             if state['closed'] or scope.cancelled or state['busy']:return
             state['busy']=True
             def run():
-                try:fn()
-                except Exception as exc:self._post_ui(state,status.set,'Erreur : '+str(exc))
-                finally:self._post_ui(state,lambda:state.update(busy=False))
+                succeeded=False
+                try:
+                    fn()
+                    succeeded=True
+                except Exception as exc:
+                    self._post_ui(state,status.set,'Erreur : '+str(exc))
+                finally:
+                    def complete():
+                        state['busy']=False
+                        if succeeded and on_success is not None and not scope.cancelled:
+                            on_success()
+                    self._post_ui(state,complete)
             threading.Thread(target=run,daemon=True).start()
         def refresh():
             requested=path.get()
@@ -216,13 +225,7 @@ class App:
             if scope.cancelled:return
             if scope.cancelled or state['closed']:return
             state.update(client=client,sftp=sftp)
-            # The connect task still owns the busy flag. Release it on the UI
-            # thread before starting the first directory listing; otherwise
-            # refresh() silently refuses to run and the browser stays empty.
-            def first_refresh():
-                state['busy'] = False
-                refresh()
-            self._post_ui(state,first_refresh)
+
         def selected():
             ids=tree.selection()
             if not ids:return None
@@ -268,7 +271,7 @@ class App:
             scope.close()
             win.destroy()
         win.protocol('WM_DELETE_WINDOW',close)
-        task(connect)
+        task(connect, on_success=refresh)
     def tunnel_dialog(self):
         c=self.selected()
         if not c or c['protocol'] not in ('SSH','SFTP'):
