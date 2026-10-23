@@ -237,4 +237,7 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
             if not active_error:
                 raise
         else:
+            # Recheck the lock immediately before unlink; do not remove a
+            # replacement that appeared during cleanup (best-effort guard).
+            assert_lock_owner()
             lock.unlink()
