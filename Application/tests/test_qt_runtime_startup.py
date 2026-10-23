@@ -8,7 +8,14 @@ import tempfile
 import unittest
 
 
-@unittest.skipUnless(importlib.util.find_spec('PySide6'), 'PySide6 unavailable')
+def qt_available():
+    try:
+        return importlib.util.find_spec('PySide6') is not None
+    except (ImportError, ValueError):
+        return False
+
+
+@unittest.skipUnless(qt_available(), 'PySide6 unavailable')
 class QtRuntimeStartupTests(unittest.TestCase):
     def test_main_window_starts_and_exits(self):
         with tempfile.TemporaryDirectory() as tmp:
