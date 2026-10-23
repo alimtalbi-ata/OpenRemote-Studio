@@ -4,6 +4,8 @@ Author: Abdelhalim Talbi.
 """
 import os
 import tempfile
+import stat
+import sys
 from pathlib import Path
 
 def download_atomic(sftp,remote_path,local_path,callback=None,cancelled=None):
@@ -74,7 +76,7 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
 import hashlib
 import stat
 
-def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024, cancelled=None):
+def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, callback=None, chunk_size=256*1024, cancelled=None, lock_guard=None):
     """Resume to a stable .part, validating all existing bytes against remote.
 
     A changed remote prefix is rejected, not silently reused. Final size is
@@ -154,6 +156,9 @@ def _download_resume_verified_unlocked(sftp, remote_path, local_path, identity, 
         raise InterruptedError('Reprise annulée avant publication')
     if target.is_symlink():
         raise ValueError('Destination symbolique interdite avant publication')
+    # A replaced or removed lock invalidates exclusive ownership.
+    if lock_guard is not None:
+        lock_guard()
     os.replace(partial,target)
     return total
 
@@ -182,13 +187,57 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
     token = hashlib.sha256((identity+'\0'+remote_path+'\0'+str(target.resolve())).encode()).hexdigest()[:20]
     lock = target.parent / ('.openremote-' + token + '.lock')
     try:
-        fd = os.open(str(lock), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        fd = os.open(str(lock), os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                     getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0), 0o600)
     except FileExistsError as exc:
         raise RuntimeError('Reprise déjà en cours ou verrou résiduel : ' + str(lock)) from exc
     try:
+        owned = os.fstat(fd)
+        if not stat.S_ISREG(owned.st_mode):
+            raise ValueError('Verrou de reprise non régulier')
+        # Cross-platform ownership marker: Windows may expose different
+        # file identity metadata via fstat and path stat.
+        owned_identity = (owned.st_dev, owned.st_ino) if os.name != 'nt' else None
+        marker = os.urandom(32)
+        if os.write(fd, marker) != len(marker):
+            raise OSError('Écriture du marqueur de verrou incomplète')
+        os.fsync(fd)
+    finally:
         os.close(fd)
+
+    def assert_lock_owner():
+        try:
+            fd_check = os.open(str(lock), os.O_RDONLY |
+                               getattr(os, 'O_BINARY', 0) |
+                               getattr(os, 'O_NOFOLLOW', 0))
+        except FileNotFoundError as exc:
+            raise RuntimeError('Verrou de reprise disparu avant publication') from exc
+        except OSError as exc:
+            raise RuntimeError('Verrou de reprise inaccessible avant publication') from exc
+        try:
+            current = os.fstat(fd_check)
+            if (not stat.S_ISREG(current.st_mode) or
+                    (owned_identity is not None and
+                     (current.st_dev, current.st_ino) != owned_identity) or
+                    os.read(fd_check, len(marker) + 1) != marker):
+                raise RuntimeError('Verrou de reprise remplacé avant publication')
+        finally:
+            os.close(fd_check)
+
+    try:
         return _download_resume_verified_unlocked(sftp, remote_path, local_path, identity,
                                                    callback=callback, chunk_size=chunk_size,
-                                                   cancelled=cancelled)
+                                                   cancelled=cancelled, lock_guard=assert_lock_owner)
     finally:
-        lock.unlink(missing_ok=True)
+        # Best effort: not an atomic compare-and-unlink. Preserve replacement locks.
+        active_error = sys.exc_info()[0] is not None
+        try:
+            assert_lock_owner()
+        except RuntimeError:
+            if not active_error:
+                raise
+        else:
+            # Recheck the lock immediately before unlink; do not remove a
+            # replacement that appeared during cleanup (best-effort guard).
+            assert_lock_owner()
+            lock.unlink()
