@@ -42,7 +42,7 @@ def _clean(value):
 
 def _name(value):
     if isinstance(value, dict):
-        return _clean(value.get('name') or value.get('display') or value.get('label') or value.get('value'))
+        return _clean(value.get('name') or value.get('display') or value.get('label') or value.get('value') or value.get('address'))
     return _clean(value)
 
 
