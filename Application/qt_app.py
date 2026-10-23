@@ -3441,7 +3441,12 @@ class Main(QMainWindow):
                 root=Path(local_path.text()).expanduser()
                 local_path.setText(str((root/item.text().rstrip('/')).resolve()))
                 refresh_local()
-        def refresh_remote():queue_job('list',path.text(),None,lambda items:self._display_sftp_items(items,path.text(),listing,status))
+        def refresh_remote():
+            # Capture the requested directory: asynchronous results must not be
+            # labelled with a path edited while the worker was running.
+            requested=path.text()
+            queue_job('list',requested,None,
+                      lambda items:self._display_sftp_items(items,requested,listing,status))
         def navigate_remote(item):
             import posixpath
             if item.text().endswith('/'):
