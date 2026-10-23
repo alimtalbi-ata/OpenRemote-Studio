@@ -195,18 +195,34 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
         owned = os.fstat(fd)
         if not stat.S_ISREG(owned.st_mode):
             raise ValueError('Verrou de reprise non régulier')
-        owned_identity = (owned.st_dev, owned.st_ino, owned.st_ctime_ns)
+        # Cross-platform ownership marker: Windows may expose different
+        # file identity metadata via fstat and path stat.
+        owned_identity = (owned.st_dev, owned.st_ino) if os.name != 'nt' else None
+        marker = os.urandom(32)
+        if os.write(fd, marker) != len(marker):
+            raise OSError('Écriture du marqueur de verrou incomplète')
+        os.fsync(fd)
     finally:
         os.close(fd)
 
     def assert_lock_owner():
         try:
-            current = lock.lstat()
+            fd_check = os.open(str(lock), os.O_RDONLY |
+                               getattr(os, 'O_BINARY', 0) |
+                               getattr(os, 'O_NOFOLLOW', 0))
         except FileNotFoundError as exc:
             raise RuntimeError('Verrou de reprise disparu avant publication') from exc
-        current_identity = (current.st_dev, current.st_ino, current.st_ctime_ns)
-        if not stat.S_ISREG(current.st_mode) or current_identity != owned_identity:
-            raise RuntimeError('Verrou de reprise remplacé avant publication')
+        except OSError as exc:
+            raise RuntimeError('Verrou de reprise inaccessible avant publication') from exc
+        try:
+            current = os.fstat(fd_check)
+            if (not stat.S_ISREG(current.st_mode) or
+                    (owned_identity is not None and
+                     (current.st_dev, current.st_ino) != owned_identity) or
+                    os.read(fd_check, len(marker) + 1) != marker):
+                raise RuntimeError('Verrou de reprise remplacé avant publication')
+        finally:
+            os.close(fd_check)
 
     try:
         return _download_resume_verified_unlocked(sftp, remote_path, local_path, identity,
@@ -216,14 +232,9 @@ def download_resume_verified(sftp, remote_path, local_path, identity, callback=N
         # Best effort: not an atomic compare-and-unlink. Preserve replacement locks.
         active_error = sys.exc_info()[0] is not None
         try:
-            current = lock.lstat()
-        except FileNotFoundError:
+            assert_lock_owner()
+        except RuntimeError:
             if not active_error:
-                raise RuntimeError('Verrou de reprise disparu avant nettoyage')
+                raise
         else:
-            current_identity = (current.st_dev, current.st_ino, current.st_ctime_ns)
-            if not stat.S_ISREG(current.st_mode) or current_identity != owned_identity:
-                if not active_error:
-                    raise RuntimeError('Verrou de reprise remplacé : nettoyage refusé')
-            else:
-                lock.unlink()
+            lock.unlink()
