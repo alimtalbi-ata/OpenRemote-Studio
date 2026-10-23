@@ -83,6 +83,18 @@ class LockOwnershipR71(unittest.TestCase):
         self.assertTrue(self.lock.is_symlink())
         self.assertEqual(victim.read_text(), 'untouched')
 
+    def test_lock_marker_corrupted_during_cleanup_is_preserved(self):
+        """A changed lock must not be deleted by the transfer cleanup."""
+        def corrupt():
+            with self.lock.open('r+b') as stream:
+                stream.seek(0)
+                stream.write(b'Z' * 32)
+        with self.assertRaisesRegex(RuntimeError, 'Verrou'):
+            self.resume(corrupt)
+        self.assertTrue(self.lock.exists())
+        self.assertEqual(self.lock.read_bytes(), b'Z' * 32)
+        self.assertFalse(self.target.exists())
+
 
 if __name__ == '__main__':
     unittest.main()
