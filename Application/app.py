@@ -108,7 +108,8 @@ class App:
         out=tk.Text(frame,bg='#101923',fg='#d7e6ed',insertbackground='white',font=('Consolas',11),wrap='none')
         out.pack(fill='both',expand=True)
         bottom=ttk.Frame(frame);bottom.pack(fill='x');line=tk.StringVar()
-        ttk.Entry(bottom,textvariable=line).pack(side='left',fill='x',expand=True)
+        command_entry=ttk.Entry(bottom,textvariable=line)
+        command_entry.pack(side='left',fill='x',expand=True)
         state={'channel':None,'client':None,'closed':False,'frame':frame}
         self.sessions.append(state)
         def render(message):
@@ -130,7 +131,8 @@ class App:
         state['close']=close_tab
         ttk.Button(bottom,text='Envoyer',command=send).pack(side='left')
         ttk.Button(bottom,text='Fermer',command=close_tab).pack(side='right')
-        frame.bind('<Return>',send)
+        command_entry.bind('<Return>',send)
+        command_entry.focus_set()
         def worker():
             client=paramiko.SSHClient()
             try:
