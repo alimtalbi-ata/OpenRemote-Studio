@@ -53,6 +53,16 @@ class LockOwnershipR71(unittest.TestCase):
         self.assertTrue(self.partial.exists())
         self.assertEqual(self.lock.read_text(), 'new owner')
 
+    def test_same_inode_marker_tamper_blocks_publication(self):
+        def tamper():
+            with self.lock.open('r+b') as stream:
+                stream.seek(0)
+                stream.write(b'X' * 32)
+        with self.assertRaisesRegex(RuntimeError, 'Verrou'):
+            self.resume(tamper)
+        self.assertFalse(self.target.exists())
+        self.assertTrue(self.partial.exists())
+
     def test_removed_lock_blocks_publication(self):
         with self.assertRaisesRegex(RuntimeError, 'Verrou'):
             self.resume(lambda: self.lock.unlink())
