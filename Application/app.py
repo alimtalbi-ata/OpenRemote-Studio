@@ -216,7 +216,13 @@ class App:
             if scope.cancelled:return
             if scope.cancelled or state['closed']:return
             state.update(client=client,sftp=sftp)
-            self._post_ui(state,refresh)
+            # The connect task still owns the busy flag. Release it on the UI
+            # thread before starting the first directory listing; otherwise
+            # refresh() silently refuses to run and the browser stays empty.
+            def first_refresh():
+                state['busy'] = False
+                refresh()
+            self._post_ui(state,first_refresh)
         def selected():
             ids=tree.selection()
             if not ids:return None
