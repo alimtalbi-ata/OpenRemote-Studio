@@ -23,10 +23,21 @@ jobs:
         run: git config --global core.autocrlf false
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: R70 verify exact PR source SHA and PyInstaller specs
+        shell: pwsh
+        run: |
+          $expected = '${{ github.event.pull_request.head.sha || github.sha }}'
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne $expected) { throw "Wrong source commit: $actual != $expected" }
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_packaging_spec_paths_r70.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Enforce UTF-8 and Python 3.12 for legacy tests
         run: |
           "PYTHONUTF8=1" >> $env:GITHUB_ENV
