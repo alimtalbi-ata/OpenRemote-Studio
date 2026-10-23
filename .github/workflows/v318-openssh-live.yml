@@ -3,7 +3,7 @@ on:
   push:
     branches: [develop/v31.8-windows-ci]
   pull_request:
-    branches: [main]
+    branches: [main, develop/v31.8-windows-ci]
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,9 +13,17 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: R70 verify exact source SHA and wbx regression (unit fakes)
+        env:
+          PYTHONPATH: Application
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          python -m unittest discover -s Application/tests -p 'test_upload_exclusive.py' -v
       - name: Start real OpenSSH SFTP server
         run: |
           docker run -d --name openremote-sftp -p 127.0.0.1:2222:22 atmoz/sftp tester:testpassword:::upload
@@ -35,4 +43,4 @@ jobs:
         run: python Application/tests/live_sftp_openssh_v318.py
       - name: Show OpenSSH server logs on failure
         if: failure()
-        run: docker logs openremote-sftp
+        run: docker logs openremote-sftp || true
