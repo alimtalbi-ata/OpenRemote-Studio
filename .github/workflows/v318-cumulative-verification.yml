@@ -3,7 +3,7 @@ on:
   push:
     branches: [develop/v31.8-windows-ci]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly]
   workflow_dispatch:
 
 permissions:
@@ -52,6 +52,10 @@ jobs:
           python -m unittest discover -s Application/tests -p 'test_tunnel_lifecycle_r72.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_netbox_readonly_r73.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s Application/tests -p 'test_netbox_preview_r74.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m py_compile Application/netbox_preview_qt.py Application/qt_app.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile verifier sources
         shell: pwsh

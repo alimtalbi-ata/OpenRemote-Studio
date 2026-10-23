@@ -42,6 +42,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_netbox_readonly_r73.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s Application/tests -p 'test_netbox_preview_r74.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m py_compile Application/netbox_preview_qt.py Application/qt_app.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Enforce UTF-8 and Python 3.12 for legacy tests
         run: |
           "PYTHONUTF8=1" >> $env:GITHUB_ENV

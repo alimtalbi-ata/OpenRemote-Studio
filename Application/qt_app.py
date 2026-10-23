@@ -756,7 +756,7 @@ class Main(QMainWindow):
             menu.addAction(title,fn)
         menu=self.menuBar().addMenu('Outils')
         for title,fn in [('Accueil',self.show_home),('Fractionner la vue',self.split_view),
-                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Qualification interface',self.show_qa_summary)]:
+                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Comparer NetBox (lecture seule)',self.show_netbox_preview),('Qualification interface',self.show_qa_summary)]:
             menu.addAction(title,fn)
         help_menu=self.menuBar().addMenu('Aide')
         help_menu.addAction('Démarrage rapide et raccourcis (F1)',self.show_quick_guide)
@@ -2062,6 +2062,13 @@ class Main(QMainWindow):
             listing.resizeColumnToContents(0);listing.resizeColumnToContents(1)
         search.textChanged.connect(populate);populate()
         self.tabs.addTab(pane,'Outils installés');self.tabs.setCurrentWidget(pane)
+
+    def show_netbox_preview(self):
+        """Opt-in, asynchronous, non-destructive NetBox inventory comparison."""
+        from netbox_preview_qt import NetBoxPreviewPanel
+        pane = NetBoxPreviewPanel(self.store.items, parent=self.tabs)
+        self.tabs.addTab(pane, 'NetBox · aperçu')
+        self.tabs.setCurrentWidget(pane)
 
     def show_inventory(self):
         info=summary(self.store.items)
