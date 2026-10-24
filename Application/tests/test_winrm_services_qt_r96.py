@@ -158,7 +158,7 @@ class ServicesQtR96Tests(unittest.TestCase):
             def __init__(self, *args, **kwargs):
                 pass
             def services(self, *, online, cancelled):
-                return services_result([item('bad\\ncontrol')])
+                return services_result([item('bad' + chr(10) + 'control')])
         panel = self.panel(Fake)
         try:
             panel.consent.setChecked(True)
