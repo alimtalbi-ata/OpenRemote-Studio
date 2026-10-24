@@ -3483,7 +3483,10 @@ class Main(QMainWindow):
             try:remote=remote_child(path.text(),item.text())
             except ValueError as exc:status.setText(str(exc));return
             local=Path(local_path.text()).expanduser()/item.text()
-            if local.exists():
+            if local.exists() or local.is_symlink():
+                if local.is_symlink():
+                    status.setText('Téléchargement refusé : destination symbolique')
+                    return
                 if QMessageBox.question(pane,'Écraser le fichier ?',
                     f'Le fichier {local.name} existe. Le remplacer ?')!=QMessageBox.Yes:return
             queue_job('download',remote,str(local),lambda _:refresh_local())
@@ -3493,7 +3496,10 @@ class Main(QMainWindow):
             try:remote=remote_child(path.text(),item.text())
             except ValueError as exc:status.setText(str(exc));return
             local=Path(local_path.text()).expanduser()/item.text()
-            if local.exists():
+            if local.exists() or local.is_symlink():
+                if local.is_symlink():
+                    status.setText('Reprise refusée : destination symbolique')
+                    return
                 if QMessageBox.question(pane,'Remplacer le fichier local ?',
                     f'La reprise remplacera {local.name} après vérification complète. Continuer ?')!=QMessageBox.Yes:return
             queue_job('resume_download',remote,str(local),lambda _:refresh_local())
