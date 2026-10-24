@@ -51,11 +51,18 @@ class SftpJob(QRunnable):
                                 cancelled=self.cancel_event.is_set)
                     else:raise ValueError('Unknown SFTP operation')
                     result=True
+            if self.cancel_event.is_set():
+                raise InterruptedError('Opération SFTP annulée')
             self.signals.finished.emit(result)
         except Exception as exc:
             self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
         finally:
-            if client:client.close()
+            if client:
+                try:
+                    client.close()
+                except Exception:
+                    # A cleanup failure must not escape the background worker.
+                    pass
 
 class TcpJob(QRunnable):
     def __init__(self,host,port):
