@@ -3369,6 +3369,10 @@ class Main(QMainWindow):
                     if pending['job'].operation=='list':
                         pending['job'].cancel()
                         queue.pending.remove(pending)
+                if queue.active is not None and queue.active['job'].operation=='list':
+                    # Interrupt an obsolete in-flight listing at its next
+                    # cooperative cancellation checkpoint.
+                    queue.active['job'].cancel()
             job=SftpJob(self._sftp_client,c,operation,remote,local)
             entry=queue.submit(job)
             entry['journal_id']=None
