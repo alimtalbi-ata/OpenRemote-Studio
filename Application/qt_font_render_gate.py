@@ -31,7 +31,7 @@ def configure_readable_offscreen_font(app, candidates=None):
     """
     if candidates is None:
         if os.name == 'nt':
-            root = Path(os.environ.get('WINDIR', r'C:\\Windows')) / 'Fonts'
+            root = Path(os.environ.get('WINDIR', r'C:\Windows')) / 'Fonts'
             candidates = [root / name for name in
                           ('segoeui.ttf', 'arial.ttf', 'tahoma.ttf', 'verdana.ttf')]
         else:
