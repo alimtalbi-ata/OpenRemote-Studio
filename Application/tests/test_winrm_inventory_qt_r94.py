@@ -92,10 +92,12 @@ class WinRMInventoryQtR94Tests(unittest.TestCase):
 
     def test_revocation_discards_stale_result(self):
         entered, release = threading.Event(), threading.Event()
+        network_calls = []
         class Fake:
             def __init__(self, origin, username, credential_provider):
                 self.password = credential_provider
             def inventory(self, *, online, cancelled):
+                network_calls.append(1)
                 entered.set()
                 release.wait(2)
                 return {'state': 'ok', 'read_only': True,
@@ -111,6 +113,10 @@ class WinRMInventoryQtR94Tests(unittest.TestCase):
             pane.refresh()
             self.assertTrue(entered.wait(2))
             pane.consent.setChecked(False)
+            pane.consent.setChecked(True)
+            pane.refresh()  # No second POST while the cancelled one is still in flight.
+            self.assertEqual(network_calls, [1])
+            self.assertFalse(pane.refresh_button.isEnabled())
             release.set()
             self.assertTrue(pane._pool.waitForDone(4000))
             self.app.processEvents()
