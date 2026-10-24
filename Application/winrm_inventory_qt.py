@@ -218,9 +218,9 @@ class WinRMInventoryPanel(QWidget):
                     if not isinstance(item, dict):
                         raise ValueError('invalid service')
                     row = tuple(item[key] for key in ('name', 'display_name', 'state', 'start_mode'))
-                    if (any(not isinstance(v, str) or not v or len(v) > 256
+                    if (any(not isinstance(v, str) or len(v) > 256
                             or any(ord(ch) < 32 or ord(ch) == 127 for ch in v) for v in row)
-                            or row[2] not in _STATES or row[3] not in _MODES
+                            or not row[0] or row[2] not in _STATES or row[3] not in _MODES
                             or row[0].casefold() in seen):
                         raise ValueError('invalid service fields')
                     seen.add(row[0].casefold())
