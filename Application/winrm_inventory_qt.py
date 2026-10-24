@@ -169,7 +169,7 @@ class WinRMInventoryPanel(QWidget):
                        'winrm_transport_unavailable', 'winrm_dependency_missing',
                        'winrm_cancelled', 'winrm_credentials_unavailable',
                        'winrm_credentials_required'}
-            self.status.setText('Lecture refusée : ' + (code if code in allowed else 'winrm_transport_unavailable'))
+            self.status.setText('Lecture refusée : ' + (code if isinstance(code, str) and code in allowed else 'winrm_transport_unavailable'))
             return
         try:
             os_info = result['os']
