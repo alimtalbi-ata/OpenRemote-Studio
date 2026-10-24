@@ -18,6 +18,23 @@ class TunnelSnapshot:
     phase: str
     active_connections: int = 0
     pending_channel_opens: int = 0
+    failure_code: str = 'none'
+
+
+def _safe_ssh_failure_code(error):
+    """Classify Paramiko errors by type, never by their potentially sensitive text.
+
+    The result is a fixed, non-sensitive vocabulary suitable for UI display.
+    """
+    try:
+        from paramiko.ssh_exception import BadHostKeyException, AuthenticationException
+    except ImportError:
+        return 'generic'
+    if isinstance(error, BadHostKeyException):
+        return 'host_key'
+    if isinstance(error, AuthenticationException):
+        return 'authentication'
+    return 'generic'
 
 
 def _port(value):
@@ -48,6 +65,7 @@ class TunnelController:
         self._startup_done = Event()
         self._startup_done.set()
         self._state = 'idle'
+        self._failure_code = 'none'
         self._tunnel = None
         self._client = None
         self._worker = None
@@ -112,11 +130,13 @@ class TunnelController:
                         watchdog = None
                 if watchdog is not None:
                     watchdog.start()
-            except Exception:
+            except Exception as error:
+                failure_code = _safe_ssh_failure_code(error)
                 self._watchdog_stop.set()
                 with self._lock:
                     if not self._scope.cancelled:
                         self._state = 'failed'
+                        self._failure_code = failure_code
                 self._scope.close()
             finally:
                 self._startup_done.set()
@@ -183,7 +203,8 @@ class TunnelController:
             phase = TunnelShutdownStatus(self._scope, tunnel).poll()
             if phase != 'complete':
                 return TunnelSnapshot(phase)
-            return TunnelSnapshot(state if state in ('failed', 'disconnected') else 'closed')
+            return TunnelSnapshot(state if state in ('failed', 'disconnected') else 'closed',
+                                  failure_code=self._failure_code if state == 'failed' else 'none')
         if state == 'active' and tunnel is not None:
             return TunnelSnapshot('active', tunnel.active_connections,
                                   tunnel.pending_channel_opens)

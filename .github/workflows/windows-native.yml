@@ -140,6 +140,14 @@ jobs:
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_tunnel_qt_r83.py
           if ($LASTEXITCODE -ne 0) { throw "R88 Qt glyph raster gate failed" }
           if (!(Test-Path 'Binary/Qualification/qt-tunnel-r88-offline.png')) { throw "Missing readable Qt render" }
+      - name: R89 Qt redacted failure guidance and typed SSH error classification
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_tunnel_failure_guidance_qt_r89.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R89 Qt failure guidance failed" }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_tunnel_failure_classification_r89.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R89 typed SSH error classification failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
