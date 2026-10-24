@@ -2025,6 +2025,14 @@ class Main(QMainWindow):
                     self.close_tab(current)
             QTimer.singleShot(100,finish_when_stopped)
             return
+        # Do not delete an SFTP pane while its worker can still emit Qt signals
+        # into callbacks capturing the pane's widgets.
+        active_sftp=getattr(widget,'_active_sftp_jobs',None)
+        if active_sftp:
+            for job in list(active_sftp):
+                job.cancel()
+            self.statusBar().showMessage('Annulation SFTP demandée ; fermez l’onglet après arrêt des transferts',8000)
+            return
         # Invalidate SFTP callbacks before stopping auxiliary processes or deleting UI.
         # This must follow successful PTY shutdown: a refused close keeps its tab active.
         cancel_sftp=getattr(widget,'_cancel_sftp_transfers',None)
@@ -3335,6 +3343,7 @@ class Main(QMainWindow):
         cancel_button=QPushButton('Annuler les transferts de cet onglet')
         layout.addWidget(cancel_button)
         active_jobs=[]
+        pane._active_sftp_jobs=active_jobs
         queue=TransferQueue()
         def cancel_transfers():
             for entry in list(queue.pending):
