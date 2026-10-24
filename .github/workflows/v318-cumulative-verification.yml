@@ -1,9 +1,9 @@
 name: V31.8 cumulative verification
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r94-winrm-timeout-qt-preview]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory]
   workflow_dispatch:
 
 permissions:
@@ -85,6 +85,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R93 WinRM unit gate failed" }
           python -m py_compile Application/winrm_readonly.py Application/tests/test_winrm_readonly_r93.py
           if ($LASTEXITCODE -ne 0) { throw "R93 WinRM source compile failed" }
+      - name: R94 WinRM timeout and Qt source gate
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_timeout_r94.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R94 WinRM timeout contract failed" }
+          python -m unittest discover -s Application/tests -p 'test_network_scope_empty_close_r94.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R94 empty-scope shutdown regression failed" }
+          python -m py_compile Application/winrm_inventory_qt.py Application/tests/test_winrm_inventory_qt_r94.py Application/qt_app.py
+          if ($LASTEXITCODE -ne 0) { throw "R94 WinRM Qt compilation failed" }
       - name: R92 bounded probe regression before Windows packaging
         shell: pwsh
         run: |

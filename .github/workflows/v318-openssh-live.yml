@@ -1,9 +1,9 @@
 name: SFTP OpenSSH live integration
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r84-headless-ssh-watchdog, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r84-headless-ssh-watchdog, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r94-winrm-timeout-qt-preview]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory]
   workflow_dispatch:
 permissions:
   contents: read
@@ -174,6 +174,14 @@ jobs:
           PYTHONPATH: Application
           QT_QPA_PLATFORM: offscreen
         run: python -m unittest discover -s Application/tests -p 'test_ssh_consent_revocation_qt_r91.py' -v
+      - name: R94 WinRM offline, timeout and Qt consent regressions
+        env:
+          PYTHONPATH: Application
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m unittest discover -s Application/tests -p 'test_winrm_timeout_r94.py' -v
+          python -m unittest discover -s Application/tests -p 'test_network_scope_empty_close_r94.py' -v
+          python -m unittest discover -s Application/tests -p 'test_winrm_inventory_qt_r94.py' -v
       - name: Show OpenSSH server logs on failure
         if: failure()
         run: docker logs openremote-sftp || true

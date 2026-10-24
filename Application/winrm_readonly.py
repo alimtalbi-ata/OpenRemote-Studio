@@ -105,7 +105,9 @@ def _pywinrm_session(endpoint, username, password, *, timeout):
     # pywinrm uses requests with CA validation; no HTTP or certificate bypass.
     return winrm.Session(endpoint, auth=(username, password), transport='ntlm',
                          server_cert_validation='validate',
-                         operation_timeout_sec=min(20, timeout - 10),
+                         # pywinrm requires read_timeout_sec > operation_timeout_sec + 10.
+                         # R93 used equality at 15/30s and failed before sending a request.
+                         operation_timeout_sec=min(20, timeout - 11),
                          read_timeout_sec=timeout)
 
 
