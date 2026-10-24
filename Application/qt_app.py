@@ -14,7 +14,7 @@ from core import Store,validate,PROTOCOLS
 from tool_catalog import TOOLS, search_tools
 from profiles import PROFILES, visible_tools
 from diagnostics import command_args
-from sftp_paths import remote_child, local_entries
+from sftp_paths import remote_child, remote_navigate, local_entries
 from sftp_listing_guard import should_display_listing
 from gateways import validate_route,ssh_jump_args,rdp_content
 from rdp_sessions import write_session,cleanup_stale
@@ -3456,9 +3456,13 @@ class Main(QMainWindow):
                 self._display_sftp_items(items,requested,listing,status)
             queue_job('list',requested,None,show_if_current)
         def navigate_remote(item):
-            import posixpath
             if item.text().endswith('/'):
-                path.setText(posixpath.normpath(posixpath.join(path.text(),item.text())))
+                try:
+                    destination=remote_navigate(path.text(),item.text())
+                except ValueError as exc:
+                    status.setText('Navigation refusée : '+str(exc))
+                    return
+                path.setText(destination)
                 refresh_remote()
         def upload():
             item=local_listing.currentItem()
