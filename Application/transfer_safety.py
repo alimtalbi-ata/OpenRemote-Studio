@@ -112,6 +112,10 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
                             raise InterruptedError('Upload cancelled')
                     if cancelled is not None and cancelled():
                         raise InterruptedError('Upload cancelled')
+        # A local file can be truncated while being read. Never report an
+        # upload as complete unless the original expected size was sent.
+        if written != total:
+            raise OSError('Source locale modifiée pendant le transfert')
         return written
     except Exception:
         if created:
