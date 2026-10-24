@@ -3439,17 +3439,20 @@ class Main(QMainWindow):
                     status.setText(f"Transfert : {value}%")
                     render_queue()
                 def finish(result):
+                    # A cancellation requested after the last I/O checkpoint
+                    # must not be recorded or displayed as a completed job.
+                    cancelled=item.cancel_event.is_set()
                     journal_error=None
                     if current.get('journal_id') is not None:
-                        try:self.transfer_journal.update(current['journal_id'],'done',100)
+                        try:self.transfer_journal.update(current['journal_id'],'cancelled' if cancelled else 'done',None if cancelled else 100)
                         except Exception as exc:journal_error=exc
-                    queue.complete(current,journal_error is None)
+                    queue.complete(current,not cancelled and journal_error is None)
                     if item in active_jobs:active_jobs.remove(item)
                     if item in self.sftp_jobs:self.sftp_jobs.remove(item)
-                    status.setText('Terminé' if journal_error is None else 'Transfert effectué mais audit non confirmé : '+str(journal_error))
+                    status.setText('Opération SFTP annulée' if cancelled else ('Terminé' if journal_error is None else 'Transfert effectué mais audit non confirmé : '+str(journal_error)))
                     render_queue()
                     try:
-                        if journal_error is None and not pane._sftp_closing:on_success(result)
+                        if not cancelled and journal_error is None and not pane._sftp_closing:on_success(result)
                     finally:advance()
                 def error(message):
                     cancelled=item.cancel_event.is_set() or message.startswith('InterruptedError:')
