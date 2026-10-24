@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QLabel,
                                QTreeWidgetItem, QInputDialog)
 
 from winrm_readonly import WinRMReadOnly, WinRMError
+from winrm_services_readonly import WinRMServicesReadOnly, _STATES, _MODES
 
 
 class _Signals(QObject):
@@ -19,13 +20,15 @@ class _Signals(QObject):
 
 
 class _InventoryJob(QRunnable):
-    def __init__(self, generation, origin, username, password, client_factory):
+    def __init__(self, generation, origin, username, password, client_factory,
+                 operation='inventory'):
         super().__init__()
         self.generation = generation
         self._origin = origin
         self._username = username
         self._password = password
         self._factory = client_factory
+        self._operation = operation
         self._cancelled = Event()
         self.signals = _Signals()
 
@@ -38,7 +41,9 @@ class _InventoryJob(QRunnable):
             if not self._cancelled.is_set():
                 client = self._factory(self._origin, self._username,
                                        credential_provider=lambda: self._password)
-                result = client.inventory(online=True, cancelled=self._cancelled.is_set)
+                # Operation is selected internally from a fixed allowlist.
+                method = client.services if self._operation == 'services' else client.inventory
+                result = method(online=True, cancelled=self._cancelled.is_set)
         except WinRMError as exc:
             # WinRMError contains only fixed, sanitized error codes.
             result = {'state': 'error', 'code': str(exc)}
@@ -61,18 +66,23 @@ class WinRMInventoryPanel(QWidget):
     Without it, a password is requested once through a masked Qt prompt.
     The UI never stores, logs, renders or exports the returned secret.
     """
-    def __init__(self, parent=None, *, client_factory=WinRMReadOnly,
-                 credential_provider=None, thread_pool=None):
+    def __init__(self, parent=None, *, client_factory=None,
+                 credential_provider=None, thread_pool=None, mode='inventory'):
+        if mode not in ('inventory', 'services'):
+            raise ValueError('unsupported WinRM operation')
         super().__init__(parent)
         self.setObjectName('winrmInventoryPanel')
-        self._client_factory = client_factory
+        self._mode = mode
+        self._services = []
+        self._client_factory = client_factory or (WinRMServicesReadOnly if mode == 'services' else WinRMReadOnly)
         self._credential_provider = credential_provider
         self._pool = thread_pool or QThreadPool.globalInstance()
         self._generation = 0
         self._pending = None
         self._closed = False
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel('Windows Server — inventaire OS et disques en lecture seule'))
+        layout.addWidget(QLabel('Windows Server — services en lecture seule' if mode == 'services'
+                                else 'Windows Server — inventaire OS et disques en lecture seule'))
         form = QFormLayout()
         layout.addLayout(form)
         self.origin = QLineEdit()
@@ -87,7 +97,8 @@ class WinRMInventoryPanel(QWidget):
         self.consent = QCheckBox('Autoriser une requête WinRM HTTPS explicite')
         self.consent.setObjectName('winrmOnlineConsent')
         layout.addWidget(self.consent)
-        self.refresh_button = QPushButton('Lire l’inventaire')
+        self.refresh_button = QPushButton('Lire les services' if mode == 'services'
+                                          else 'Lire l’inventaire')
         self.refresh_button.setObjectName('winrmInventoryRefresh')
         self.refresh_button.clicked.connect(self.refresh)
         layout.addWidget(self.refresh_button)
@@ -97,7 +108,18 @@ class WinRMInventoryPanel(QWidget):
         layout.addWidget(self.status)
         self.table = QTreeWidget()
         self.table.setObjectName('winrmInventoryRows')
-        self.table.setHeaderLabels(['Propriété', 'Valeur'])
+        self.table.setHeaderLabels(['Service', 'Libellé', 'État', 'Démarrage'] if mode == 'services'
+                                   else ['Propriété', 'Valeur'])
+        if mode == 'services':
+            self.service_filter = QLineEdit()
+            self.service_filter.setObjectName('winrmServicesFilter')
+            self.service_filter.setMaxLength(128)
+            self.service_filter.setPlaceholderText('Filtrer localement : nom, état, démarrage…')
+            layout.addWidget(self.service_filter)
+            self.service_filter.textChanged.connect(self._filter_services)
+            self.filter_status = QLabel('Aucun service chargé.')
+            self.filter_status.setObjectName('winrmServicesFilterStatus')
+            layout.addWidget(self.filter_status)
         layout.addWidget(self.table)
         layout.addWidget(QLabel('Aucune commande libre, aucune modification distante, '
                                 'aucun mot de passe enregistré. Le certificat HTTPS est vérifié.'))
@@ -107,6 +129,9 @@ class WinRMInventoryPanel(QWidget):
 
     def _invalidate(self, *_):
         self._generation += 1
+        self._services = []
+        if self._mode == 'services':
+            self.filter_status.setText('Aucun service chargé.')
         if self._pending is not None:
             self._pending.cancel()
         # Do not permit a second request while an invalidated network call is
@@ -118,6 +143,9 @@ class WinRMInventoryPanel(QWidget):
     def refresh(self):
         if self._closed or self._pending is not None:
             return
+        self._services = []
+        if self._mode == 'services':
+            self.filter_status.setText('Aucun service chargé.')
         self.table.clear()
         if not self.consent.isChecked():
             self.status.setText('Hors ligne — autorisation explicite requise.')
@@ -152,7 +180,8 @@ class WinRMInventoryPanel(QWidget):
             return
         self._generation += 1
         worker = _InventoryJob(self._generation, self.origin.text(),
-                               self.username.text(), password, self._client_factory)
+                               self.username.text(), password, self._client_factory,
+                               operation=self._mode)
         password = None
         self._pending = worker
         worker.signals.finished.connect(self._finished)
@@ -176,6 +205,34 @@ class WinRMInventoryPanel(QWidget):
                        'winrm_credentials_required'}
             self.status.setText('Lecture refusée : ' + (code if isinstance(code, str) and code in allowed else 'winrm_transport_unavailable'))
             return
+        if self._mode == 'services':
+            try:
+                items = result['services']
+                if (result.get('read_only') is not True or result.get('limit') != 128
+                        or type(result.get('may_be_truncated')) is not bool
+                        or not isinstance(items, list) or len(items) > 128):
+                    raise ValueError('invalid services')
+                rows = []
+                seen = set()
+                for item in items:
+                    if not isinstance(item, dict):
+                        raise ValueError('invalid service')
+                    row = tuple(item[key] for key in ('name', 'display_name', 'state', 'start_mode'))
+                    if (any(not isinstance(v, str) or len(v) > 256
+                            or any(ord(ch) < 32 or ord(ch) == 127 for ch in v) for v in row)
+                            or not row[0] or row[2] not in _STATES or row[3] not in _MODES
+                            or row[0].casefold() in seen):
+                        raise ValueError('invalid service fields')
+                    seen.add(row[0].casefold())
+                    rows.append(row)
+            except (KeyError, TypeError, ValueError):
+                self.status.setText('Réponse WinRM invalide.')
+                return
+            self._services = rows
+            self._filter_services()
+            warning = ' — résultat potentiellement tronqué (128 max).' if result['may_be_truncated'] else '.'
+            self.status.setText('Services en lecture seule — ' + str(len(rows)) + ' reçus' + warning)
+            return
         try:
             os_info = result['os']
             rows = [('Système', os_info['caption']), ('Version', os_info['version']),
@@ -193,6 +250,20 @@ class WinRMInventoryPanel(QWidget):
             self.table.addTopLevelItem(QTreeWidgetItem([key, value]))
         self.status.setText('Inventaire en lecture seule — ' + str(len(result['disks'])) + ' volume(s).')
 
+    def _filter_services(self, *_):
+        if self._mode != 'services':
+            return
+        # No network, credential access or worker creation during filtering.
+        needle = self.service_filter.text().strip().casefold()
+        self.table.clear()
+        shown = 0
+        for row in self._services:
+            if needle and needle not in ' '.join(row).casefold():
+                continue
+            self.table.addTopLevelItem(QTreeWidgetItem(list(row)))
+            shown += 1
+        self.filter_status.setText(f'{shown}/{len(self._services)} services affichés — filtre local.')
+
     def hideEvent(self, event):
         self._invalidate()
         super().hideEvent(event)
@@ -201,3 +272,13 @@ class WinRMInventoryPanel(QWidget):
         self._closed = True
         self._invalidate()
         super().closeEvent(event)
+
+
+class WinRMServicesPanel(WinRMInventoryPanel):
+    """R96 services viewer: same offline, consent and cancellation gate as OS inventory."""
+
+    def __init__(self, parent=None, *, client_factory=WinRMServicesReadOnly,
+                 credential_provider=None, thread_pool=None):
+        super().__init__(parent, client_factory=client_factory,
+                         credential_provider=credential_provider,
+                         thread_pool=thread_pool, mode='services')
