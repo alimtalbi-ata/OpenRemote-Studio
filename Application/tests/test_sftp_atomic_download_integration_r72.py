@@ -30,6 +30,27 @@ class FakeSftp:
 
 
 class AtomicDownloadIntegrationTests(unittest.TestCase):
+    def test_upload_directory_and_missing_source_rejected(self):
+        from transfer_safety import upload_exclusive
+        with TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                upload_exclusive(None, directory, './report.bin')
+            with self.assertRaises(ValueError):
+                upload_exclusive(None, str(Path(directory)/'missing.bin'), './report.bin')
+
+    def test_upload_symlink_source_rejected(self):
+        from transfer_safety import upload_exclusive
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'data')
+            link=Path(directory)/'link.bin'
+            try:
+                link.symlink_to(source)
+            except (OSError,NotImplementedError):
+                self.skipTest('Symlinks unavailable')
+            with self.assertRaises(ValueError):
+                upload_exclusive(None, str(link), './report.bin')
+
     def test_success_replaces_target(self):
         with TemporaryDirectory() as directory:
             target=Path(directory)/'report.bin'
