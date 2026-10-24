@@ -3,7 +3,7 @@ on:
   push:
     branches: [develop/v31.8-windows-ci]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter]
   workflow_dispatch:
 
 permissions:
@@ -57,7 +57,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_netbox_filter_r75.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m py_compile Application/netbox_preview_filter.py Application/netbox_preview_qt.py Application/qt_app.py
+          python -m unittest discover -s Application/tests -p 'test_netbox_cancel_r76.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m py_compile Application/netbox_readonly.py Application/netbox_preview_filter.py Application/netbox_preview_qt.py Application/qt_app.py Application/tests/test_netbox_cancel_r76.py Application/tests/test_netbox_cancel_qt_r76.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile verifier sources
         shell: pwsh
