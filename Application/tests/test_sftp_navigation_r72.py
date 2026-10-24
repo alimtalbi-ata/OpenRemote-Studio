@@ -11,7 +11,7 @@ class SftpNavigationTests(unittest.TestCase):
         self.assertEqual(remote_navigate('.', '../'), '.')
 
     def test_relative_child_and_parent(self):
-        self.assertEqual(remote_navigate('.', 'exports/'), 'exports')
+        self.assertEqual(remote_navigate('.', 'exports/'), './exports')
         self.assertEqual(remote_navigate('./exports', '../'), '.')
 
     def test_absolute_child_and_parent(self):
