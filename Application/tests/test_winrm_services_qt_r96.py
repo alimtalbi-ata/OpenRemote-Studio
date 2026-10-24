@@ -169,6 +169,23 @@ class ServicesQtR96Tests(unittest.TestCase):
         finally:
             panel.close()
 
+    def test_empty_display_name_from_backend_is_supported(self):
+        class Fake:
+            def __init__(self, *args, **kwargs):
+                pass
+            def services(self, *, online, cancelled):
+                return services_result([{'name': 'W32Time', 'display_name': '',
+                                         'state': 'Running', 'start_mode': 'Auto'}])
+        panel = self.panel(Fake)
+        try:
+            panel.consent.setChecked(True)
+            panel.refresh()
+            self.assertTrue(wait_until(self.app, lambda: panel.refresh_button.isEnabled()))
+            self.assertEqual(panel.table.topLevelItemCount(), 1)
+            self.assertEqual(panel.table.topLevelItem(0).text(1), '')
+        finally:
+            panel.close()
+
     def test_unsupported_operation_rejected(self):
         with self.assertRaises(ValueError):
             WinRMInventoryPanel(mode='arbitrary-script')
