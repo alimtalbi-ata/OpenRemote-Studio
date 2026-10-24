@@ -756,7 +756,7 @@ class Main(QMainWindow):
             menu.addAction(title,fn)
         menu=self.menuBar().addMenu('Outils')
         for title,fn in [('Accueil',self.show_home),('Fractionner la vue',self.split_view),
-                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Comparer NetBox (lecture seule)',self.show_netbox_preview),('Qualification interface',self.show_qa_summary)]:
+                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Tunnel SSH local (sécurisé)',self.show_ssh_tunnel),('Comparer NetBox (lecture seule)',self.show_netbox_preview),('Qualification interface',self.show_qa_summary)]:
             menu.addAction(title,fn)
         help_menu=self.menuBar().addMenu('Aide')
         help_menu.addAction('Démarrage rapide et raccourcis (F1)',self.show_quick_guide)
@@ -1994,6 +1994,11 @@ class Main(QMainWindow):
         if widget is None:return
         if widget is self.home:
             return
+        from ssh_tunnel_qt import SSHTunnelPanel
+        if isinstance(widget, SSHTunnelPanel) and not widget.is_shutdown_complete():
+            widget.request_close(lambda w=widget: self._finish_tunnel_tab(w))
+            self.statusBar().showMessage('Révocation du tunnel SSH en cours…',5000)
+            return
         # Non-blocking tab shutdown: poll QThread state on the GUI event loop.
         # Keep the widget alive until all PTY workers have actually stopped.
         if getattr(widget, '_ssh_close_pending', False):
@@ -2044,6 +2049,11 @@ class Main(QMainWindow):
             self.session_overview_list=None
         widget.deleteLater()
 
+    def _finish_tunnel_tab(self, widget):
+        index=self.tabs.indexOf(widget)
+        if index >= 0:
+            self.close_tab(index)
+
     def show_integrations(self):
         """Read-only detection: never execute binaries merely to discover them."""
         pane=QWidget();layout=QVBoxLayout(pane)
@@ -2062,6 +2072,13 @@ class Main(QMainWindow):
             listing.resizeColumnToContents(0);listing.resizeColumnToContents(1)
         search.textChanged.connect(populate);populate()
         self.tabs.addTab(pane,'Outils installés');self.tabs.setCurrentWidget(pane)
+
+    def show_ssh_tunnel(self):
+        """Open a new opt-in local tunnel workspace; no network on creation."""
+        from ssh_tunnel_qt import SSHTunnelPanel
+        pane=SSHTunnelPanel(self.selected(), parent=self.tabs)
+        self.tabs.addTab(pane,'Tunnel SSH local')
+        self.tabs.setCurrentWidget(pane)
 
     def show_netbox_preview(self):
         """Opt-in, asynchronous, non-destructive NetBox inventory comparison."""
@@ -3069,6 +3086,27 @@ class Main(QMainWindow):
         self.tabs.setCurrentWidget(pane)
 
     def closeEvent(self,event):
+        # Revoke local SSH tunnels before allowing process termination.
+        # A pending SSH connection can finish after scope cleanup starts;
+        # wait for both startup and drain without blocking Qt.
+        from ssh_tunnel_qt import SSHTunnelPanel
+        panels=[self.tabs.widget(i) for i in range(self.tabs.count())
+                if isinstance(self.tabs.widget(i), SSHTunnelPanel)]
+        pending=[panel for panel in panels if not panel.is_shutdown_complete()]
+        if pending:
+            for panel in pending:
+                panel.request_close()
+            event.ignore()
+            if not getattr(self,'_tunnel_window_close_pending',False):
+                self._tunnel_window_close_pending=True
+                def finish_tunnel_shutdown():
+                    if any(not panel.is_shutdown_complete() for panel in panels):
+                        QTimer.singleShot(200,finish_tunnel_shutdown)
+                        return
+                    self._tunnel_window_close_pending=False
+                    self.close()
+                QTimer.singleShot(200,finish_tunnel_shutdown)
+            return
         # Exit is two-phase: do not block the GUI event loop while PTYs stop.
         # Refuse destructive shutdown while transfers are active.
         if self.sftp_jobs:
