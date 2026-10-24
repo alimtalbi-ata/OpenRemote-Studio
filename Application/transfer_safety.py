@@ -80,6 +80,13 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
         raise InterruptedError('Upload cancelled before remote creation')
     try:
         with source.open('rb') as local:
+            # Verify the opened handle, not just the path checked above:
+            # a path may be swapped for a symlink between check and open.
+            opened=os.fstat(local.fileno())
+            if not stat.S_ISREG(opened.st_mode):
+                raise ValueError('Source locale non régulière')
+            if opened.st_size != total:
+                raise OSError('Source locale modifiée avant transfert')
             with sftp.open(remote_path,'wbx') as remote:
                 created=True
                 while True:
