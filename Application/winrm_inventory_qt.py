@@ -124,8 +124,10 @@ class WinRMInventoryPanel(QWidget):
             return
         # Validate BEFORE asking for a password, and without opening a socket.
         try:
-            self._client_factory(self.origin.text(), self.username.text(),
-                                 credential_provider=lambda: '')
+            # Validate with the production parser, not a replaceable test/provider
+            # factory: a custom constructor may have side effects or open sockets.
+            WinRMReadOnly(self.origin.text(), self.username.text(),
+                          credential_provider=lambda: '')
         except WinRMError as exc:
             self.status.setText('Configuration refusée : ' + str(exc))
             return
