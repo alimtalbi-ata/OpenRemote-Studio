@@ -51,6 +51,8 @@ class TunnelController:
         self._tunnel = None
         self._client = None
         self._worker = None
+        self._watchdog = None
+        self._watchdog_stop = Event()
 
     def start(self, settings, *, key_filename, local_port, target_host, target_port):
         if not isinstance(settings, SSHSettings):
@@ -87,10 +89,20 @@ class TunnelController:
                 if self._scope.cancelled:
                     return
                 tunnel.start()
+                # A concurrent stop may have set 'closing' before scope.cancelled.
+                # Never resurrect a tunnel after revocation was requested.
                 with self._lock:
-                    if not self._scope.cancelled:
+                    if self._state == 'connecting' and not self._scope.cancelled:
                         self._state = 'active'
+                        watchdog = Thread(target=self._watch_link,
+                                          name='ssh-tunnel-health', daemon=True)
+                        self._watchdog = watchdog
+                    else:
+                        watchdog = None
+                if watchdog is not None:
+                    watchdog.start()
             except Exception:
+                self._watchdog_stop.set()
                 with self._lock:
                     if not self._scope.cancelled:
                         self._state = 'failed'
@@ -101,8 +113,38 @@ class TunnelController:
         self._worker = Thread(target=run, name='ssh-tunnel-startup', daemon=True)
         self._worker.start()
 
+    def _check_link_health(self):
+        """Fail closed on SSH loss without a Qt event-loop dependency."""
+        with self._lock:
+            if self._state != 'active' or self._scope.cancelled:
+                return
+            client = self._client
+        try:
+            transport = client.get_transport() if client is not None else None
+            alive = transport is not None and transport.is_active()
+        except Exception:
+            alive = False
+        if alive:
+            return
+        with self._lock:
+            if self._state != 'active' or self._scope.cancelled:
+                return
+            self._state = 'disconnected'
+        self._watchdog_stop.set()
+        self._scope.close()
+
+    def _watch_link(self):
+        # Event.wait() makes shutdown immediate without a busy loop or GUI I/O.
+        # Paramiko transport.is_active() is a local state check, not a probe.
+        while not self._watchdog_stop.wait(0.2):
+            self._check_link_health()
+            with self._lock:
+                if self._state != 'active':
+                    return
+
     def stop(self):
         """Request revocation without waiting for network or listener I/O."""
+        self._watchdog_stop.set()
         with self._lock:
             if self._state == 'idle':
                 self._state = 'closed'
@@ -115,24 +157,13 @@ class TunnelController:
     def poll(self):
         """Read a sanitized, nonblocking snapshot for Qt's event loop.
 
-        If an established SSH transport disappears, revoke its listener and
-        active channels. No network call, credentials or endpoint is exposed.
+        Also checks SSH health immediately; a background watchdog performs
+        the same fail-closed revocation even when Qt does not poll. No network
+        call, credentials or endpoint is exposed.
         """
+        self._check_link_health()
         with self._lock:
-            state, tunnel, client = self._state, self._tunnel, self._client
-        if state == 'active' and not self._scope.cancelled:
-            try:
-                transport = client.get_transport() if client is not None else None
-                alive = transport is not None and transport.is_active()
-            except Exception:
-                alive = False
-            if not alive:
-                with self._lock:
-                    if self._state == 'active' and not self._scope.cancelled:
-                        self._state = 'disconnected'
-                self._scope.close()
-                with self._lock:
-                    state = self._state
+            state, tunnel = self._state, self._tunnel
         if state == 'idle':
             return TunnelSnapshot('idle')
         if not self._startup_done.is_set():
