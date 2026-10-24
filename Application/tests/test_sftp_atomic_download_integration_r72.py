@@ -74,6 +74,25 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             self.assertEqual(upload_exclusive(sftp,source,'./source.bin',chunk_size=4),7)
             self.assertEqual(bytes(sftp.remote.payload),b'1234567')
 
+    def test_upload_regular_file_success(self):
+        from transfer_safety import upload_exclusive
+        class Remote:
+            def __init__(self):self.data=bytearray()
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def write(self,data):
+                self.data.extend(data)
+                return len(data)
+        class Sftp:
+            def __init__(self):self.remote=Remote()
+            def open(self,path,mode):return self.remote
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'normal')
+            sftp=Sftp()
+            self.assertEqual(upload_exclusive(sftp,source,'./source.bin'),6)
+            self.assertEqual(bytes(sftp.remote.data),b'normal')
+
     def test_upload_buffered_write_returning_none(self):
         from transfer_safety import upload_exclusive
         class Remote:
