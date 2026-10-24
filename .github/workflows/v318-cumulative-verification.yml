@@ -90,8 +90,9 @@ jobs:
         run: |
           $env:PYTHONPATH = 'Application'
           python -m unittest discover -s Application/tests -p 'test_winrm_timeout_r94.py' -v
-          python -m unittest discover -s Application/tests -p 'test_network_scope_empty_close_r94.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R94 WinRM timeout contract failed" }
+          python -m unittest discover -s Application/tests -p 'test_network_scope_empty_close_r94.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R94 empty-scope shutdown regression failed" }
           python -m py_compile Application/winrm_inventory_qt.py Application/tests/test_winrm_inventory_qt_r94.py Application/qt_app.py
           if ($LASTEXITCODE -ne 0) { throw "R94 WinRM Qt compilation failed" }
       - name: R92 bounded probe regression before Windows packaging
