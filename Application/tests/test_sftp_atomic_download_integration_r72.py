@@ -74,6 +74,30 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             self.assertEqual(upload_exclusive(sftp,source,'./source.bin',chunk_size=4),7)
             self.assertEqual(bytes(sftp.remote.payload),b'1234567')
 
+    def test_upload_same_size_source_mutation_rejected(self):
+        from transfer_safety import upload_exclusive
+        import os
+        class Remote:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def write(self,data):return len(data)
+        class Sftp:
+            def __init__(self):self.removed=[]
+            def open(self,path,mode):return Remote()
+            def remove(self,path):self.removed.append(path)
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'12345678')
+            sftp=Sftp()
+            def mutate(done,total):
+                if done==4:
+                    before=source.stat()
+                    source.write_bytes(b'abcdefgh')
+                    os.utime(source,ns=(before.st_atime_ns,before.st_mtime_ns+2000000000))
+            with self.assertRaises(OSError):
+                upload_exclusive(sftp,source,'./source.bin',chunk_size=4,callback=mutate)
+            self.assertEqual(sftp.removed,['./source.bin'])
+
     def test_upload_truncated_local_source_rejected(self):
         from transfer_safety import upload_exclusive
         class Remote:
