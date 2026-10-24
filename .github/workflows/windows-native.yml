@@ -218,6 +218,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R98 drift Qt tests failed" }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/winrm_service_drift.py Application/winrm_inventory_qt.py
           if ($LASTEXITCODE -ne 0) { throw "R98 source compilation failed" }
+      - name: R99 WinCred reference worker, consent and redaction tests
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_credential_ref_r99.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R99 WinCred pure tests failed" }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_credential_ref_qt_r99.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R99 WinCred Qt tests failed" }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/winrm_credential_ref.py Application/winrm_inventory_qt.py
+          if ($LASTEXITCODE -ne 0) { throw "R99 WinCred compilation failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()

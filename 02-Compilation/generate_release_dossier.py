@@ -31,6 +31,14 @@ if (dest / "V31.8-R96-WINRM-SERVICES-QT.md").is_file():
         ("R96 - unverified boundaries", "No real Windows Server WinRM HTTPS acceptance test, physical Windows operator walkthrough, vault reference integration, R96 panel screenshot, or pywinrm runtime bundling is asserted. The OpenSSH integration suite does not qualify WinRM. No simulated screenshot is presented as real."),
         ("R96 - architecture", "Qt WinRMServicesPanel -> single QRunnable with fixed operation 'services' -> WinRMServicesReadOnly -> pywinrm optional TLS-validated transport -> fixed Get-CimInstance Win32_Service -> validated JSON <=128 rows -> local QTreeWidget filter. No arbitrary PowerShell or remote writes."),
     ])
+# R99 release addendum: source facts and explicit unverified boundaries.
+if (dest / "V31.8-R99-WINRM-WINCRED-REFERENCE.md").is_file():
+    sections.extend([
+        ("R99 - WinCred reference", "The optional wincred:<target> field in both Windows inventory and services panels resolves an existing Windows Credential Manager Generic Credential inside the worker after explicit operator consent. No credential creation, export or persistence is performed by the WinRM panel."),
+        ("R99 - fail closed", "The target uses a bounded ASCII allowlist. Invalid references are rejected before network access. Provider exceptions become fixed error codes; no raw error or secret reaches the UI. Editing the endpoint, account or reference revokes consent and cancels pending work."),
+        ("R99 - verification", "Six pure contract tests and five Qt synthetic transport tests are included. The Windows CI must run them at the exact source SHA. Local POSIX Qt tests may be skipped if PySide6 is absent."),
+        ("R99 - unverified", "No real Windows Server WinRM HTTPS acceptance test, actual Windows Credential Manager integration test on a workstation, physical Windows operator test or screenshot of the R99 reference flow is asserted. pywinrm remains optional; Windows installer inclusion is not established by these tests."),
+    ])
 doc = Document()
 doc.add_heading("OpenRemote Studio V" + version, 0)
 doc.add_paragraph("Windows release quality dossier | Abdelhalim Talbi")
