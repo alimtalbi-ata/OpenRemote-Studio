@@ -180,6 +180,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python -m unittest discover -s Application/tests -p 'test_winrm_timeout_r94.py' -v
+          python -m unittest discover -s Application/tests -p 'test_network_scope_empty_close_r94.py' -v
           python -m unittest discover -s Application/tests -p 'test_winrm_inventory_qt_r94.py' -v
       - name: Show OpenSSH server logs on failure
         if: failure()
