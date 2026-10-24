@@ -15,7 +15,9 @@ class SSHTunnelPanel(QWidget):
     def __init__(self, profile=None, parent=None, controller_factory=TunnelController):
         super().__init__(parent)
         profile = profile if profile and profile.get('protocol') in ('SSH', 'SFTP') else {}
+        self._controller_factory = controller_factory
         self._controller = controller_factory()
+        self._closing_panel = False
         self._close_callbacks = []
         self._close_requested_at = None
         self.setObjectName('sshTunnelPanel')
@@ -52,6 +54,10 @@ class SSHTunnelPanel(QWidget):
         actions=QHBoxLayout();layout.addLayout(actions)
         self.start_button=QPushButton('Démarrer le tunnel');actions.addWidget(self.start_button)
         self.stop_button=QPushButton('Révoquer et fermer');actions.addWidget(self.stop_button)
+        self.retry_button=QPushButton('Nouvelle tentative');actions.addWidget(self.retry_button)
+        self.retry_button.setObjectName('sshTunnelRetryButton')
+        self.retry_button.setEnabled(False)
+        self.retry_button.clicked.connect(self.prepare_retry)
         self.start_button.clicked.connect(self.start_tunnel)
         self.stop_button.clicked.connect(self.request_close)
         self.stop_button.setEnabled(False)
@@ -92,20 +98,50 @@ class SSHTunnelPanel(QWidget):
         self.consent.setEnabled(False)
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+        self.retry_button.setEnabled(False)
         self._timer.start()
         self._refresh()
 
     def request_close(self, callback=None):
         if callable(callback):
+            self._closing_panel = True
             self._close_callbacks.append(callback)
         if self._close_requested_at is None:
             self._close_requested_at=time.monotonic()
         self._controller.stop()
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
+        self.retry_button.setEnabled(False)
         self._timer.start()
         self._refresh()
         return self.is_shutdown_complete()
+
+    def prepare_retry(self):
+        """Explicit manual reset only after cleanup; never reconnect implicitly.
+
+        The controller is intentionally one-shot. Reusing it after a failed
+        connection would bypass its lifecycle guard, so replace it only after
+        its resources are confirmed released and require fresh consent.
+        """
+        if (self._closing_panel or self._close_callbacks
+                or not self.is_shutdown_complete()):
+            return False
+        if self._controller.poll().phase not in ('closed', 'failed', 'disconnected'):
+            return False
+        self._timer.stop()
+        self._controller = self._controller_factory()
+        self._close_requested_at = None
+        for field in (self.host, self.user, self.ssh_port, self.keepalive_seconds,
+                      self.local_port, self.target_host, self.target_port,
+                      self.key_file, self.known_hosts):
+            field.setReadOnly(False)
+        self.consent.setChecked(False)
+        self.consent.setEnabled(True)
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+        self.retry_button.setEnabled(False)
+        self.status.setText('Hors ligne : nouvelle autorisation explicite requise')
+        return True
 
     def is_shutdown_complete(self):
         return self._controller.is_shutdown_complete()
@@ -130,6 +166,7 @@ class SSHTunnelPanel(QWidget):
         self.status.setText(label)
         if snapshot.phase in ('closed','failed','disconnected'):
             self.stop_button.setEnabled(False)
+            self.retry_button.setEnabled(not self._closing_panel)
             self._timer.stop()
             callbacks, self._close_callbacks=self._close_callbacks, []
             for callback in callbacks:
