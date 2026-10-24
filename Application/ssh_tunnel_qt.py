@@ -116,13 +116,14 @@ class SSHTunnelPanel(QWidget):
             'draining':'Drainage des canaux SSH…',
             'closed':'Tunnel fermé et ressources libérées',
             'failed':'Échec SSH (détails sensibles masqués) · ressources libérées',
+            'disconnected':'Connexion SSH interrompue · ressources libérées',
         }
         label=descriptions.get(snapshot.phase,'État SSH indisponible')
         if (self._close_requested_at is not None and not self.is_shutdown_complete()
                 and time.monotonic()-self._close_requested_at >= 12):
             label='Arrêt SSH non confirmé · nettoyage toujours en cours…'
         self.status.setText(label)
-        if snapshot.phase in ('closed','failed'):
+        if snapshot.phase in ('closed','failed','disconnected'):
             self.stop_button.setEnabled(False)
             self._timer.stop()
             callbacks, self._close_callbacks=self._close_callbacks, []
