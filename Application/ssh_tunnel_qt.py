@@ -80,21 +80,30 @@ class SSHTunnelPanel(QWidget):
         self._timer.setInterval(100)
         self._timer.timeout.connect(self._refresh)
 
+    def _revoke_live_tunnel(self):
+        """A revoked approval cannot leave a connecting/active tunnel running.
+
+        Qt can change disabled/read-only widgets programmatically. The network
+        controller, not the checkbox's enabled state, determines revocation.
+        """
+        if self._controller.poll().phase in ('connecting', 'active'):
+            self.request_close()
+
     def _consent_toggled(self, checked):
         if checked:
             self._consent_guard.approve()
         else:
             self._consent_guard.revoke()
+            self._revoke_live_tunnel()
 
     def _configuration_changed(self, *_):
-        # Any change, including changing a field back, requires new approval.
+        # Any edit, including changing back, revokes consent even if the
+        # checkbox was already unchecked by a separate programmatic action.
         self._consent_guard.configuration_changed()
         if self.consent.isChecked():
-            self.consent.setChecked(False)
-            # Programmatic edits can bypass QLineEdit.readOnly: revoke a live
-            # tunnel rather than silently continuing with stale consent.
-            if self._controller.poll().phase in ('connecting', 'active'):
-                self.request_close()
+            self.consent.setChecked(False)  # toggled signal closes a live tunnel
+        else:
+            self._revoke_live_tunnel()
 
     def _choose(self, field):
         path, _ = QFileDialog.getOpenFileName(self, 'Choisir un fichier local')
