@@ -3447,8 +3447,13 @@ class Main(QMainWindow):
             # Capture the requested directory: asynchronous results must not be
             # labelled with a path edited while the worker was running.
             requested=path.text()
-            queue_job('list',requested,None,
-                      lambda items:self._display_sftp_items(items,requested,listing,status))
+            def show_if_current(items):
+                # A queued listing can finish after the user navigates elsewhere.
+                # Never replace the current directory view with stale results.
+                if path.text()!=requested:
+                    return
+                self._display_sftp_items(items,requested,listing,status)
+            queue_job('list',requested,None,show_if_current)
         def navigate_remote(item):
             import posixpath
             if item.text().endswith('/'):
