@@ -182,6 +182,10 @@ jobs:
           python -m unittest discover -s Application/tests -p 'test_winrm_timeout_r94.py' -v
           python -m unittest discover -s Application/tests -p 'test_network_scope_empty_close_r94.py' -v
           python -m unittest discover -s Application/tests -p 'test_winrm_inventory_qt_r94.py' -v
+      - name: R98 local-only WinRM service drift contract (no WinRM server)
+        env:
+          PYTHONPATH: Application
+        run: python -m unittest discover -s Application/tests -p 'test_winrm_service_drift_r98.py' -v
       - name: Show OpenSSH server logs on failure
         if: failure()
         run: docker logs openremote-sftp || true
