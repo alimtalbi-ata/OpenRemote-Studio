@@ -129,6 +129,13 @@ jobs:
           if (!(Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing native qualification script: $script" }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Build
           if ($LASTEXITCODE -ne 0) { throw "Native qualification failed: $LASTEXITCODE" }
+      - name: R83 real offline Qt screenshot (Windows offscreen render)
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_tunnel_qt_r83.py
+          if ($LASTEXITCODE -ne 0) { throw "R83 real Qt screenshot failed" }
+          if (!(Test-Path 'Binary/Qualification/qt-tunnel-r83-offline.png')) { throw "Missing actual Qt render" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
