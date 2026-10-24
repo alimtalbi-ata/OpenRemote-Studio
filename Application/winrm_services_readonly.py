@@ -5,13 +5,15 @@ Author: Abdelhalim Talbi.
 """
 import json
 from winrm_readonly import WinRMReadOnly, WinRMError, _text
+from winrm_service_totals import unwrap_service_envelope, ServiceTotalError
 
 # Fixed query, no operator input or interpolated credentials.
 _SERVICES_PS = r'''
 $ErrorActionPreference = 'Stop'
-@(Get-CimInstance -ClassName Win32_Service |
-  Sort-Object Name | Select-Object -First 128 Name, DisplayName, State, StartMode) |
-  ConvertTo-Json -Compress -Depth 3
+$all = @(Get-CimInstance -ClassName Win32_Service | Sort-Object Name)
+@{ TotalCount = $all.Count; Services = @(
+    $all | Select-Object -First 128 Name, DisplayName, State, StartMode
+  ) } | ConvertTo-Json -Compress -Depth 4
 '''.strip()
 _STATES = frozenset(('Running', 'Stopped', 'Paused', 'Start Pending',
                      'Stop Pending', 'Continue Pending', 'Pause Pending', 'Unknown'))
@@ -19,6 +21,10 @@ _MODES = frozenset(('Auto', 'Manual', 'Disabled', 'Boot', 'System'))
 
 
 def _normalize_services(raw):
+    try:
+        total_count, raw = unwrap_service_envelope(raw)
+    except ServiceTotalError:
+        raise WinRMError('winrm_invalid_response') from None
     if isinstance(raw, dict):
         raw = [raw]
     if not isinstance(raw, list) or len(raw) > 128:
@@ -38,7 +44,9 @@ def _normalize_services(raw):
         services.append({'name': name, 'display_name': label,
                          'state': state, 'start_mode': mode})
     return {'state': 'ok', 'read_only': True, 'services': services,
-            'limit': 128, 'may_be_truncated': len(services) == 128}
+            'limit': 128, 'total_count': total_count,
+            'may_be_truncated': (total_count > 128 if total_count is not None
+                                 else len(services) == 128)}
 
 
 class WinRMServicesReadOnly(WinRMReadOnly):
