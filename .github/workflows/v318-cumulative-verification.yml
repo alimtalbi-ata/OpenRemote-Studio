@@ -111,6 +111,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_ssh_consent_guard_r90.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: R98 local-only WinRM service drift contract
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_service_drift_r98.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R98 drift contract failed" }
+          python -m py_compile Application/winrm_service_drift.py Application/winrm_inventory_qt.py
+          if ($LASTEXITCODE -ne 0) { throw "R98 source compilation failed" }
       - name: Compile verifier sources
         shell: pwsh
         run: |
