@@ -1,9 +1,9 @@
 name: V31.8 cumulative verification
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate, feature/v31.8-r89-ssh-failure-guidance-live-retry]
   workflow_dispatch:
 
 permissions:
@@ -76,6 +76,14 @@ jobs:
           python -m unittest discover -s Application/tests -p 'test_netbox_cancel_r76.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m py_compile Application/netbox_readonly.py Application/netbox_preview_filter.py Application/netbox_preview_qt.py Application/qt_app.py Application/tests/test_netbox_cancel_r76.py Application/tests/test_netbox_cancel_qt_r76.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: R90 consent guard source and tests
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m py_compile Application/ssh_consent_guard.py Application/ssh_tunnel_qt.py Application/tests/test_ssh_consent_qt_r90.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s Application/tests -p 'test_ssh_consent_guard_r90.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile verifier sources
         shell: pwsh

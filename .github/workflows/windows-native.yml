@@ -148,6 +148,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R89 Qt failure guidance failed" }
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_tunnel_failure_classification_r89.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R89 typed SSH error classification failed" }
+      - name: R90 SSH consent revision and Qt invalidation regressions
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_ssh_consent_guard_r90.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R90 consent guard failed" }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_ssh_consent_qt_r90.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R90 Qt consent regression failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
