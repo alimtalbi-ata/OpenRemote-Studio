@@ -15,6 +15,10 @@ class FakeSftp:
         self.payload=payload
         self.fail=fail
 
+    def stat(self, remote):
+        from types import SimpleNamespace
+        return SimpleNamespace(st_size=len(self.payload))
+
     def get(self, remote, local, callback=None):
         assert remote == './report.bin'
         with open(local, 'wb') as output:
@@ -32,6 +36,19 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             target.write_bytes(b'previous')
             download_atomic(FakeSftp(b'new payload'),'./report.bin',target)
             self.assertEqual(target.read_bytes(),b'new payload')
+            self.assertEqual(list(Path(directory).glob('*.part')),[])
+
+    def test_short_download_is_never_published(self):
+        class TruncatedSftp(FakeSftp):
+            def stat(self, remote):
+                from types import SimpleNamespace
+                return SimpleNamespace(st_size=len(self.payload)+10)
+        with TemporaryDirectory() as directory:
+            target=Path(directory)/'report.bin'
+            target.write_bytes(b'previous')
+            with self.assertRaises(OSError):
+                download_atomic(TruncatedSftp(b'short'),'./report.bin',target)
+            self.assertEqual(target.read_bytes(),b'previous')
             self.assertEqual(list(Path(directory).glob('*.part')),[])
 
     def test_transport_failure_preserves_target(self):
