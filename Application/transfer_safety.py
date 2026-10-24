@@ -70,6 +70,9 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
     if not isinstance(chunk_size,int) or chunk_size<1 or chunk_size>16*1024*1024:
         raise ValueError("Taille de bloc invalide")
     source=Path(local_path)
+    # Reject symlink sources and non-files; uploads must be explicit local files.
+    if source.is_symlink() or not source.is_file():
+        raise ValueError('Source locale non régulière ou lien symbolique')
     total=source.stat().st_size
     written=0
     created=False
