@@ -3458,7 +3458,10 @@ class Main(QMainWindow):
                         except Exception as exc:status.setText('Journal indisponible : '+str(exc))
                     if item in active_jobs:active_jobs.remove(item)
                     if item in self.sftp_jobs:self.sftp_jobs.remove(item)
-                    status.setText('Erreur : '+message)
+                    if 'InterruptedError' in message:
+                        status.setText('Opération SFTP annulée')
+                    else:
+                        status.setText('Erreur : '+message)
                     render_queue()
                     advance()
                 item.signals.progress.connect(on_progress)
