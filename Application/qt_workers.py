@@ -27,7 +27,14 @@ class SftpJob(QRunnable):
             with client.open_sftp() as sftp:
                 if self.cancel_event.is_set():raise InterruptedError('Opération annulée')
                 if self.operation=='list':
-                    result=[(x.filename, stat.S_ISDIR(x.st_mode), x.st_size) for x in sftp.listdir_attr(self.remote_path)]
+                    entries=sftp.listdir_attr(self.remote_path)
+                    if self.cancel_event.is_set():
+                        raise InterruptedError('Liste SFTP annulée')
+                    result=[]
+                    for entry in entries:
+                        if self.cancel_event.is_set():
+                            raise InterruptedError('Liste SFTP annulée')
+                        result.append((entry.filename, stat.S_ISDIR(entry.st_mode), entry.st_size))
                 else:
                     def callback(done,total):
                         if self.cancel_event.is_set():raise InterruptedError('Opération annulée')
