@@ -51,6 +51,47 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 upload_exclusive(None, str(link), './report.bin')
 
+    def test_upload_short_writes_complete(self):
+        from transfer_safety import upload_exclusive
+        class Remote:
+            def __init__(self):
+                self.payload=bytearray()
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def write(self,data):
+                count=min(2,len(data))
+                self.payload.extend(data[:count])
+                return count
+        class Sftp:
+            def __init__(self):self.remote=Remote()
+            def open(self,path,mode):
+                assert mode=='wbx'
+                return self.remote
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'1234567')
+            sftp=Sftp()
+            self.assertEqual(upload_exclusive(sftp,source,'./source.bin',chunk_size=4),7)
+            self.assertEqual(bytes(sftp.remote.payload),b'1234567')
+
+    def test_upload_zero_write_fails_and_cleans_remote(self):
+        from transfer_safety import upload_exclusive
+        class Remote:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def write(self,data):return 0
+        class Sftp:
+            def __init__(self):self.removed=[]
+            def open(self,path,mode):return Remote()
+            def remove(self,path):self.removed.append(path)
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'data')
+            sftp=Sftp()
+            with self.assertRaises(OSError):
+                upload_exclusive(sftp,source,'./source.bin')
+            self.assertEqual(sftp.removed,['./source.bin'])
+
     def test_success_replaces_target(self):
         with TemporaryDirectory() as directory:
             target=Path(directory)/'report.bin'
