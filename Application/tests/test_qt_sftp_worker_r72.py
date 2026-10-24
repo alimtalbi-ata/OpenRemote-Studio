@@ -66,6 +66,40 @@ class SftpWorkerTests(unittest.TestCase):
         self.assertIn('InterruptedError', errors[0])
         self.assertTrue(client.closed)
 
+    def test_cancel_after_transfer_does_not_report_success(self):
+        client = FakeClient(FakeSftp())
+        job = SftpJob(lambda _: client, {'id': 'test'}, 'upload',
+                      './remote.bin', './local.bin')
+        success, errors = [], []
+        job.signals.finished.connect(success.append)
+        job.signals.failed.connect(errors.append)
+
+        def upload_then_cancel(*args, **kwargs):
+            job.cancel()
+            return 4
+
+        with patch('qt_workers.upload_exclusive', side_effect=upload_then_cancel) as upload:
+            job.run()
+        upload.assert_called_once()
+        self.assertFalse(success)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('InterruptedError', errors[0])
+        self.assertTrue(client.closed)
+
+    def test_transfer_error_reports_failure_and_closes_client(self):
+        client = FakeClient(FakeSftp())
+        job = SftpJob(lambda _: client, {'id': 'test'}, 'download',
+                      './remote.bin', './local.bin')
+        success, errors = [], []
+        job.signals.finished.connect(success.append)
+        job.signals.failed.connect(errors.append)
+        with patch('qt_workers.download_atomic', side_effect=OSError('transfer failed')):
+            job.run()
+        self.assertFalse(success)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('transfer failed', errors[0])
+        self.assertTrue(client.closed)
+
     def test_cleanup_failure_does_not_escape_worker(self):
         client = FakeClient(FakeSftp(), close_raises=True)
         job = SftpJob(lambda _: client, {'id': 'test'}, 'list', '.', None)
