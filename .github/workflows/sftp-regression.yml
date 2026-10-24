@@ -6,6 +6,7 @@ on:
     paths:
       - 'Application/transfer_safety.py'
       - 'Application/qt_workers.py'
+      - 'Application/tests/test_qt_sftp_worker_r72.py'
       - 'Application/tests/test_sftp_atomic_download_integration_r72.py'
       - '.github/workflows/sftp-regression.yml'
   workflow_dispatch:
@@ -22,8 +23,15 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile transfer safety and regression tests
-        run: python -m py_compile Application/transfer_safety.py Application/qt_workers.py Application/tests/test_sftp_atomic_download_integration_r72.py
+        run: python -m py_compile Application/transfer_safety.py Application/qt_workers.py Application/tests/test_sftp_atomic_download_integration_r72.py Application/tests/test_qt_sftp_worker_r72.py
       - name: Run SFTP fake-transport regression suite
         env:
           PYTHONPATH: Application
         run: python -m unittest discover -s Application/tests -p test_sftp_atomic_download_integration_r72.py -v
+      - name: Install Qt runtime for worker regression
+        run: python -m pip install PySide6
+      - name: Run Qt SFTP worker regression
+        env:
+          PYTHONPATH: Application
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s Application/tests -p test_qt_sftp_worker_r72.py -v
