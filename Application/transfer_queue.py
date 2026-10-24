@@ -33,7 +33,7 @@ class TransferQueue:
         if type(ok) is not bool:
             raise ValueError("Résultat de transfert invalide")
         if self.active is not entry:raise ValueError("Opération non active")
-        entry["state"]="done" if ok else "failed"
+        entry["state"]="cancelled" if entry["job"].cancel_event.is_set() else ("done" if ok else "failed")
         self.history.append(entry)
         self.active=None
     def cancel_pending(self):
