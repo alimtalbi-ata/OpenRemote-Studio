@@ -156,6 +156,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R90 consent guard failed" }
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_ssh_consent_qt_r90.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R90 Qt consent regression failed" }
+      - name: R91 Qt consent withdrawal closes active SSH tunnels
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_ssh_consent_revocation_qt_r91.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R91 Qt consent revocation failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
