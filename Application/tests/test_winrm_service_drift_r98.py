@@ -40,7 +40,7 @@ class DriftR98Tests(unittest.TestCase):
         self.assertEqual(len(result['transitions']), 1)
 
     def test_reject_duplicate_casefold_and_control(self):
-        for bad in ([row('A'), row('a')], [row('bad\\nsecret')], [row('A', 'bogus')]):
+        for bad in ([row('A'), row('a')], [row('bad' + chr(10) + 'secret')], [row('A', 'bogus')]):
             with self.subTest(bad=bad), self.assertRaisesRegex(ServiceDriftError, '^winrm_invalid_response$'):
                 self.compare(bad, [])
 
