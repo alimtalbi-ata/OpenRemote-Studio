@@ -98,14 +98,16 @@ class Tunnel:
                     # Never leak remote endpoint details or credentials in logs.
                     pass
                 finally:
-                    with owner._drain_condition:
-                        owner._connections.pop(local, None)
-                        owner._drain_condition.notify_all()
+                    # Drain completion means channel.close() has returned,
+                    # not merely that the handler was removed from the map.
                     if channel is not None:
                         try:
                             channel.close()
                         except Exception:
                             pass
+                    with owner._drain_condition:
+                        owner._connections.pop(local, None)
+                        owner._drain_condition.notify_all()
 
         class Server(socketserver.ThreadingTCPServer):
             address_family = socket.AF_INET6 if bind_host == '::1' else socket.AF_INET
