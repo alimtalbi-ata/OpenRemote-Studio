@@ -33,6 +33,11 @@ class SSHTunnelPanel(QWidget):
         self.keepalive_seconds = QLineEdit('0')
         self.keepalive_seconds.setObjectName('sshKeepaliveSeconds')
         self.keepalive_seconds.setPlaceholderText('0 = désactivé ; 15–60 s conseillé sur réseau instable')
+        self.probe_interval_seconds = QLineEdit('0')
+        self.probe_interval_seconds.setObjectName('sshProbeIntervalSeconds')
+        self.probe_interval_seconds.setPlaceholderText('0 = désactivé ; ex. 15 s')
+        self.probe_timeout_seconds = QLineEdit('5')
+        self.probe_timeout_seconds.setObjectName('sshProbeTimeoutSeconds')
         self.target_host = QLineEdit('127.0.0.1')
         self.target_port = QLineEdit('80')
         self.key_file = QLineEdit()
@@ -41,6 +46,8 @@ class SSHTunnelPanel(QWidget):
         self.known_hosts.setPlaceholderText('Facultatif : known_hosts explicite')
         for label, widget in [('Hôte SSH',self.host), ('Utilisateur SSH',self.user),
             ('Port SSH',self.ssh_port), ('Keepalive SSH (secondes, 0–300)',self.keepalive_seconds),
+            ('Sonde SSH active (0–300 s, 0 = arrêt)',self.probe_interval_seconds),
+            ('Délai réponse sonde SSH (1–30 s)',self.probe_timeout_seconds),
             ('Port local (127.0.0.1)',self.local_port),
             ('Destination vue du serveur SSH',self.target_host),
             ('Port distant',self.target_port), ('Clé privée',self.key_file),
@@ -57,6 +64,7 @@ class SSHTunnelPanel(QWidget):
         # Store no endpoint, username, private-key path or other secret in the guard.
         self.consent.toggled.connect(self._consent_toggled)
         for field in (self.host, self.user, self.ssh_port, self.keepalive_seconds,
+                      self.probe_interval_seconds, self.probe_timeout_seconds,
                       self.local_port, self.target_host, self.target_port,
                       self.key_file, self.known_hosts):
             field.textChanged.connect(self._configuration_changed)
@@ -122,11 +130,14 @@ class SSHTunnelPanel(QWidget):
                                    local_port=int(self.local_port.text()),
                                    target_host=self.target_host.text(),
                                    target_port=int(self.target_port.text()),
-                                   keepalive_seconds=int(self.keepalive_seconds.text()))
+                                   keepalive_seconds=int(self.keepalive_seconds.text()),
+                                   probe_interval_seconds=int(self.probe_interval_seconds.text()),
+                                   probe_timeout_seconds=int(self.probe_timeout_seconds.text()))
         except (ValueError, RuntimeError):
             self.status.setText('Configuration refusée : vérifier les paramètres SSH et les ports')
             return
-        for field in (self.host,self.user,self.ssh_port,self.keepalive_seconds,self.local_port,
+        for field in (self.host,self.user,self.ssh_port,self.keepalive_seconds,
+                      self.probe_interval_seconds,self.probe_timeout_seconds,self.local_port,
                       self.target_host,self.target_port,self.key_file,self.known_hosts):
             field.setReadOnly(True)
         self.consent.setEnabled(False)
@@ -166,6 +177,7 @@ class SSHTunnelPanel(QWidget):
         self._controller = self._controller_factory()
         self._close_requested_at = None
         for field in (self.host, self.user, self.ssh_port, self.keepalive_seconds,
+                      self.probe_interval_seconds, self.probe_timeout_seconds,
                       self.local_port, self.target_host, self.target_port,
                       self.key_file, self.known_hosts):
             field.setReadOnly(False)
