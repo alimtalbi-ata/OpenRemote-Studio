@@ -3,6 +3,8 @@ import select
 import socket
 import socketserver
 import threading
+import math
+from numbers import Real
 from pathlib import PurePosixPath
 
 
@@ -38,6 +40,8 @@ class Tunnel:
         self.max_connections = max_connections
         self._lifecycle_lock = threading.Lock()
         self._connections_lock = threading.Lock()
+        self._drain_condition = threading.Condition(self._connections_lock)
+        self._pending_channel_opens = 0
         # All close() callers must observe completed listener teardown.
         self._close_complete = threading.Event()
         # Accepted local socket -> SSH channel (None until open_channel returns).
@@ -57,9 +61,20 @@ class Tunnel:
                 try:
                     if not transport.is_active() or owner._closed:
                         return
-                    channel = transport.open_channel(
-                        'direct-tcpip', (target_host, int(target_port)),
-                        local.getpeername(), timeout=10)
+                    # Track opens separately from established channels: a blocked
+                    # Paramiko open can outlive listener close until its timeout.
+                    with owner._drain_condition:
+                        if owner._closed:
+                            return
+                        owner._pending_channel_opens += 1
+                    try:
+                        channel = transport.open_channel(
+                            'direct-tcpip', (target_host, int(target_port)),
+                            local.getpeername(), timeout=10)
+                    finally:
+                        with owner._drain_condition:
+                            owner._pending_channel_opens -= 1
+                            owner._drain_condition.notify_all()
                     if channel is None:
                         return
                     with owner._connections_lock:
@@ -83,13 +98,16 @@ class Tunnel:
                     # Never leak remote endpoint details or credentials in logs.
                     pass
                 finally:
-                    with owner._connections_lock:
-                        owner._connections.pop(local, None)
+                    # Drain completion means channel.close() has returned,
+                    # not merely that the handler was removed from the map.
                     if channel is not None:
                         try:
                             channel.close()
                         except Exception:
                             pass
+                    with owner._drain_condition:
+                        owner._connections.pop(local, None)
+                        owner._drain_condition.notify_all()
 
         class Server(socketserver.ThreadingTCPServer):
             address_family = socket.AF_INET6 if bind_host == '::1' else socket.AF_INET
@@ -106,6 +124,30 @@ class Tunnel:
         """Number of accepted local peers; no addresses or secrets exposed."""
         with self._connections_lock:
             return len(self._connections)
+
+    @property
+    def pending_channel_opens(self):
+        """Number of SSH channel opens still pending; no endpoint details."""
+        with self._connections_lock:
+            return self._pending_channel_opens
+
+    def wait_drained(self, timeout=10.0):
+        """Wait for accepted handler cleanup after close(); return False on timeout.
+
+        close() revokes active channels and releases the listening port, but
+        Paramiko's open_channel() may remain blocked until its own timeout.
+        Callers needing a quiescent tunnel can explicitly wait without an
+        unbounded hang. This never closes the caller-owned SSH transport.
+        """
+        if (isinstance(timeout, bool) or not isinstance(timeout, Real)
+                or not math.isfinite(timeout) or timeout < 0 or timeout > 120):
+            raise ValueError('Délai de drainage invalide')
+        with self._drain_condition:
+            if not self._closed:
+                raise RuntimeError('Fermer le tunnel avant drainage')
+            return self._drain_condition.wait_for(
+                lambda: not self._connections and self._pending_channel_opens == 0,
+                timeout=float(timeout))
 
     def start(self):
         with self._lifecycle_lock:
