@@ -1,9 +1,9 @@
 name: SFTP OpenSSH live integration
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation]
   workflow_dispatch:
 permissions:
   contents: read
@@ -57,6 +57,12 @@ jobs:
           SFTP_TEST_HOST: 127.0.0.1
           SFTP_TEST_PORT: '2222'
         run: python Application/tests/live_ssh_tunnel_r78.py
+      - name: R79 real SSH forwarding with concurrent close barrier
+        env:
+          PYTHONPATH: Application
+          SFTP_TEST_HOST: 127.0.0.1
+          SFTP_TEST_PORT: '2222'
+        run: python Application/tests/live_ssh_tunnel_r79.py
       - name: Execute live SFTP transfer scenarios
         env:
           PYTHONPATH: Application
