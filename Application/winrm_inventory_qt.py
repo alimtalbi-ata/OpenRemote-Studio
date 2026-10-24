@@ -15,6 +15,7 @@ from winrm_readonly import WinRMReadOnly, WinRMError
 from winrm_services_readonly import WinRMServicesReadOnly, _STATES, _MODES
 from winrm_service_totals import validated_display_total, ServiceTotalError
 from winrm_service_drift import compare_service_snapshots, ServiceDriftError
+from winrm_credential_ref import validate_winrm_credential_ref, resolve_winrm_credential
 
 
 class _Signals(QObject):
@@ -23,7 +24,7 @@ class _Signals(QObject):
 
 class _InventoryJob(QRunnable):
     def __init__(self, generation, origin, username, password, client_factory,
-                 operation='inventory'):
+                 operation='inventory', credential_ref=None, credential_resolver=None):
         super().__init__()
         self.generation = generation
         self._origin = origin
@@ -31,6 +32,8 @@ class _InventoryJob(QRunnable):
         self._password = password
         self._factory = client_factory
         self._operation = operation
+        self._credential_ref = credential_ref
+        self._credential_resolver = credential_resolver
         self._cancelled = Event()
         self.signals = _Signals()
 
@@ -41,6 +44,12 @@ class _InventoryJob(QRunnable):
         result = {'state': 'cancelled'}
         try:
             if not self._cancelled.is_set():
+                if self._credential_ref is not None:
+                    # Resolve inside the worker, never on the UI thread.
+                    self._password = resolve_winrm_credential(
+                        self._credential_ref, resolver=self._credential_resolver)
+                if self._cancelled.is_set():
+                    raise WinRMError('winrm_cancelled')
                 client = self._factory(self._origin, self._username,
                                        credential_provider=lambda: self._password)
                 # Operation is selected internally from a fixed allowlist.
@@ -54,6 +63,8 @@ class _InventoryJob(QRunnable):
             result = {'state': 'error', 'code': 'winrm_transport_unavailable'}
         finally:
             self._password = None
+            self._credential_ref = None
+            self._credential_resolver = None
             self._username = None
             self._origin = None
         if self._cancelled.is_set():
@@ -64,12 +75,13 @@ class _InventoryJob(QRunnable):
 class WinRMInventoryPanel(QWidget):
     """Operator-initiated read-only inventory; secrets live only in a worker.
 
-    credential_provider is optional for future vault-by-reference integration.
-    Without it, a password is requested once through a masked Qt prompt.
+    A wincred: target is resolved inside the worker after explicit consent.
+    Without a reference, a password is requested once through a masked Qt prompt.
     The UI never stores, logs, renders or exports the returned secret.
     """
     def __init__(self, parent=None, *, client_factory=None,
-                 credential_provider=None, thread_pool=None, mode='inventory'):
+                 credential_provider=None, credential_resolver=None,
+                 thread_pool=None, mode='inventory'):
         if mode not in ('inventory', 'services'):
             raise ValueError('unsupported WinRM operation')
         super().__init__(parent)
@@ -80,6 +92,7 @@ class WinRMInventoryPanel(QWidget):
         self._service_change_labels = {}
         self._client_factory = client_factory or (WinRMServicesReadOnly if mode == 'services' else WinRMReadOnly)
         self._credential_provider = credential_provider
+        self._credential_resolver = credential_resolver
         self._pool = thread_pool or QThreadPool.globalInstance()
         self._generation = 0
         self._pending = None
@@ -98,6 +111,11 @@ class WinRMInventoryPanel(QWidget):
         self.username.setObjectName('winrmUsername')
         self.username.setMaxLength(256)
         form.addRow('Compte de lecture', self.username)
+        self.credential_ref = QLineEdit()
+        self.credential_ref.setObjectName('winrmCredentialReference')
+        self.credential_ref.setMaxLength(136)
+        self.credential_ref.setPlaceholderText('wincred:OpenRemote/WinRM/serveur (facultatif)')
+        form.addRow('Référence Credential Manager', self.credential_ref)
         self.consent = QCheckBox('Autoriser une requête WinRM HTTPS explicite')
         self.consent.setObjectName('winrmOnlineConsent')
         layout.addWidget(self.consent)
@@ -133,9 +151,16 @@ class WinRMInventoryPanel(QWidget):
                                 'aucun mot de passe enregistré. Le certificat HTTPS est vérifié.'))
         self.origin.textChanged.connect(self._invalidate)
         self.username.textChanged.connect(self._invalidate)
+        self.credential_ref.textChanged.connect(self._invalidate)
         self.consent.toggled.connect(self._invalidate)
 
     def _invalidate(self, *_):
+        # Consent is bound to the exact endpoint, account and credential ref.
+        # A changed field always requires a new operator authorization.
+        if (self.sender() in (self.origin, self.username, self.credential_ref)
+                and self.consent.isChecked()):
+            self.consent.setChecked(False)
+            return
         self._generation += 1
         self._services = []
         self._last_successful_services = None
@@ -175,26 +200,36 @@ class WinRMInventoryPanel(QWidget):
         except Exception:
             self.status.setText('Configuration WinRM indisponible.')
             return
-        try:
-            if self._credential_provider is not None:
-                password = self._credential_provider()
-            else:
-                password, accepted = QInputDialog.getText(
-                    self, 'WinRM — authentification temporaire',
-                    'Mot de passe (non enregistré) :', QLineEdit.Password)
-                if not accepted:
-                    self.status.setText('Hors ligne — authentification annulée.')
-                    return
-        except Exception:
-            self.status.setText('Identifiants indisponibles.')
-            return
-        if not isinstance(password, str) or not password or '\x00' in password:
-            self.status.setText('Identifiants indisponibles.')
-            return
+        reference = self.credential_ref.text()
+        if reference:
+            try:
+                validate_winrm_credential_ref(reference)
+            except WinRMError:
+                self.status.setText('Référence Credential Manager invalide.')
+                return
+            password = None  # Never resolve WinCred from the Qt event thread.
+        else:
+            try:
+                if self._credential_provider is not None:
+                    password = self._credential_provider()
+                else:
+                    password, accepted = QInputDialog.getText(
+                        self, 'WinRM — authentification temporaire',
+                        'Mot de passe (non enregistré) :', QLineEdit.Password)
+                    if not accepted:
+                        self.status.setText('Hors ligne — authentification annulée.')
+                        return
+            except Exception:
+                self.status.setText('Identifiants indisponibles.')
+                return
+            if not isinstance(password, str) or not password or '\x00' in password:
+                self.status.setText('Identifiants indisponibles.')
+                return
         self._generation += 1
         worker = _InventoryJob(self._generation, self.origin.text(),
                                self.username.text(), password, self._client_factory,
-                               operation=self._mode)
+                               operation=self._mode, credential_ref=reference or None,
+                               credential_resolver=self._credential_resolver)
         password = None
         self._pending = worker
         worker.signals.finished.connect(self._finished)
@@ -331,7 +366,8 @@ class WinRMServicesPanel(WinRMInventoryPanel):
     """R96 services viewer: same offline, consent and cancellation gate as OS inventory."""
 
     def __init__(self, parent=None, *, client_factory=WinRMServicesReadOnly,
-                 credential_provider=None, thread_pool=None):
+                 credential_provider=None, credential_resolver=None, thread_pool=None):
         super().__init__(parent, client_factory=client_factory,
                          credential_provider=credential_provider,
+                         credential_resolver=credential_resolver,
                          thread_pool=thread_pool, mode='services')
