@@ -22,6 +22,21 @@ try {
     throw "Packaged GUI smoke timeout after $TimeoutSeconds seconds"
   }
   if ($process.ExitCode -ne 0) { throw "Packaged GUI smoke failed: $($process.ExitCode)" }
+  # A zero exit code alone is insufficient: require evidence that the Qt
+  # application actually initialized, showed its main window and ran its loop.
+  $startupLog = Join-Path $env:LOCALAPPDATA 'OpenRemoteStudio\diagnostics\startup.jsonl'
+  if (-not (Test-Path -LiteralPath $startupLog -PathType Leaf)) {
+    throw "Packaged GUI startup evidence missing: $startupLog"
+  }
+  $events = @(Get-Content -LiteralPath $startupLog | Where-Object { $_.Trim() } | ForEach-Object { $_ | ConvertFrom-Json })
+  foreach ($stage in @('qt_init','main_window','event_loop')) {
+    if (-not @($events | Where-Object { $_.stage -eq $stage -and $_.outcome -eq 'ok' }).Count) {
+      throw "Packaged GUI did not confirm startup stage: $stage"
+    }
+  }
+  if (@($events | Where-Object { $_.outcome -eq 'failed' }).Count -gt 0) {
+    throw 'Packaged GUI recorded a failed startup stage'
+  }
   $passed = $true
   Write-Host 'Windows packaged GUI startup smoke PASS (isolated profile, deadline enforced).'
 } finally {
