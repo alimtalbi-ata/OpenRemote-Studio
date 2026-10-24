@@ -3362,6 +3362,13 @@ class Main(QMainWindow):
         def queue_job(operation,remote,local,on_success):
             if pane._sftp_closing:
                 return
+            if operation=='list':
+                # Cancel queued obsolete directory listings before they open
+                # connections; a slow server must not accumulate stale work.
+                for pending in list(queue.pending):
+                    if pending['job'].operation=='list':
+                        pending['job'].cancel()
+                        queue.pending.remove(pending)
             job=SftpJob(self._sftp_client,c,operation,remote,local)
             entry=queue.submit(job)
             entry['journal_id']=None
