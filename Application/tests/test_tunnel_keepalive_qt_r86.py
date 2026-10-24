@@ -39,8 +39,8 @@ class QtKeepaliveR86(unittest.TestCase):
         panel = SSHTunnelPanel(
             {'protocol': 'SSH', 'host': 'example.test', 'user': 'operator'},
             controller_factory=RecordingController)
-        panel.consent.setChecked(True)
         panel.key_file.setText('synthetic-key-path')
+        panel.consent.setChecked(True)
         return panel
 
     def test_keepalive_off_by_default_and_forwarded(self):
@@ -60,6 +60,7 @@ class QtKeepaliveR86(unittest.TestCase):
         panel = self.make_panel()
         try:
             panel.keepalive_seconds.setText('30')
+            panel.consent.setChecked(True)  # R90: approve the edited configuration
             panel.start_tunnel()
             self.assertEqual(len(panel._controller.calls), 1)
             self.assertEqual(panel._controller.calls[0][1]['keepalive_seconds'], 30)
@@ -73,6 +74,7 @@ class QtKeepaliveR86(unittest.TestCase):
                 panel = self.make_panel()
                 try:
                     panel.keepalive_seconds.setText(invalid)
+                    panel.consent.setChecked(True)  # isolate validation from consent guard
                     panel.start_tunnel()
                     self.assertEqual(panel._controller.calls, [])
                     self.assertIn('Configuration refusée', panel.status.text())
