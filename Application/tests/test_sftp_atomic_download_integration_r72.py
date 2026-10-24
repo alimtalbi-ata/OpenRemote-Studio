@@ -74,6 +74,47 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             self.assertEqual(upload_exclusive(sftp,source,'./source.bin',chunk_size=4),7)
             self.assertEqual(bytes(sftp.remote.payload),b'1234567')
 
+    def test_upload_buffered_write_returning_none(self):
+        from transfer_safety import upload_exclusive
+        class Remote:
+            def __init__(self):self.data=bytearray()
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def write(self,data):
+                self.data.extend(data)
+                return None
+        class Sftp:
+            def __init__(self):self.remote=Remote()
+            def open(self,path,mode):return self.remote
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'buffered')
+            sftp=Sftp()
+            self.assertEqual(upload_exclusive(sftp,source,'./source.bin',chunk_size=3),8)
+            self.assertEqual(bytes(sftp.remote.data),b'buffered')
+
+    def test_upload_cancel_mid_write_cleans_remote(self):
+        from transfer_safety import upload_exclusive
+        class Remote:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def write(self,data):return 1
+        class Sftp:
+            def __init__(self):self.removed=[]
+            def open(self,path,mode):return Remote()
+            def remove(self,path):self.removed.append(path)
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'abcd')
+            progress=[]
+            sftp=Sftp()
+            with self.assertRaises(InterruptedError):
+                upload_exclusive(sftp,source,'./source.bin',
+                                 callback=lambda done,total:progress.append(done),
+                                 cancelled=lambda:bool(progress))
+            self.assertEqual(progress,[1])
+            self.assertEqual(sftp.removed,['./source.bin'])
+
     def test_upload_zero_write_fails_and_cleans_remote(self):
         from transfer_safety import upload_exclusive
         class Remote:
