@@ -87,9 +87,22 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
                         raise InterruptedError('Upload cancelled')
                     data=local.read(chunk_size)
                     if not data:break
-                    remote.write(data)
-                    written+=len(data)
-                    if callback:callback(written,total)
+                    # SFTP file objects may report a short write; never count
+                    # bytes that were not actually accepted by the transport.
+                    offset=0
+                    while offset<len(data):
+                        count=remote.write(data[offset:])
+                        if count is None:
+                            # Paramiko SFTPFile.write follows the buffered file
+                            # API and may return None for a successful write.
+                            count=len(data)-offset
+                        if type(count) is not int or count<=0 or count>len(data)-offset:
+                            raise OSError('Écriture SFTP incomplète ou invalide')
+                        offset+=count
+                        written+=count
+                        if callback:callback(written,total)
+                        if cancelled is not None and cancelled():
+                            raise InterruptedError('Upload cancelled')
                     if cancelled is not None and cancelled():
                         raise InterruptedError('Upload cancelled')
         return written
