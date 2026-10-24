@@ -24,13 +24,23 @@ def download_atomic(sftp,remote_path,local_path,callback=None,cancelled=None):
                 raise InterruptedError("Téléchargement annulé pendant le transfert")
             if callback is not None:
                 callback(done, total)
+        initial_stat=sftp.stat(remote_path)
+        expected_size=initial_stat.st_size
+        if type(expected_size) is not int or expected_size < 0:
+            raise ValueError('Taille distante invalide')
         sftp.get(remote_path,tmp,callback=checked_progress)
         # A successful transport return is not proof of a complete download.
-        # Compare the resulting size with the server's advertised file size.
-        expected_size=sftp.stat(remote_path).st_size
+        # Detect changes to remote metadata while the transfer was running.
+        final_stat=sftp.stat(remote_path)
         actual_size=os.stat(tmp).st_size
-        if type(expected_size) is not int or expected_size < 0 or actual_size != expected_size:
-            raise OSError('Téléchargement incomplet : taille distante différente')
+        if (type(final_stat.st_size) is not int or
+                final_stat.st_size != expected_size or actual_size != expected_size):
+            raise OSError('Téléchargement incomplet ou fichier distant modifié')
+        for field in ('st_mtime','st_mode'):
+            before=getattr(initial_stat,field,None)
+            after=getattr(final_stat,field,None)
+            if before is not None and after is not None and before != after:
+                raise OSError('Métadonnées distantes modifiées pendant le téléchargement')
         # Ensure data reaches the local filesystem before publishing the file.
         with open(tmp,'rb') as completed:
             os.fsync(completed.fileno())
