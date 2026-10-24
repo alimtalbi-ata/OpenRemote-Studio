@@ -21,6 +21,16 @@ sections = [
     ("Known limits", "Real-world multi-host SSH/SFTP/RDP/VNC acceptance tests, signed binaries and real UI screenshots are not evidenced by this document. No fictional screenshots are included."),
     ("Next versions", "V31.6: interrupted SFTP transfer integrity. V31.7: GUI interaction and accessibility. V31.8: structured security audit. V31.9: Windows end-to-end qualification."),
 ]
+# Version-specific addendum, sourced from the tracked R96 design note.
+# This is architecture documentation, NOT an assertion that live WinRM passed.
+if (dest / "V31.8-R96-WINRM-SERVICES-QT.md").is_file():
+    sections.extend([
+        ("R96 - Windows services read-only", "Outils > Services Windows WinRM: a separate Qt tab displays name, display label, state and startup mode. Up to 128 entries are shown. A text filter works locally and never performs a new WinRM POST."),
+        ("R96 - consent and lifecycle", "Offline by default. HTTPS certificate validation and explicit consent are mandatory. A transient masked password or injected runtime provider is used; the UI does not persist or export secrets. A generation gate rejects stale results after consent or endpoint changes, and prevents concurrent POST while a previous call drains."),
+        ("R96 - quality cases", "Eight Qt tests with synthetic WinRM clients cover offline safety, local filtering, truncation, stale cancellation, redacted exceptions, malformed data, empty display names and unsupported operations. Seven backend R95 tests cover the fixed CIM query and bounded normalization. CI results must be checked against the exact commit."),
+        ("R96 - unverified boundaries", "No real Windows Server WinRM HTTPS acceptance test, physical Windows operator walkthrough, vault reference integration, R96 panel screenshot, or pywinrm runtime bundling is asserted. The OpenSSH integration suite does not qualify WinRM. No simulated screenshot is presented as real."),
+        ("R96 - architecture", "Qt WinRMServicesPanel -> single QRunnable with fixed operation 'services' -> WinRMServicesReadOnly -> pywinrm optional TLS-validated transport -> fixed Get-CimInstance Win32_Service -> validated JSON <=128 rows -> local QTreeWidget filter. No arbitrary PowerShell or remote writes."),
+    ])
 doc = Document()
 doc.add_heading("OpenRemote Studio V" + version, 0)
 doc.add_paragraph("Windows release quality dossier | Abdelhalim Talbi")
