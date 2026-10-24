@@ -3,7 +3,7 @@ on:
   push:
     branches: [develop/v31.8-windows-ci]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation]
   workflow_dispatch:
 permissions:
   contents: read
@@ -36,6 +36,12 @@ jobs:
           exit 1
       - name: Install Paramiko
         run: python -m pip install 'paramiko>=3.4,<5'
+      - name: R77 live SSH host-key pinning and fail-closed negatives
+        env:
+          PYTHONPATH: Application
+          SFTP_TEST_HOST: 127.0.0.1
+          SFTP_TEST_PORT: '2222'
+        run: python Application/tests/live_ssh_hostkey_r77.py
       - name: Execute live SFTP transfer scenarios
         env:
           PYTHONPATH: Application

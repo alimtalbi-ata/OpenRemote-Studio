@@ -3,7 +3,7 @@ on:
   push:
     branches: [develop/v31.8-windows-ci]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation]
   workflow_dispatch:
 
 permissions:
@@ -48,6 +48,8 @@ jobs:
           python -m unittest discover -s Application/tests -p 'test_atomic_download_v318.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_resume_lock_ownership_r71.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s Application/tests -p 'test_ssh_identity_r77.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_tunnel_lifecycle_r72.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

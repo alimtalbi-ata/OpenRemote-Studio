@@ -3,16 +3,20 @@ import os
 import hashlib
 import tempfile
 from pathlib import Path
-import paramiko
+from ssh_transport import SSHSettings, create_ssh_client
+from live_ssh_hostkey_r77 import fixture_known_hosts
 from transfer_safety import download_atomic, download_resume_verified, upload_exclusive
 
 host = os.environ.get('SFTP_TEST_HOST', '127.0.0.1')
 port = int(os.environ.get('SFTP_TEST_PORT', '2222'))
-client = paramiko.SSHClient()
-client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # Ephemeral CI fixture only; never production.
+fixture_dir = tempfile.TemporaryDirectory(prefix='ors-live-sftp-')
+client = None
 try:
-    client.connect(host, port=port, username='tester', password='testpassword', timeout=10,
-                   auth_timeout=10, banner_timeout=10)
+    # Bootstrap the disposable loopback CI host only, then exercise the same
+    # RejectPolicy/known_hosts transport used by the actual application.
+    known_hosts = fixture_known_hosts(host, port, Path(fixture_dir.name) / 'known_hosts')
+    client = create_ssh_client(SSHSettings(host, 'tester', port=port, timeout=10,
+                                          known_hosts=str(known_hosts)), password='testpassword')
     with client.open_sftp() as sftp, tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
         source = root / 'source.bin'
@@ -65,4 +69,6 @@ try:
         sftp.remove(remote)
         print('LIVE_SFTP_PASS: upload exclusive, atomic download, verified resume, overwrite rejection, R71 lock ownership')
 finally:
-    client.close()
+    if client is not None:
+        client.close()
+    fixture_dir.cleanup()
