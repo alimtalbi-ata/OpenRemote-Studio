@@ -205,6 +205,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R96 services Qt contract failed" }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/winrm_inventory_qt.py Application/qt_app.py Application/tests/test_winrm_services_qt_r96.py
           if ($LASTEXITCODE -ne 0) { throw "R96 WinRM Qt source compile failed" }
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_winrm_services_qt_r96.py
+          if ($LASTEXITCODE -ne 0) { throw "R96 services Qt offline screenshot failed" }
+          if (!(Test-Path 'Binary/Qualification/qt-winrm-services-r96-offline.png')) { throw "Missing R96 Qt screenshot" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
