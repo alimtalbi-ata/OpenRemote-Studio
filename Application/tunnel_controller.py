@@ -5,6 +5,7 @@ Author: Abdelhalim Talbi.
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, Lock, Thread
+from time import monotonic
 import unicodedata
 
 from network_resource_scope import NetworkResourceScope
@@ -71,14 +72,20 @@ class TunnelController:
         self._worker = None
         self._watchdog = None
         self._watchdog_stop = Event()
+        self._probe_interval_seconds = 0
+        self._probe_timeout_seconds = 5
 
     def start(self, settings, *, key_filename, local_port, target_host, target_port,
-              keepalive_seconds=0):
+              keepalive_seconds=0, probe_interval_seconds=0, probe_timeout_seconds=5):
         if not isinstance(settings, SSHSettings):
             raise ValueError('SSH settings required')
         settings.validate()
         if type(keepalive_seconds) is not int or not 0 <= keepalive_seconds <= 300:
             raise ValueError('invalid SSH keepalive interval')
+        if type(probe_interval_seconds) is not int or not 0 <= probe_interval_seconds <= 300:
+            raise ValueError('invalid SSH probe interval')
+        if type(probe_timeout_seconds) is not int or not 1 <= probe_timeout_seconds <= 30:
+            raise ValueError('invalid SSH probe timeout')
         _port(local_port)
         _port(target_port)
         _target(target_host)
@@ -88,6 +95,8 @@ class TunnelController:
             if self._state != 'idle':
                 raise RuntimeError('tunnel controller already used')
             self._state = 'connecting'
+            self._probe_interval_seconds = probe_interval_seconds
+            self._probe_timeout_seconds = probe_timeout_seconds
             self._startup_done.clear()
 
         def run():
@@ -144,8 +153,17 @@ class TunnelController:
         self._worker = Thread(target=run, name='ssh-tunnel-startup', daemon=True)
         self._worker.start()
 
+    def _disconnect(self):
+        """Revoke exactly once; no network operation or secret-bearing status."""
+        with self._lock:
+            if self._state != 'active' or self._scope.cancelled:
+                return
+            self._state = 'disconnected'
+        self._watchdog_stop.set()
+        self._scope.close()
+
     def _check_link_health(self):
-        """Fail closed on SSH loss without a Qt event-loop dependency."""
+        """Fail closed on local SSH transport loss without Qt polling."""
         with self._lock:
             if self._state != 'active' or self._scope.cancelled:
                 return
@@ -155,23 +173,69 @@ class TunnelController:
             alive = transport is not None and transport.is_active()
         except Exception:
             alive = False
-        if alive:
-            return
-        with self._lock:
-            if self._state != 'active' or self._scope.cancelled:
-                return
-            self._state = 'disconnected'
-        self._watchdog_stop.set()
-        self._scope.close()
+        if not alive:
+            self._disconnect()
 
     def _watch_link(self):
-        # Event.wait() makes shutdown immediate without a busy loop or GUI I/O.
-        # Paramiko transport.is_active() is a local state check, not a probe.
+        """Watch local transport and optionally require bounded SSH replies.
+
+        Paramiko keepalive sends packets but does not demand replies. When the
+        operator opts in, an SSH global request requires a server response.
+        OpenSSH can reject the unknown request: the rejection *is* a response.
+        The request runs on at most one daemon worker because a blackholed
+        transport may block indefinitely; the watchdog never waits on it.
+        """
+        interval = self._probe_interval_seconds
+        timeout = self._probe_timeout_seconds
+        next_probe = monotonic() + interval if interval else None
+        probe_done = None
+        probe_result = None
+        deadline = None
         while not self._watchdog_stop.wait(0.2):
             self._check_link_health()
             with self._lock:
                 if self._state != 'active':
                     return
+                client = self._client
+            if not interval:
+                continue
+            now = monotonic()
+            if probe_done is not None:
+                if probe_done.is_set():
+                    if not probe_result[0]:
+                        self._disconnect()
+                        return
+                    probe_done = None
+                    probe_result = None
+                    next_probe = now + interval
+                elif now >= deadline:
+                    self._disconnect()
+                    return
+            elif now >= next_probe:
+                probe_done = Event()
+                probe_result = [False]
+                try:
+                    transport = client.get_transport()
+                    if transport is None or not transport.is_active():
+                        self._disconnect()
+                        return
+                except Exception:
+                    self._disconnect()
+                    return
+
+                def request_reply(transport=transport, done=probe_done, result=probe_result):
+                    try:
+                        # None is the expected SSH_MSG_REQUEST_FAILURE from OpenSSH.
+                        # It still proves that a reply arrived if transport is alive.
+                        transport.global_request('keepalive@openssh.com', wait=True)
+                        result[0] = bool(transport.is_active())
+                    except Exception:
+                        result[0] = False
+                    finally:
+                        done.set()
+
+                Thread(target=request_reply, name='ssh-tunnel-probe', daemon=True).start()
+                deadline = monotonic() + timeout
 
     def stop(self):
         """Request revocation without waiting for network or listener I/O."""
