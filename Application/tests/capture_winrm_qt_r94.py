@@ -9,8 +9,10 @@ from pathlib import Path
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from PySide6.QtWidgets import QApplication
 from winrm_inventory_qt import WinRMInventoryPanel
+from qt_font_render_gate import configure_readable_offscreen_font
 
 app = QApplication.instance() or QApplication([])
+font_family = configure_readable_offscreen_font(app)
 panel = WinRMInventoryPanel()
 panel.resize(900, 560)
 panel.show()
@@ -25,4 +27,5 @@ if not panel.grab().save(str(destination), 'PNG'):
 if not destination.read_bytes().startswith(b'\x89PNG\r\n\x1a\n'):
     raise SystemExit('R94_QT_CAPTURE_INVALID')
 panel.close()
-print('R94_QT_OFFLINE_CAPTURE_PASS', destination.as_posix(), destination.stat().st_size)
+print('R94_QT_OFFLINE_CAPTURE_PASS', destination.as_posix(), destination.stat().st_size,
+      'font=' + font_family)
