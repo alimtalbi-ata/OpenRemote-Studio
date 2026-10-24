@@ -87,6 +87,7 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
                 raise ValueError('Source locale non régulière')
             if opened.st_size != total:
                 raise OSError('Source locale modifiée avant transfert')
+            initial_mtime_ns=getattr(opened,'st_mtime_ns',None)
             with sftp.open(remote_path,'wbx') as remote:
                 created=True
                 while True:
@@ -115,6 +116,12 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
         # A local file can be truncated while being read. Never report an
         # upload as complete unless the original expected size was sent.
         if written != total:
+            raise OSError('Source locale modifiée pendant le transfert')
+        final=os.stat(source, follow_symlinks=False)
+        if (not stat.S_ISREG(final.st_mode) or
+                final.st_size != total or
+                (initial_mtime_ns is not None and
+                 getattr(final,'st_mtime_ns',None) != initial_mtime_ns)):
             raise OSError('Source locale modifiée pendant le transfert')
         return written
     except Exception:
