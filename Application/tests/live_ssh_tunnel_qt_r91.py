@@ -63,7 +63,9 @@ def run():
 
             panel.start_tunnel()  # no new network operation without fresh approval
             assert 'autorisation' in panel.status.text(), 'missing fail-closed status'
-            assert panel.retry_button.isEnabled(), 'manual retry unavailable'
+            # Controller drainage can finish before Qt's next 100 ms UI refresh.
+            # Verify eventual operator readiness rather than racing the event loop.
+            assert until(app, lambda: panel.retry_button.isEnabled()), 'manual retry unavailable after cleanup'
             click(panel.retry_button)
             assert not panel.consent.isChecked(), 'retry silently restored consent'
             click(panel.start_button)
