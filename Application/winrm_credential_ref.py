@@ -8,7 +8,7 @@ import re
 
 from winrm_readonly import WinRMError
 
-_TARGET = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/@:-]{0,127}\\Z", re.ASCII)
+_TARGET = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/@:-]{0,127}\Z", re.ASCII)
 
 
 def validate_winrm_credential_ref(reference):
