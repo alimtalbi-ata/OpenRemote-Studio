@@ -19,6 +19,12 @@ class SftpNavigationTests(unittest.TestCase):
         self.assertEqual(remote_navigate('/srv/data', '../'), '/srv')
         self.assertEqual(remote_navigate('/', '../'), '/')
 
+    def test_parent_navigation_rejects_unsafe_source_path(self):
+        for directory in ('/srv/../private', '/srv//private', '/srv/./private', 'foo/../bar', 'foo//bar'):
+            with self.subTest(directory=directory):
+                with self.assertRaises(ValueError):
+                    remote_navigate(directory, '../')
+
     def test_invalid_entries_rejected(self):
         for entry in ('../secret/', 'bad\\name/', 'bad\nname/', 'file.txt', './'):
             with self.subTest(entry=entry):
