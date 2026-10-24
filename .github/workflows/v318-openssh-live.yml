@@ -141,6 +141,13 @@ jobs:
           SFTP_TEST_HOST: 127.0.0.1
           SFTP_TEST_PORT: '2222'
         run: python Application/tests/live_ssh_tunnel_qt_r90.py
+      - name: R91 real OpenSSH Qt consent withdrawal, listener revocation and manual reapproval
+        env:
+          PYTHONPATH: Application:Application/tests
+          QT_QPA_PLATFORM: offscreen
+          SFTP_TEST_HOST: 127.0.0.1
+          SFTP_TEST_PORT: '2222'
+        run: python Application/tests/live_ssh_tunnel_qt_r91.py
       - name: R80 real host-key rotation fail-closed (disposable fixture only)
         env:
           PYTHONPATH: Application
