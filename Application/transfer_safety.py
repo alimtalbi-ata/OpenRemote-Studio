@@ -118,8 +118,14 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
         if written != total:
             raise OSError('Source locale modifiée pendant le transfert')
         final=os.stat(source, follow_symlinks=False)
+        # A same-sized replacement may preserve timestamps. Compare file
+        # identity when the platform exposes meaningful inode numbers.
+        initial_identity=(opened.st_dev,opened.st_ino)
+        final_identity=(final.st_dev,final.st_ino)
+        identity_changed=(opened.st_ino != 0 and final.st_ino != 0 and
+                          initial_identity != final_identity)
         if (not stat.S_ISREG(final.st_mode) or
-                final.st_size != total or
+                final.st_size != total or identity_changed or
                 (initial_mtime_ns is not None and
                  getattr(final,'st_mtime_ns',None) != initial_mtime_ns)):
             raise OSError('Source locale modifiée pendant le transfert')
