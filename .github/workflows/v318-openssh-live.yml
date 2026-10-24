@@ -1,9 +1,9 @@
 name: SFTP OpenSSH live integration
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown]
   workflow_dispatch:
 permissions:
   contents: read
@@ -77,6 +77,23 @@ jobs:
         env:
           PYTHONPATH: Application
         run: python -m unittest discover -s Application/tests -p 'test_tunnel_shutdown_r81.py' -v
+      - name: R82 generate ephemeral key and authorize disposable OpenSSH fixture
+        run: |
+          mkdir -p "$RUNNER_TEMP/ors-r82"
+          ssh-keygen -q -t ed25519 -N '' -f "$RUNNER_TEMP/ors-r82/key"
+          docker cp "$RUNNER_TEMP/ors-r82/key.pub" openremote-sftp:/tmp/ors-r82-key.pub
+          docker exec -u root openremote-sftp sh -c 'mkdir -p /home/tester/.ssh && cat /tmp/ors-r82-key.pub >> /home/tester/.ssh/authorized_keys && chown -R tester:users /home/tester/.ssh && chmod 700 /home/tester/.ssh && chmod 600 /home/tester/.ssh/authorized_keys'
+          echo "R82_SSH_KEY_PATH=$RUNNER_TEMP/ors-r82/key" >> "$GITHUB_ENV"
+      - name: R82 real key-only Qt tunnel backend and wrong-pin refusal
+        env:
+          PYTHONPATH: Application:Application/tests
+          SFTP_TEST_HOST: 127.0.0.1
+          SFTP_TEST_PORT: '2222'
+        run: python Application/tests/live_ssh_tunnel_controller_r82.py
+      - name: R82 controller races and cancellation (real loopback sockets)
+        env:
+          PYTHONPATH: Application
+        run: python -m unittest discover -s Application/tests -p 'test_tunnel_controller_r82.py' -v
       - name: R80 real host-key rotation fail-closed (disposable fixture only)
         env:
           PYTHONPATH: Application
