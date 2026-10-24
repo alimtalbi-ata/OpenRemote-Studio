@@ -2034,10 +2034,17 @@ class Main(QMainWindow):
             if not getattr(widget,'_sftp_close_pending',False):
                 widget._sftp_close_pending=True
                 self.statusBar().showMessage('Annulation SFTP en cours ; fermeture différée',8000)
+                widget._sftp_close_attempts=0
                 def close_after_sftp():
                     if self.tabs.indexOf(widget)<0:
                         return
                     if getattr(widget,'_active_sftp_jobs',None):
+                        widget._sftp_close_attempts+=1
+                        if widget._sftp_close_attempts>=200:
+                            widget._sftp_close_pending=False
+                            self.statusBar().showMessage('Arrêt SFTP non confirmé après 30 s ; onglet conservé',10000)
+                            QMessageBox.warning(self,'SFTP','Le transfert ne s’est pas arrêté après 30 secondes. Onglet conservé pour éviter de détruire une interface encore utilisée.')
+                            return
                         QTimer.singleShot(150,close_after_sftp)
                         return
                     widget._sftp_close_pending=False
