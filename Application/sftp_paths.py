@@ -10,14 +10,17 @@ def remote_child(directory, filename):
         raise ValueError('Nom de fichier non sûr')
     if not isinstance(directory,str) or not directory:
         raise ValueError('Chemin distant requis')
-    # Relative "." is the SFTP account's initial working directory. Keep
-    # relative paths relative; reject traversal and ambiguous components.
-    if not directory.startswith('/'):
-        parts=directory.split('/')
-        if any(part in ('', '..') for part in parts) or directory.startswith('-'):
-            raise ValueError('Chemin distant relatif non sûr')
-        if any('\\' in part or any(ord(ch)<32 or ord(ch)==127 for ch in part) for part in parts):
-            raise ValueError('Chemin distant relatif non sûr')
+    # Relative "." is the SFTP account's initial working directory. Reject
+    # traversal, control characters and ambiguous components for both forms.
+    parts=directory.split('/')
+    if directory.startswith('/'):
+        parts=parts[1:]
+        if directory != '/' and any(part in ('', '.', '..') for part in parts):
+            raise ValueError('Chemin distant absolu non sûr')
+    elif any(part in ('', '..') for part in parts) or directory.startswith('-'):
+        raise ValueError('Chemin distant relatif non sûr')
+    if any('\\' in part or any(ord(ch)<32 or ord(ch)==127 for ch in part) for part in parts):
+        raise ValueError('Chemin distant non sûr')
     return posixpath.join(posixpath.normpath(directory),filename)
 
 def local_entries(directory):
