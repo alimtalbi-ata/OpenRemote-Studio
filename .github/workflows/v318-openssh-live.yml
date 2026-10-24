@@ -36,7 +36,7 @@ jobs:
           exit 1
       - name: Install Paramiko
         run: python -m pip install 'paramiko>=3.4,<5'
-      - name: R78 enable TCP forwarding on disposable CI fixture only
+      - name: R78 allow TCP forwarding in disposable OpenSSH fixture
         run: |
           docker exec -u root openremote-sftp sh -c "sed -i -E 's/^[[:space:]]*AllowTcpForwarding[[:space:]]+no/AllowTcpForwarding yes/' /etc/ssh/sshd_config; sed -i -E 's/^[[:space:]]*DisableForwarding[[:space:]]+yes/DisableForwarding no/' /etc/ssh/sshd_config; /usr/sbin/sshd -t"
           docker restart openremote-sftp
@@ -44,7 +44,8 @@ jobs:
             if bash -c 'echo > /dev/tcp/127.0.0.1/2222' 2>/dev/null; then break; fi
             sleep 1
           done
-          docker exec -u root openremote-sftp /usr/sbin/sshd -T -C user=tester,host=localhost,addr=127.0.0.1 | grep -Eq '^allowtcpforwarding (yes|local)
+          docker exec -u root openremote-sftp /usr/sbin/sshd -T -C user=tester,host=localhost,addr=127.0.0.1 | grep -Eq '^allowtcpforwarding (yes|local)$'
+      - name: R77 live SSH host-key pinning and fail-closed negatives
         env:
           PYTHONPATH: Application
           SFTP_TEST_HOST: 127.0.0.1
@@ -56,22 +57,6 @@ jobs:
           SFTP_TEST_HOST: 127.0.0.1
           SFTP_TEST_PORT: '2222'
         run: python Application/tests/live_ssh_tunnel_r78.py
-      - name: Execute live SFTP transfer scenarios
-        env:
-          PYTHONPATH: Application
-          SFTP_TEST_HOST: 127.0.0.1
-          SFTP_TEST_PORT: '2222'
-        run: python Application/tests/live_sftp_openssh_v318.py
-      - name: Show OpenSSH server logs on failure
-        if: failure()
-        run: docker logs openremote-sftp || true
-
-      - name: R77 live SSH host-key pinning and fail-closed negatives
-        env:
-          PYTHONPATH: Application
-          SFTP_TEST_HOST: 127.0.0.1
-          SFTP_TEST_PORT: '2222'
-        run: python Application/tests/live_ssh_hostkey_r77.py
       - name: Execute live SFTP transfer scenarios
         env:
           PYTHONPATH: Application
