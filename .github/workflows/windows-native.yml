@@ -190,6 +190,9 @@ jobs:
           $env:QT_QPA_PLATFORM = 'offscreen'
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_inventory_qt_r94.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R94 WinRM Qt contract failed" }
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_winrm_qt_r94.py
+          if ($LASTEXITCODE -ne 0) { throw "R94 offline WinRM Qt capture failed" }
+          if (!(Test-Path 'Binary/Qualification/qt-winrm-r94-offline.png')) { throw "Missing R94 Qt capture" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
