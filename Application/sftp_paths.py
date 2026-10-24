@@ -38,8 +38,10 @@ def remote_navigate(directory, entry):
     name=entry[:-1]
     if name != '..':
         return remote_child(directory,name)
-    if any(ord(ch)<32 or ord(ch)==127 for ch in directory) or '\\' in directory:
-        raise ValueError('Chemin distant non sûr')
+    # Validate the raw path before normalization; normpath would otherwise
+    # silently erase unsafe components such as /srv/../private.
+    if directory != '/':
+        remote_child(directory, '__navigation_validation__')
     normalized=posixpath.normpath(directory)
     if normalized == '.':
         return '.'
