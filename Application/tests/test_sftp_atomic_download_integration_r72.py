@@ -74,6 +74,35 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             self.assertEqual(upload_exclusive(sftp,source,'./source.bin',chunk_size=4),7)
             self.assertEqual(bytes(sftp.remote.payload),b'1234567')
 
+    def test_upload_replaced_source_same_size_and_mtime_rejected(self):
+        from transfer_safety import upload_exclusive
+        import os
+        class Remote:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def write(self,data):return len(data)
+        class Sftp:
+            def __init__(self):self.removed=[]
+            def open(self,path,mode):return Remote()
+            def remove(self,path):self.removed.append(path)
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'12345678')
+            original=source.stat()
+            if original.st_ino == 0:
+                self.skipTest('File identity unavailable')
+            sftp=Sftp()
+            def replace_source(done,total):
+                if done==4:
+                    replacement=Path(directory)/'replacement.bin'
+                    replacement.write_bytes(b'abcdefgh')
+                    os.utime(replacement,ns=(original.st_atime_ns,original.st_mtime_ns))
+                    os.replace(replacement,source)
+            with self.assertRaises(OSError):
+                upload_exclusive(sftp,source,'./source.bin',chunk_size=4,
+                                 callback=replace_source)
+            self.assertEqual(sftp.removed,['./source.bin'])
+
     def test_upload_same_size_source_mutation_rejected(self):
         from transfer_safety import upload_exclusive
         import os
