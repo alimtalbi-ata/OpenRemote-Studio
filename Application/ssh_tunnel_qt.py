@@ -26,6 +26,9 @@ class SSHTunnelPanel(QWidget):
         self.user = QLineEdit(str(profile.get('user') or ''))
         self.ssh_port = QLineEdit(str(profile.get('port') or 22))
         self.local_port = QLineEdit('8080')
+        self.keepalive_seconds = QLineEdit('0')
+        self.keepalive_seconds.setObjectName('sshKeepaliveSeconds')
+        self.keepalive_seconds.setPlaceholderText('0 = désactivé ; 15–60 s conseillé sur réseau instable')
         self.target_host = QLineEdit('127.0.0.1')
         self.target_port = QLineEdit('80')
         self.key_file = QLineEdit()
@@ -33,7 +36,8 @@ class SSHTunnelPanel(QWidget):
         self.known_hosts = QLineEdit()
         self.known_hosts.setPlaceholderText('Facultatif : known_hosts explicite')
         for label, widget in [('Hôte SSH',self.host), ('Utilisateur SSH',self.user),
-            ('Port SSH',self.ssh_port), ('Port local (127.0.0.1)',self.local_port),
+            ('Port SSH',self.ssh_port), ('Keepalive SSH (secondes, 0–300)',self.keepalive_seconds),
+            ('Port local (127.0.0.1)',self.local_port),
             ('Destination vue du serveur SSH',self.target_host),
             ('Port distant',self.target_port), ('Clé privée',self.key_file),
             ('Fichier known_hosts',self.known_hosts)]:
@@ -77,11 +81,12 @@ class SSHTunnelPanel(QWidget):
             self._controller.start(settings, key_filename=self.key_file.text(),
                                    local_port=int(self.local_port.text()),
                                    target_host=self.target_host.text(),
-                                   target_port=int(self.target_port.text()))
+                                   target_port=int(self.target_port.text()),
+                                   keepalive_seconds=int(self.keepalive_seconds.text()))
         except (ValueError, RuntimeError):
             self.status.setText('Configuration refusée : vérifier les paramètres SSH et les ports')
             return
-        for field in (self.host,self.user,self.ssh_port,self.local_port,
+        for field in (self.host,self.user,self.ssh_port,self.keepalive_seconds,self.local_port,
                       self.target_host,self.target_port,self.key_file,self.known_hosts):
             field.setReadOnly(True)
         self.consent.setEnabled(False)
