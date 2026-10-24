@@ -1,9 +1,9 @@
 name: V31.8 cumulative verification
 on:
   push:
-    branches: [develop/v31.8-windows-ci]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r87-manual-ssh-retry]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry]
   workflow_dispatch:
 
 permissions:
