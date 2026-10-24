@@ -208,6 +208,16 @@ jobs:
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_winrm_services_qt_r96.py
           if ($LASTEXITCODE -ne 0) { throw "R96 services Qt offline screenshot failed" }
           if (!(Test-Path 'Binary/Qualification/qt-winrm-services-r96-offline.png')) { throw "Missing R96 Qt screenshot" }
+      - name: R98 WinRM service drift and Qt consent regressions
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_service_drift_r98.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R98 drift pure tests failed" }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_service_drift_qt_r98.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R98 drift Qt tests failed" }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/winrm_service_drift.py Application/winrm_inventory_qt.py
+          if ($LASTEXITCODE -ne 0) { throw "R98 source compilation failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
