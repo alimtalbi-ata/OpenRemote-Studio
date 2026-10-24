@@ -5,9 +5,10 @@ Author: Abdelhalim Talbi. No background polling, no writes, no token display.
 import os
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-                               QPushButton, QCheckBox, QTreeWidget, QTreeWidgetItem)
+                               QPushButton, QCheckBox, QComboBox, QTreeWidget, QTreeWidgetItem)
 from netbox_readonly import NetBoxError, NetBoxReadOnly
 from netbox_preview import NetBoxPreviewError, compare_inventory
+from netbox_preview_filter import NetBoxFilterError, filter_preview
 
 
 class _Signals(QObject):
@@ -45,6 +46,7 @@ class NetBoxPreviewPanel(QWidget):
                              for item in connections if isinstance(item, dict)]
         self._client_factory = client_factory
         self._pending = None
+        self._preview = None
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel('NetBox IPAM/DCIM — prévisualisation sans modification des connexions'))
         form = QHBoxLayout(); layout.addLayout(form)
@@ -63,6 +65,22 @@ class NetBoxPreviewPanel(QWidget):
         self.status.setObjectName('netboxPreviewStatus')
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+        filters = QHBoxLayout()
+        layout.addLayout(filters)
+        self.status_filter = QComboBox()
+        self.status_filter.setObjectName('netboxStatusFilter')
+        for label, code in (('Tous les états', 'all'), ('Correspondants', 'matched'),
+                            ('Absents localement', 'missing_local'), ('Ambigus', 'ambiguous'),
+                            ('Locaux seuls', 'local_only')):
+            self.status_filter.addItem(label, code)
+        filters.addWidget(self.status_filter)
+        self.search_filter = QLineEdit()
+        self.search_filter.setObjectName('netboxSearchFilter')
+        self.search_filter.setMaxLength(120)
+        self.search_filter.setPlaceholderText('Rechercher un équipement ou hôte local (filtre local)')
+        filters.addWidget(self.search_filter)
+        self.status_filter.currentIndexChanged.connect(lambda *_: self._apply_filter())
+        self.search_filter.textChanged.connect(lambda *_: self._apply_filter())
         self.table = QTreeWidget()
         self.table.setObjectName('netboxPreviewRows')
         self.table.setHeaderLabels(['État', 'Équipement NetBox', 'Hôte local'])
@@ -74,6 +92,7 @@ class NetBoxPreviewPanel(QWidget):
         if self._pending is not None:
             return
         self.table.clear()
+        self._preview = None
         if not self.online.isChecked():
             self._render(compare_inventory({'state': 'offline'}, self._connections))
             return
@@ -88,14 +107,33 @@ class NetBoxPreviewPanel(QWidget):
         self._pending = None
         self.refresh_button.setEnabled(True)
         self.table.clear()
+        self._preview = None
         if result['state'] == 'offline':
             self.status.setText('Hors ligne — aucune requête envoyée.')
         elif result['state'] == 'error':
             self.status.setText('Échec explicite : ' + result['code'])
         else:
-            counts = result['counts']
-            self.status.setText('Lecture seule · correspondances : {matched} · absents localement : '
-                                '{missing_local} · ambigus : {ambiguous} · locaux seuls : {local_only}'.format(**counts))
-            for row in result['rows']:
-                QTreeWidgetItem(self.table, [row['status'], row['device'], row['local_host']])
-            self.table.resizeColumnToContents(0)
+            self._preview = result
+            self._apply_filter()
+
+    def _apply_filter(self):
+        # Filtering a cached snapshot never performs another HTTPS GET.
+        if self._preview is None:
+            return
+        try:
+            filtered = filter_preview(self._preview,
+                                      status=self.status_filter.currentData(),
+                                      search=self.search_filter.text())
+        except NetBoxFilterError as exc:
+            self.table.clear()
+            self.status.setText('Filtre refusé : ' + str(exc))
+            return
+        self.table.clear()
+        for row in filtered['rows']:
+            QTreeWidgetItem(self.table, [row['status'], row['device'], row['local_host']])
+        counts = self._preview['counts']
+        self.status.setText(
+            'Lecture seule · correspondances : {matched} · absents localement : '
+            '{missing_local} · ambigus : {ambiguous} · locaux seuls : {local_only}'.format(**counts)
+            + ' · visibles : {}/{}'.format(filtered['visible'], filtered['total']))
+        self.table.resizeColumnToContents(0)
