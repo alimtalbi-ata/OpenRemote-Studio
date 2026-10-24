@@ -26,7 +26,7 @@ destination = Path('Binary/Qualification/qt-winrm-services-r96-offline.png')
 destination.parent.mkdir(parents=True, exist_ok=True)
 if not panel.grab().save(str(destination), 'PNG'):
     raise SystemExit('R96_QT_CAPTURE_FAILED')
-if not destination.read_bytes().startswith(b'\\x89PNG\\r\\n\\x1a\\n'):
+if not destination.read_bytes().startswith(bytes((137, 80, 78, 71, 13, 10, 26, 10))):
     raise SystemExit('R96_QT_CAPTURE_INVALID')
 panel.close()
 print('R96_QT_OFFLINE_CAPTURE_PASS', destination.as_posix(),
