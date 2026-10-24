@@ -228,6 +228,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R99 WinCred Qt tests failed" }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/winrm_credential_ref.py Application/winrm_inventory_qt.py
           if ($LASTEXITCODE -ne 0) { throw "R99 WinCred compilation failed" }
+      - name: R100 native WinCred session-only round trip and bounded secret checks
+        run: |
+          $env:PYTHONPATH = 'Application'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_windows_credentials_native_r100.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R100 native WinCred gate failed" }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_windows_credentials_v252.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "Legacy WinCred regression failed" }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/windows_credentials.py
+          if ($LASTEXITCODE -ne 0) { throw "R100 WinCred compilation failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()

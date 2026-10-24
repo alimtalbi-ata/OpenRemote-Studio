@@ -9,6 +9,8 @@ from ctypes import wintypes
 from ssh_security import CredentialUnavailable
 
 CRED_TYPE_GENERIC = 1
+# Win32 CRED_MAX_CREDENTIAL_BLOB_SIZE: reject corrupt lengths before copying.
+_MAX_CREDENTIAL_BLOB_BYTES = 2560
 
 class _CREDENTIALW(ctypes.Structure):
     _fields_ = [('Flags', wintypes.DWORD), ('Type', wintypes.DWORD),
@@ -46,11 +48,12 @@ def read_generic_password(target: str, *, api=None) -> str:
     try:
         credential = credptr.contents
         size = credential.CredentialBlobSize
-        if not size or size % 2 or not credential.CredentialBlob:
+        if (credential.Type != CRED_TYPE_GENERIC or not 0 < size <= _MAX_CREDENTIAL_BLOB_BYTES
+                or size % 2 or not credential.CredentialBlob):
             raise CredentialUnavailable('invalid Windows credential secret')
         secret = ctypes.string_at(credential.CredentialBlob, size).decode('utf-16-le')
-        if not secret:
-            raise CredentialUnavailable('empty Windows credential secret')
+        if not secret or '\x00' in secret:
+            raise CredentialUnavailable('invalid Windows credential secret')
         return secret
     except UnicodeDecodeError as exc:
         raise CredentialUnavailable('credential secret is not UTF-16LE') from exc

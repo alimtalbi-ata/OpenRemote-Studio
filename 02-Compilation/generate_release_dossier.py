@@ -39,6 +39,13 @@ if (dest / "V31.8-R99-WINRM-WINCRED-REFERENCE.md").is_file():
         ("R99 - verification", "Six pure contract tests and five Qt synthetic transport tests are included. The Windows CI must run them at the exact source SHA. Local POSIX Qt tests may be skipped if PySide6 is absent."),
         ("R99 - unverified", "No real Windows Server WinRM HTTPS acceptance test, actual Windows Credential Manager integration test on a workstation, physical Windows operator test or screenshot of the R99 reference flow is asserted. pywinrm remains optional; Windows installer inclusion is not established by these tests."),
     ])
+# R100: distinguish real local WinCred QA from unverified remote WinRM.
+if (dest / "V31.8-R100-WINCRED-NATIVE-BOUNDARIES.md").is_file():
+    sections.extend([
+        ("R100 - WinCred memory boundary", "Generic Credential blobs are rejected if the native type is wrong, the byte length is zero, odd or greater than 2560, or decoded UTF-16 contains NUL. Native memory is freed on success and rejected blobs."),
+        ("R100 - real Windows CredMan test", "The Windows CI test writes a random session-only Generic Credential to the isolated runner account, reads it through the production wincred: resolver and deletes it in finally. No remote server is contacted. Results must be checked on the exact commit."),
+        ("R100 - limits", "Real Windows Credential Manager testing does NOT qualify WinRM HTTPS against Windows Server, TLS trust chains, NTLM/Kerberos in production, physical Windows UI operation or pywinrm bundling. No screenshots are invented."),
+    ])
 doc = Document()
 doc.add_heading("OpenRemote Studio V" + version, 0)
 doc.add_paragraph("Windows release quality dossier | Abdelhalim Talbi")
