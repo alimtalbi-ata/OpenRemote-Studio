@@ -15,6 +15,7 @@ class FakeAPI:
         if self.password is None: return 0
         data = self.password.encode('utf-16-le')
         self.blob = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
+        self.credential.Type = 1  # CRED_TYPE_GENERIC
         self.credential.CredentialBlobSize = len(data)
         self.credential.CredentialBlob = ctypes.cast(self.blob, ctypes.POINTER(ctypes.c_ubyte))
         p = ctypes.cast(out, ctypes.POINTER(ctypes.POINTER(_CREDENTIALW)))
