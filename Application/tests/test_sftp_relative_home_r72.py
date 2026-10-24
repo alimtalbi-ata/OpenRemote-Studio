@@ -22,6 +22,15 @@ class SftpRelativePathTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     remote_child(directory, 'report.txt')
 
+    def test_reject_absolute_traversal_and_ambiguous_paths(self):
+        for directory in ('/srv/../etc', '/srv//data', '/srv/./data', '/srv/data/', '/srv/\\\\data', '/srv/\x01data'):
+            with self.subTest(directory=directory):
+                with self.assertRaises(ValueError):
+                    remote_child(directory, 'report.txt')
+
+    def test_root_directory_is_allowed(self):
+        self.assertEqual(remote_child('/', 'report.txt'), '/report.txt')
+
     def test_reject_unsafe_filename(self):
         for filename in ('..', '../secret', 'a/b', 'a\\b', ''):
             with self.subTest(filename=filename):
