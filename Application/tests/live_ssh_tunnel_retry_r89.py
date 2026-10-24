@@ -5,6 +5,7 @@ Author: Abdelhalim Talbi.
 """
 import os
 import socket
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -65,8 +66,13 @@ def run():
             accepted.stop()
         assert wait_for(accepted.is_shutdown_complete), 'retry did not drain'
 
-        unauthorized = root / 'unauthorized_rsa_key'
-        paramiko.RSAKey.generate(2048).write_private_key_file(str(unauthorized))
+        # Paramiko tries Ed25519 last. A rejected Ed25519 key preserves the
+        # AuthenticationException instead of overwriting it with a parser
+        # SSHException from trying other key formats after a rejected RSA key.
+        unauthorized = root / 'unauthorized_ed25519_key'
+        subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '',
+                        '-f', str(unauthorized)], check=True,
+                       capture_output=True)
         denied = _start(host, port, unauthorized, trusted, free_port())
         assert wait_for(denied.is_shutdown_complete), 'auth failure timed out'
         denied_state = denied.poll()
