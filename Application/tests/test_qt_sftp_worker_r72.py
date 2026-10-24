@@ -42,6 +42,34 @@ class SftpWorkerTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QCoreApplication.instance() or QCoreApplication([])
 
+    def test_cancel_before_connection_does_not_open_socket(self):
+        attempts = []
+        def connect(_):
+            attempts.append(True)
+            raise AssertionError('Connection should not be attempted')
+        job = SftpJob(connect, {'id': 'test'}, 'list', '.', None)
+        success, errors = [], []
+        job.signals.finished.connect(success.append)
+        job.signals.failed.connect(errors.append)
+        job.cancel()
+        job.run()
+        self.assertFalse(attempts)
+        self.assertFalse(success)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('InterruptedError', errors[0])
+
+    def test_connection_failure_reports_error(self):
+        def connect(_):
+            raise OSError('Connection refused')
+        job = SftpJob(connect, {'id': 'test'}, 'list', '.', None)
+        success, errors = [], []
+        job.signals.finished.connect(success.append)
+        job.signals.failed.connect(errors.append)
+        job.run()
+        self.assertFalse(success)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('Connection refused', errors[0])
+
     def test_listing_returns_result(self):
         client = FakeClient(FakeSftp())
         job = SftpJob(lambda _: client, {'id': 'test'}, 'list', '.', None)
