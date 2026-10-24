@@ -94,9 +94,15 @@ class NetBoxReadOnly:
             raise NetBoxError('netbox_unsafe_pagination')
         return candidate, offset
 
-    def devices(self, *, online=False):
+    def devices(self, *, online=False, cancelled=None):
         if not online:
             return {'state': 'offline', 'devices': [], 'pages': 0, 'read_only': True}
+        if cancelled is not None and not callable(cancelled):
+            raise NetBoxError('netbox_invalid_cancellation')
+        def check_cancelled():
+            if cancelled is not None and cancelled():
+                raise NetBoxError('netbox_request_cancelled')
+        check_cancelled()
         if not isinstance(self._token, str) or not self._token or any(c in self._token for c in '\r\n\x00'):
             raise NetBoxError('netbox_token_required')
         url = self.endpoint + f'?limit={self.page_size}&offset=0'
@@ -104,6 +110,7 @@ class NetBoxReadOnly:
         results = []
         seen_ids = set()
         for page in range(1, self.max_pages + 1):
+            check_cancelled()
             request = Request(url, headers={'Authorization': 'Token ' + self._token,
                                             'Accept': 'application/json'}, method='GET')
             try:
@@ -115,6 +122,7 @@ class NetBoxReadOnly:
                 raise
             except (HTTPError, URLError, OSError, TimeoutError, ValueError):
                 raise NetBoxError('netbox_network_unavailable') from None
+            check_cancelled()
             if len(payload) > 2 * 1024 * 1024:
                 raise NetBoxError('netbox_response_too_large')
             try:
@@ -131,6 +139,7 @@ class NetBoxReadOnly:
                 results.append(device)
                 if len(results) > self.max_devices:
                     raise NetBoxError('netbox_device_limit')
+            check_cancelled()
             following = data.get('next')
             if following is None:
                 return {'state': 'ok', 'devices': results, 'pages': page, 'read_only': True}
