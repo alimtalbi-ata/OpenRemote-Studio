@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QLabel,
 
 from winrm_readonly import WinRMReadOnly, WinRMError
 from winrm_services_readonly import WinRMServicesReadOnly, _STATES, _MODES
+from winrm_service_totals import validated_display_total, ServiceTotalError
 
 
 class _Signals(QObject):
@@ -212,6 +213,8 @@ class WinRMInventoryPanel(QWidget):
                         or type(result.get('may_be_truncated')) is not bool
                         or not isinstance(items, list) or len(items) > 128):
                     raise ValueError('invalid services')
+                total_count = validated_display_total(
+                    result.get('total_count'), items, result['may_be_truncated'])
                 rows = []
                 seen = set()
                 for item in items:
@@ -225,13 +228,18 @@ class WinRMInventoryPanel(QWidget):
                         raise ValueError('invalid service fields')
                     seen.add(row[0].casefold())
                     rows.append(row)
-            except (KeyError, TypeError, ValueError):
+            except (KeyError, TypeError, ValueError, ServiceTotalError):
                 self.status.setText('Réponse WinRM invalide.')
                 return
             self._services = rows
             self._filter_services()
-            warning = ' — résultat potentiellement tronqué (128 max).' if result['may_be_truncated'] else '.'
-            self.status.setText('Services en lecture seule — ' + str(len(rows)) + ' reçus' + warning)
+            if total_count is None:
+                warning = ' — résultat potentiellement tronqué (128 max).' if result['may_be_truncated'] else '.'
+                self.status.setText('Services en lecture seule — ' + str(len(rows)) + ' reçus' + warning)
+            else:
+                warning = ' — résultat tronqué (128 max).' if result['may_be_truncated'] else '.'
+                self.status.setText('Services en lecture seule — ' + str(len(rows)) +
+                                    '/' + str(total_count) + ' reçus' + warning)
             return
         try:
             os_info = result['os']
