@@ -83,8 +83,13 @@ def run():
                'cp /tmp/ors-r80-new-hostkey /etc/ssh/ssh_host_ed25519_key; '
                'cp /tmp/ors-r80-new-hostkey.pub /etc/ssh/ssh_host_ed25519_key.pub; '
                'chmod 600 /etc/ssh/ssh_host_ed25519_key; /usr/sbin/sshd -t')
-        docker('restart', 'openremote-sftp')
+        # SIGHUP reloads sshd without re-running the atmoz/sftp entrypoint.
+        # A container restart regenerates host keys and invalidates the trusted
+        # fixture pin, so it must NOT be used for this rotation test.
+        docker('exec', '-u', 'root', 'openremote-sftp', 'kill', '-HUP', '1')
         wait_for_fixture(host, port)
+        if trusted_public_key('/etc/ssh/ssh_host_ed25519_key.pub').asbytes() != new_key.asbytes():
+            raise AssertionError('reloaded fixture does not expose the trusted new key')
 
         # Old pin MUST reject changed host key before any SFTP operation.
         try:
