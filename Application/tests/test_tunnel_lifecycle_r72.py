@@ -13,7 +13,7 @@ class EchoTransport:
     def is_active(self):
         return True
 
-    def open_channel(self, kind, destination, origin):
+    def open_channel(self, kind, destination, origin, timeout=None):
         assert kind == 'direct-tcpip'
         self.opened += 1
         local, peer = socket.socketpair()
