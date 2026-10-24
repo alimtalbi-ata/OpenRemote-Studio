@@ -41,6 +41,8 @@ def run():
             assert wait_for(lambda: controller.poll().phase == 'disconnected'), 'disconnect not detected/drained'
             assert controller.is_shutdown_complete()
         with socket.socket() as probe:
+            # Match the listener's SO_REUSEADDR: accepted TCP peers may leave TIME_WAIT.
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(('127.0.0.1', local))
     print('LIVE_OPENSSH_R83_PASS: real key-only tunnel, transport loss, listener revoked')
 
