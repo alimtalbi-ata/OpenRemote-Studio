@@ -160,6 +160,13 @@ class SSHTunnelPanel(QWidget):
             'disconnected':'Connexion SSH interrompue · ressources libérées',
         }
         label=descriptions.get(snapshot.phase,'État SSH indisponible')
+        if snapshot.phase == 'failed':
+            # Fixed messages only; never expose Paramiko exception strings,
+            # endpoint names, key paths or credential details.
+            label = {
+                'host_key': 'Clé d’hôte SSH refusée · vérifier known_hosts hors bande',
+                'authentication': 'Authentification SSH refusée · vérifier la clé privée',
+            }.get(snapshot.failure_code, label)
         if (self._close_requested_at is not None and not self.is_shutdown_complete()
                 and time.monotonic()-self._close_requested_at >= 12):
             label='Arrêt SSH non confirmé · nettoyage toujours en cours…'
