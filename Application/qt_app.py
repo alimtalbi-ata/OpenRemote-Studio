@@ -3483,6 +3483,9 @@ class Main(QMainWindow):
             try:remote=remote_child(path.text(),item.text())
             except ValueError as exc:status.setText(str(exc));return
             local=Path(local_path.text()).expanduser()/item.text()
+            if not local.parent.is_dir():
+                status.setText('Téléchargement refusé : répertoire local introuvable')
+                return
             if local.exists() or local.is_symlink():
                 if local.is_symlink():
                     status.setText('Téléchargement refusé : destination symbolique')
@@ -3496,6 +3499,9 @@ class Main(QMainWindow):
             try:remote=remote_child(path.text(),item.text())
             except ValueError as exc:status.setText(str(exc));return
             local=Path(local_path.text()).expanduser()/item.text()
+            if not local.parent.is_dir():
+                status.setText('Téléchargement refusé : répertoire local introuvable')
+                return
             if local.exists() or local.is_symlink():
                 if local.is_symlink():
                     status.setText('Reprise refusée : destination symbolique')
