@@ -3448,6 +3448,10 @@ class Main(QMainWindow):
             # Capture the requested directory: asynchronous results must not be
             # labelled with a path edited while the worker was running.
             requested=path.text()
+            # Do not leave selectable files from the previous directory while
+            # the new listing is still queued or running.
+            listing.clear()
+            status.setText('Chargement du répertoire distant : '+requested)
             def show_if_current(items):
                 # A queued listing can finish after the user navigates elsewhere.
                 # Never replace the current directory view with stale results.
