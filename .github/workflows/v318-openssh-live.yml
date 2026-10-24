@@ -1,9 +1,9 @@
 name: SFTP OpenSSH live integration
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r84-headless-ssh-watchdog]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health]
   workflow_dispatch:
 permissions:
   contents: read
@@ -104,6 +104,16 @@ jobs:
           SFTP_TEST_HOST: 127.0.0.1
           SFTP_TEST_PORT: '2222'
         run: python Application/tests/live_ssh_tunnel_health_r83.py
+      - name: R84 headless watchdog regressions (real loopback, fake SSH)
+        env:
+          PYTHONPATH: Application:Application/tests
+        run: python -m unittest discover -s Application/tests -p 'test_tunnel_watchdog_r84.py' -v
+      - name: R84 real OpenSSH loss without Qt polling
+        env:
+          PYTHONPATH: Application:Application/tests
+          SFTP_TEST_HOST: 127.0.0.1
+          SFTP_TEST_PORT: '2222'
+        run: python Application/tests/live_ssh_tunnel_watchdog_r84.py
       - name: R80 real host-key rotation fail-closed (disposable fixture only)
         env:
           PYTHONPATH: Application
