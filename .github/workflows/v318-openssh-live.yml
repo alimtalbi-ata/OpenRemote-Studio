@@ -1,9 +1,9 @@
 name: SFTP OpenSSH live integration
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health]
   pull_request:
-    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown]
+    branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel]
   workflow_dispatch:
 permissions:
   contents: read
@@ -94,6 +94,16 @@ jobs:
         env:
           PYTHONPATH: Application
         run: python -m unittest discover -s Application/tests -p 'test_tunnel_controller_r82.py' -v
+      - name: R83 SSH link-loss revocation regressions (real loopback, simulated transport)
+        env:
+          PYTHONPATH: Application:Application/tests
+        run: python -m unittest discover -s Application/tests -p 'test_tunnel_health_r83.py' -v
+      - name: R83 real OpenSSH transport loss revokes local tunnel
+        env:
+          PYTHONPATH: Application:Application/tests
+          SFTP_TEST_HOST: 127.0.0.1
+          SFTP_TEST_PORT: '2222'
+        run: python Application/tests/live_ssh_tunnel_health_r83.py
       - name: R80 real host-key rotation fail-closed (disposable fixture only)
         env:
           PYTHONPATH: Application

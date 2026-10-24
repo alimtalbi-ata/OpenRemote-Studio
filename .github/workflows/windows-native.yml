@@ -54,6 +54,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_tunnel_qt_r82.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s Application/tests -p 'test_tunnel_health_r83.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s Application/tests -p 'test_tunnel_health_qt_r83.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_netbox_readonly_r73.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_netbox_preview_r74.py' -v
@@ -125,6 +129,13 @@ jobs:
           if (!(Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing native qualification script: $script" }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Build
           if ($LASTEXITCODE -ne 0) { throw "Native qualification failed: $LASTEXITCODE" }
+      - name: R83 real offline Qt screenshot (Windows offscreen render)
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_tunnel_qt_r83.py
+          if ($LASTEXITCODE -ne 0) { throw "R83 real Qt screenshot failed" }
+          if (!(Test-Path 'Binary/Qualification/qt-tunnel-r83-offline.png')) { throw "Missing actual Qt render" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()

@@ -49,6 +49,7 @@ class TunnelController:
         self._startup_done.set()
         self._state = 'idle'
         self._tunnel = None
+        self._client = None
         self._worker = None
 
     def start(self, settings, *, key_filename, local_port, target_host, target_port):
@@ -73,6 +74,8 @@ class TunnelController:
                 client = self._connector(settings, key_filename=key_filename)
                 if not self._scope.register(client):
                     return
+                with self._lock:
+                    self._client = client
                 if self._scope.cancelled:
                     return
                 tunnel = self._tunnel_factory(client, '127.0.0.1', local_port,
@@ -103,16 +106,33 @@ class TunnelController:
         with self._lock:
             if self._state == 'idle':
                 self._state = 'closed'
-            elif self._state not in ('closed', 'failed'):
+            elif self._state not in ('closed', 'failed', 'disconnected'):
                 self._state = 'closing'
         self._scope.close()
 
     close = stop
 
     def poll(self):
-        """Read a sanitized, nonblocking snapshot for Qt's event loop."""
+        """Read a sanitized, nonblocking snapshot for Qt's event loop.
+
+        If an established SSH transport disappears, revoke its listener and
+        active channels. No network call, credentials or endpoint is exposed.
+        """
         with self._lock:
-            state, tunnel = self._state, self._tunnel
+            state, tunnel, client = self._state, self._tunnel, self._client
+        if state == 'active' and not self._scope.cancelled:
+            try:
+                transport = client.get_transport() if client is not None else None
+                alive = transport is not None and transport.is_active()
+            except Exception:
+                alive = False
+            if not alive:
+                with self._lock:
+                    if self._state == 'active' and not self._scope.cancelled:
+                        self._state = 'disconnected'
+                self._scope.close()
+                with self._lock:
+                    state = self._state
         if state == 'idle':
             return TunnelSnapshot('idle')
         if not self._startup_done.is_set():
@@ -121,11 +141,11 @@ class TunnelController:
             phase = TunnelShutdownStatus(self._scope, tunnel).poll()
             if phase != 'complete':
                 return TunnelSnapshot(phase)
-            return TunnelSnapshot('failed' if state == 'failed' else 'closed')
+            return TunnelSnapshot(state if state in ('failed', 'disconnected') else 'closed')
         if state == 'active' and tunnel is not None:
             return TunnelSnapshot('active', tunnel.active_connections,
                                   tunnel.pending_channel_opens)
         return TunnelSnapshot(state)
 
     def is_shutdown_complete(self):
-        return self.poll().phase in ('idle', 'closed', 'failed')
+        return self.poll().phase in ('idle', 'closed', 'failed', 'disconnected')
