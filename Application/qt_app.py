@@ -2031,7 +2031,18 @@ class Main(QMainWindow):
         if active_sftp:
             for job in list(active_sftp):
                 job.cancel()
-            self.statusBar().showMessage('Annulation SFTP demandée ; fermez l’onglet après arrêt des transferts',8000)
+            if not getattr(widget,'_sftp_close_pending',False):
+                widget._sftp_close_pending=True
+                self.statusBar().showMessage('Annulation SFTP en cours ; fermeture différée',8000)
+                def close_after_sftp():
+                    if self.tabs.indexOf(widget)<0:
+                        return
+                    if getattr(widget,'_active_sftp_jobs',None):
+                        QTimer.singleShot(150,close_after_sftp)
+                        return
+                    widget._sftp_close_pending=False
+                    self.close_tab(self.tabs.indexOf(widget))
+                QTimer.singleShot(150,close_after_sftp)
             return
         # Invalidate SFTP callbacks before stopping auxiliary processes or deleting UI.
         # This must follow successful PTY shutdown: a refused close keeps its tab active.
