@@ -27,6 +27,7 @@ def _index(rows):
         if (not isinstance(name, str) or not name or len(name) > 256
                 or not isinstance(label, str) or len(label) > 256
                 or any(ord(c) < 32 or ord(c) == 127 for c in name + label)
+                or not isinstance(state, str) or not isinstance(mode, str)
                 or state not in _STATES or mode not in _MODES):
             raise ServiceDriftError()
         key = name.casefold()
