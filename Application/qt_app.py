@@ -3452,13 +3452,14 @@ class Main(QMainWindow):
                         if journal_error is None and not pane._sftp_closing:on_success(result)
                     finally:advance()
                 def error(message):
+                    cancelled=item.cancel_event.is_set() or message.startswith('InterruptedError:')
                     queue.complete(current,False)
                     if current.get('journal_id') is not None:
-                        try:self.transfer_journal.update(current['journal_id'],'failed')
+                        try:self.transfer_journal.update(current['journal_id'],'cancelled' if cancelled else 'failed')
                         except Exception as exc:status.setText('Journal indisponible : '+str(exc))
                     if item in active_jobs:active_jobs.remove(item)
                     if item in self.sftp_jobs:self.sftp_jobs.remove(item)
-                    if 'InterruptedError' in message:
+                    if cancelled:
                         status.setText('Opération SFTP annulée')
                     else:
                         status.setText('Erreur : '+message)
