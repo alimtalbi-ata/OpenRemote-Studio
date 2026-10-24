@@ -25,6 +25,12 @@ def download_atomic(sftp,remote_path,local_path,callback=None,cancelled=None):
             if callback is not None:
                 callback(done, total)
         sftp.get(remote_path,tmp,callback=checked_progress)
+        # A successful transport return is not proof of a complete download.
+        # Compare the resulting size with the server's advertised file size.
+        expected_size=sftp.stat(remote_path).st_size
+        actual_size=os.stat(tmp).st_size
+        if type(expected_size) is not int or expected_size < 0 or actual_size != expected_size:
+            raise OSError('Téléchargement incomplet : taille distante différente')
         # Ensure data reaches the local filesystem before publishing the file.
         with open(tmp,'rb') as completed:
             os.fsync(completed.fileno())
