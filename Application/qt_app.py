@@ -756,7 +756,7 @@ class Main(QMainWindow):
             menu.addAction(title,fn)
         menu=self.menuBar().addMenu('Outils')
         for title,fn in [('Accueil',self.show_home),('Fractionner la vue',self.split_view),
-                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Tunnel SSH local (sécurisé)',self.show_ssh_tunnel),('Comparer NetBox (lecture seule)',self.show_netbox_preview),('Qualification interface',self.show_qa_summary)]:
+                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Tunnel SSH local (sécurisé)',self.show_ssh_tunnel),('Comparer NetBox (lecture seule)',self.show_netbox_preview),('Inventaire Windows WinRM (lecture seule)',self.show_winrm_inventory),('Qualification interface',self.show_qa_summary)]:
             menu.addAction(title,fn)
         help_menu=self.menuBar().addMenu('Aide')
         help_menu.addAction('Démarrage rapide et raccourcis (F1)',self.show_quick_guide)
@@ -2085,6 +2085,13 @@ class Main(QMainWindow):
         from netbox_preview_qt import NetBoxPreviewPanel
         pane = NetBoxPreviewPanel(self.store.items, parent=self.tabs)
         self.tabs.addTab(pane, 'NetBox · aperçu')
+        self.tabs.setCurrentWidget(pane)
+
+    def show_winrm_inventory(self):
+        """Open the offline-by-default Windows inventory; no socket until consent."""
+        from winrm_inventory_qt import WinRMInventoryPanel
+        pane = WinRMInventoryPanel(parent=self.tabs)
+        self.tabs.addTab(pane, 'WinRM · inventaire')
         self.tabs.setCurrentWidget(pane)
 
     def show_inventory(self):
