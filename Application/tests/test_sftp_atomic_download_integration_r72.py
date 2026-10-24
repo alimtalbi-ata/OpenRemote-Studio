@@ -51,6 +51,23 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(),b'previous')
             self.assertEqual(list(Path(directory).glob('*.part')),[])
 
+    def test_remote_file_changes_during_transfer(self):
+        class ChangingSftp(FakeSftp):
+            def __init__(self, payload):
+                super().__init__(payload)
+                self.calls=0
+            def stat(self, remote):
+                from types import SimpleNamespace
+                self.calls+=1
+                return SimpleNamespace(st_size=len(self.payload), st_mtime=self.calls, st_mode=0o100644)
+        with TemporaryDirectory() as directory:
+            target=Path(directory)/'report.bin'
+            target.write_bytes(b'previous')
+            with self.assertRaises(OSError):
+                download_atomic(ChangingSftp(b'new'),'./report.bin',target)
+            self.assertEqual(target.read_bytes(),b'previous')
+            self.assertEqual(list(Path(directory).glob('*.part')),[])
+
     def test_transport_failure_preserves_target(self):
         with TemporaryDirectory() as directory:
             target=Path(directory)/'report.bin'
