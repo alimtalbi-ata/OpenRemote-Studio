@@ -195,6 +195,16 @@ jobs:
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_winrm_qt_r94.py
           if ($LASTEXITCODE -ne 0) { throw "R94 offline WinRM Qt capture failed" }
           if (!(Test-Path 'Binary/Qualification/qt-winrm-r94-offline.png')) { throw "Missing R94 Qt capture" }
+      - name: R96 WinRM services backend and Qt offline filtering
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_services_r95.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R95 services backend contract failed" }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_services_qt_r96.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R96 services Qt contract failed" }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/winrm_inventory_qt.py Application/qt_app.py Application/tests/test_winrm_services_qt_r96.py
+          if ($LASTEXITCODE -ne 0) { throw "R96 WinRM Qt source compile failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
