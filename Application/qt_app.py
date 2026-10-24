@@ -15,6 +15,7 @@ from tool_catalog import TOOLS, search_tools
 from profiles import PROFILES, visible_tools
 from diagnostics import command_args
 from sftp_paths import remote_child, local_entries
+from sftp_listing_guard import should_display_listing
 from gateways import validate_route,ssh_jump_args,rdp_content
 from rdp_sessions import write_session,cleanup_stale
 from access_preview import describe_path
@@ -3450,7 +3451,7 @@ class Main(QMainWindow):
             def show_if_current(items):
                 # A queued listing can finish after the user navigates elsewhere.
                 # Never replace the current directory view with stale results.
-                if path.text()!=requested:
+                if not should_display_listing(requested,path.text()):
                     return
                 self._display_sftp_items(items,requested,listing,status)
             queue_job('list',requested,None,show_if_current)
