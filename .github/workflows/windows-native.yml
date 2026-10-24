@@ -38,6 +38,8 @@ jobs:
           $env:PYTHONPATH = 'Application'
           python -m unittest discover -s Application/tests -p 'test_packaging_spec_paths_r70.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s Application/tests -p 'test_ssh_identity_r77.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_tunnel_lifecycle_r72.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_netbox_readonly_r73.py' -v

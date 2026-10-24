@@ -1,6 +1,8 @@
 """V25.0 opt-in real Paramiko SSH transport; no Qt/legacy-route changes."""
 from dataclasses import dataclass
-from pathlib import Path
+import math
+from numbers import Real
+import unicodedata
 from guarded_ssh_adapter import GuardedSSHAdapter
 from ssh_security import known_hosts_preflight, resolve_password
 
@@ -13,9 +15,22 @@ class SSHSettings:
     known_hosts: str | None = None
 
     def validate(self):
-        if not self.hostname.strip() or not self.username.strip():
-            raise ValueError('hostname and username required')
-        if not 1 <= self.port <= 65535 or self.timeout <= 0:
+        """Reject ambiguous SSH identities and non-finite resource limits.
+
+        Validation happens before credential resolution or client creation.
+        Never silently trim/normalize a hostname or username: that could
+        change the identity against which the SSH host key is checked.
+        """
+        for value in (self.hostname, self.username):
+            if (not isinstance(value, str) or not value or value != value.strip()
+                    or any(unicodedata.category(char) in ('Cc', 'Cf') for char in value)):
+                raise ValueError('invalid SSH hostname or username')
+        if any(char.isspace() or char in '/\\@' for char in self.hostname):
+            raise ValueError('invalid SSH hostname or username')
+        if type(self.port) is not int or not 1 <= self.port <= 65535:
+            raise ValueError('invalid SSH port or timeout')
+        if (isinstance(self.timeout, bool) or not isinstance(self.timeout, Real)
+                or not math.isfinite(self.timeout) or not 0 < self.timeout <= 120):
             raise ValueError('invalid SSH port or timeout')
 
 
