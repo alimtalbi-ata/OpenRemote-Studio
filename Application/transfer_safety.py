@@ -19,7 +19,15 @@ def download_atomic(sftp,remote_path,local_path,callback=None,cancelled=None):
     fd,tmp=tempfile.mkstemp(prefix=".openremote-",suffix=".part",dir=str(target.parent))
     os.close(fd)
     try:
-        sftp.get(remote_path,tmp,callback=callback)
+        def checked_progress(done, total):
+            if cancelled is not None and cancelled():
+                raise InterruptedError("Téléchargement annulé pendant le transfert")
+            if callback is not None:
+                callback(done, total)
+        sftp.get(remote_path,tmp,callback=checked_progress)
+        # Ensure data reaches the local filesystem before publishing the file.
+        with open(tmp,'rb') as completed:
+            os.fsync(completed.fileno())
         if cancelled is not None and cancelled():
             raise InterruptedError("Téléchargement annulé avant publication")
         if target.is_symlink():
