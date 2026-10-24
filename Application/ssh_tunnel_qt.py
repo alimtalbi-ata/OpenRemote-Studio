@@ -163,11 +163,23 @@ class SSHTunnelPanel(QWidget):
         if (self._close_requested_at is not None and not self.is_shutdown_complete()
                 and time.monotonic()-self._close_requested_at >= 12):
             label='Arrêt SSH non confirmé · nettoyage toujours en cours…'
+        terminal = snapshot.phase in ('closed', 'failed', 'disconnected')
+        # A terminal-looking phase alone must not release the parent tab.
+        # The controller owns the listener and in-flight SSH channels.
+        drained = self.is_shutdown_complete() if terminal else False
+        if terminal and not drained:
+            label = 'Nettoyage des ressources SSH…'
         self.status.setText(label)
-        if snapshot.phase in ('closed','failed','disconnected'):
+        if terminal and drained:
             self.stop_button.setEnabled(False)
             self.retry_button.setEnabled(not self._closing_panel)
             self._timer.stop()
-            callbacks, self._close_callbacks=self._close_callbacks, []
+            callbacks, self._close_callbacks = self._close_callbacks, []
             for callback in callbacks:
-                QTimer.singleShot(0,callback)
+                QTimer.singleShot(0, callback)
+        elif terminal:
+            self.stop_button.setEnabled(False)
+            self.retry_button.setEnabled(False)
+            # Keep polling until shutdown is confirmed; callbacks remain queued.
+            if not self._timer.isActive():
+                self._timer.start()
