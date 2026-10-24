@@ -1,10 +1,11 @@
 """OpenRemote Studio V0.3. Author: Abdelhalim Talbi."""
-import os, sys, subprocess, threading, queue, webbrowser, tkinter as tk
+import os, sys, subprocess, threading, queue, webbrowser, time, tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox, filedialog
 from core import Store, PROTOCOLS, validate
 from tk_ssh_event_bridge import TkSSHEventBridge
 from network_resource_scope import NetworkResourceScope
+from tunnel_shutdown_status import TunnelShutdownStatus
 
 ROOT = Path(os.getenv('APPDATA') or Path.home()) / 'OpenRemoteStudio'
 class ConnectionDialog(tk.Toplevel):
@@ -274,14 +275,17 @@ class App:
         status=tk.StringVar(value='Tunnel limité à 127.0.0.1 (poste local)')
         ttk.Label(win,textvariable=status).grid(row=4,column=0,columnspan=2,padx=12,pady=8)
         scope=NetworkResourceScope();self.network_scopes.append(scope)
-        state={'closed':False,'busy':False,'tunnel':None,'client':None}
+        state={'closed':False,'closing':False,'busy':False,'tunnel':None,'client':None,
+                'startup_done':threading.Event()}
+        state['startup_done'].set()
         def start():
-            if state['closed'] or scope.cancelled or state['busy'] or state['tunnel']:return
+            if state['closed'] or state['closing'] or scope.cancelled or state['busy'] or state['tunnel']:return
             try:
                 local=int(vars['local'].get());target=vars['target'].get();remote=int(vars['remote'].get())
                 if not (1<=local<=65535 and 1<=remote<=65535):raise ValueError('Port hors limites')
             except ValueError as exc:status.set('Erreur : '+str(exc));return
             state['busy']=True
+            state['startup_done'].clear()
             def worker():
                 client=None;tunnel=None
                 try:
@@ -302,15 +306,38 @@ class App:
                     if tunnel and not scope.closed:tunnel.close()
                     if client and not scope.closed:client.close()
                     self._post_ui(state,status.set,'Erreur : '+str(exc))
-                finally:self._post_ui(state,lambda:state.update(busy=False))
+                finally:
+                    state['busy']=False
+                    state['startup_done'].set()
             threading.Thread(target=worker,daemon=True).start()
         ttk.Button(win,text='Démarrer',command=start).grid(row=3,column=1,sticky='e',padx=12,pady=8)
         def close():
-            if state['closed']:return
+            if state['closing']:return
+            state['closing']=True
+            # Suppress stale worker callbacks while retaining the dialog until
+            # registered resources and SSH channel handlers have drained.
             state['closed']=True
-            state['tunnel']=None;state['client']=None
-            scope.close()
-            win.destroy()
+            status.set('Fermeture SSH en cours (interface disponible)…')
+            scope.close()  # Cleanup is asynchronous, never wait on Tk thread.
+            started=time.monotonic()
+            def check_shutdown():
+                if not win.winfo_exists():return
+                if not state['startup_done'].is_set():
+                    phase='cleanup'  # SSH connect is still in progress.
+                else:
+                    phase=TunnelShutdownStatus(scope,state['tunnel']).poll()
+                if phase=='complete':
+                    state['tunnel']=None;state['client']=None
+                    win.destroy()
+                    return
+                if time.monotonic()-started >= 12:
+                    status.set('Arrêt SSH non confirmé : nettoyage toujours en cours…')
+                    win.after(1000,check_shutdown)
+                else:
+                    status.set('Canaux SSH en cours de drainage…' if phase=='draining'
+                               else 'Fermeture SSH en cours (interface disponible)…')
+                    win.after(100,check_shutdown)
+            win.after(0,check_shutdown)
         win.protocol('WM_DELETE_WINDOW',close)
     def network_tool(self,kind):
         c=self.selected()
