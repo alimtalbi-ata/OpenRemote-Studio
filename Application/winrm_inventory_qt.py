@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QLabel,
 from winrm_readonly import WinRMReadOnly, WinRMError
 from winrm_services_readonly import WinRMServicesReadOnly, _STATES, _MODES
 from winrm_service_totals import validated_display_total, ServiceTotalError
+from winrm_service_drift import compare_service_snapshots, ServiceDriftError
 
 
 class _Signals(QObject):
@@ -75,6 +76,8 @@ class WinRMInventoryPanel(QWidget):
         self.setObjectName('winrmInventoryPanel')
         self._mode = mode
         self._services = []
+        self._last_successful_services = None
+        self._service_change_labels = {}
         self._client_factory = client_factory or (WinRMServicesReadOnly if mode == 'services' else WinRMReadOnly)
         self._credential_provider = credential_provider
         self._pool = thread_pool or QThreadPool.globalInstance()
@@ -109,7 +112,7 @@ class WinRMInventoryPanel(QWidget):
         layout.addWidget(self.status)
         self.table = QTreeWidget()
         self.table.setObjectName('winrmInventoryRows')
-        self.table.setHeaderLabels(['Service', 'Libellé', 'État', 'Démarrage'] if mode == 'services'
+        self.table.setHeaderLabels(['Service', 'Libellé', 'État', 'Démarrage', 'Évolution'] if mode == 'services'
                                    else ['Propriété', 'Valeur'])
         if mode == 'services':
             self.service_filter = QLineEdit()
@@ -121,6 +124,10 @@ class WinRMInventoryPanel(QWidget):
             self.filter_status = QLabel('Aucun service chargé.')
             self.filter_status.setObjectName('winrmServicesFilterStatus')
             layout.addWidget(self.filter_status)
+            self.drift_status = QLabel('Aucune comparaison locale disponible.')
+            self.drift_status.setObjectName('winrmServicesDriftStatus')
+            self.drift_status.setWordWrap(True)
+            layout.addWidget(self.drift_status)
         layout.addWidget(self.table)
         layout.addWidget(QLabel('Aucune commande libre, aucune modification distante, '
                                 'aucun mot de passe enregistré. Le certificat HTTPS est vérifié.'))
@@ -131,7 +138,10 @@ class WinRMInventoryPanel(QWidget):
     def _invalidate(self, *_):
         self._generation += 1
         self._services = []
+        self._last_successful_services = None
+        self._service_change_labels = {}
         if self._mode == 'services':
+            self.drift_status.setText('Comparaison effacée — paramètres ou consentement modifiés.')
             self.filter_status.setText('Aucun service chargé.')
         if self._pending is not None:
             self._pending.cancel()
@@ -145,8 +155,10 @@ class WinRMInventoryPanel(QWidget):
         if self._closed or self._pending is not None:
             return
         self._services = []
+        self._service_change_labels = {}
         if self._mode == 'services':
             self.filter_status.setText('Aucun service chargé.')
+            self.drift_status.setText('Lecture en cours — dernière référence locale conservée.')
         self.table.clear()
         if not self.consent.isChecked():
             self.status.setText('Hors ligne — autorisation explicite requise.')
@@ -231,6 +243,38 @@ class WinRMInventoryPanel(QWidget):
             except (KeyError, TypeError, ValueError, ServiceTotalError):
                 self.status.setText('Réponse WinRM invalide.')
                 return
+            # Compare only successful readings under unchanged consent and endpoint.
+            # Never infer missing services from truncated snapshots.
+            snapshot = [dict(zip(('name', 'display_name', 'state', 'start_mode'), row))
+                        for row in rows]
+            self._service_change_labels = {}
+            if self._last_successful_services is None:
+                self.drift_status.setText('Première lecture : référence locale enregistrée.')
+            else:
+                try:
+                    previous, previous_truncated = self._last_successful_services
+                    drift = compare_service_snapshots(
+                        previous, snapshot,
+                        previous_truncated=previous_truncated,
+                        current_truncated=result['may_be_truncated'])
+                except ServiceDriftError:
+                    self.status.setText('Comparaison WinRM invalide.')
+                    return
+                for change in drift['transitions']:
+                    pieces = []
+                    if change['before_state'] != change['after_state']:
+                        pieces.append(change['before_state'] + ' → ' + change['after_state'])
+                    if change['before_mode'] != change['after_mode']:
+                        pieces.append(change['before_mode'] + ' → ' + change['after_mode'])
+                    self._service_change_labels[change['name'].casefold()] = '; '.join(pieces)
+                for name in drift['added']:
+                    self._service_change_labels[name.casefold()] = 'Nouveau'
+                summary = (f"Comparaison locale : {len(drift['transitions'])} transition(s), "
+                           f"{len(drift['added'])} ajout(s), {len(drift['removed'])} disparition(s).")
+                if not drift['membership_complete']:
+                    summary += ' Inventaire tronqué : ajouts et disparitions non évalués.'
+                self.drift_status.setText(summary)
+            self._last_successful_services = (snapshot, result['may_be_truncated'])
             self._services = rows
             self._filter_services()
             if total_count is None:
@@ -268,7 +312,8 @@ class WinRMInventoryPanel(QWidget):
         for row in self._services:
             if needle and needle not in ' '.join(row).casefold():
                 continue
-            self.table.addTopLevelItem(QTreeWidgetItem(list(row)))
+            self.table.addTopLevelItem(QTreeWidgetItem(
+                list(row) + [self._service_change_labels.get(row[0].casefold(), '—')]))
             shown += 1
         self.filter_status.setText(f'{shown}/{len(self._services)} services affichés — filtre local.')
 
