@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QHBoxLayout,
     QLineEdit, QPushButton, QLabel, QCheckBox, QFileDialog)
 
 from ssh_transport import SSHSettings
+from ssh_consent_guard import SSHConsentGuard
 from tunnel_controller import TunnelController
 
 
@@ -17,6 +18,7 @@ class SSHTunnelPanel(QWidget):
         profile = profile if profile and profile.get('protocol') in ('SSH', 'SFTP') else {}
         self._controller_factory = controller_factory
         self._controller = controller_factory()
+        self._consent_guard = SSHConsentGuard()
         self._closing_panel = False
         self._close_callbacks = []
         self._close_requested_at = None
@@ -51,6 +53,13 @@ class SSHTunnelPanel(QWidget):
             form.addRow('',button)
         self.consent = QCheckBox('Autoriser explicitement cette connexion SSH et ce tunnel local')
         layout.addWidget(self.consent)
+        # Consent is bound to the exact form revision, never just a checked box.
+        # Store no endpoint, username, private-key path or other secret in the guard.
+        self.consent.toggled.connect(self._consent_toggled)
+        for field in (self.host, self.user, self.ssh_port, self.keepalive_seconds,
+                      self.local_port, self.target_host, self.target_port,
+                      self.key_file, self.known_hosts):
+            field.textChanged.connect(self._configuration_changed)
         actions=QHBoxLayout();layout.addLayout(actions)
         self.start_button=QPushButton('Démarrer le tunnel');actions.addWidget(self.start_button)
         self.stop_button=QPushButton('Révoquer et fermer');actions.addWidget(self.stop_button)
@@ -71,13 +80,29 @@ class SSHTunnelPanel(QWidget):
         self._timer.setInterval(100)
         self._timer.timeout.connect(self._refresh)
 
+    def _consent_toggled(self, checked):
+        if checked:
+            self._consent_guard.approve()
+        else:
+            self._consent_guard.revoke()
+
+    def _configuration_changed(self, *_):
+        # Any change, including changing a field back, requires new approval.
+        self._consent_guard.configuration_changed()
+        if self.consent.isChecked():
+            self.consent.setChecked(False)
+            # Programmatic edits can bypass QLineEdit.readOnly: revoke a live
+            # tunnel rather than silently continuing with stale consent.
+            if self._controller.poll().phase in ('connecting', 'active'):
+                self.request_close()
+
     def _choose(self, field):
         path, _ = QFileDialog.getOpenFileName(self, 'Choisir un fichier local')
         if path:
             field.setText(path)
 
     def start_tunnel(self):
-        if not self.consent.isChecked():
+        if not self.consent.isChecked() or not self._consent_guard.approved:
             self.status.setText('Hors ligne : autorisation explicite requise')
             return
         try:
