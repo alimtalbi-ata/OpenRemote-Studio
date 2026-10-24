@@ -54,10 +54,13 @@ class TunnelController:
         self._watchdog = None
         self._watchdog_stop = Event()
 
-    def start(self, settings, *, key_filename, local_port, target_host, target_port):
+    def start(self, settings, *, key_filename, local_port, target_host, target_port,
+              keepalive_seconds=0):
         if not isinstance(settings, SSHSettings):
             raise ValueError('SSH settings required')
         settings.validate()
+        if type(keepalive_seconds) is not int or not 0 <= keepalive_seconds <= 300:
+            raise ValueError('invalid SSH keepalive interval')
         _port(local_port)
         _port(target_port)
         _target(target_host)
@@ -78,6 +81,14 @@ class TunnelController:
                     return
                 with self._lock:
                     self._client = client
+                if self._scope.cancelled:
+                    return
+                if keepalive_seconds:
+                    # Configure before binding a local listener; fail closed on unsupported transports.
+                    transport = client.get_transport()
+                    if transport is None or not transport.is_active():
+                        raise RuntimeError('SSH transport unavailable')
+                    transport.set_keepalive(keepalive_seconds)
                 if self._scope.cancelled:
                     return
                 tunnel = self._tunnel_factory(client, '127.0.0.1', local_port,
