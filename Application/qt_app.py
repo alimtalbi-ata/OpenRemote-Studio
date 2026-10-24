@@ -3444,9 +3444,12 @@ class Main(QMainWindow):
                 root=Path(local_path.text()).expanduser()
                 local_path.setText(str((root/item.text().rstrip('/')).resolve()))
                 refresh_local()
+        remote_listing_generation=[0]
         def refresh_remote():
-            # Capture the requested directory: asynchronous results must not be
-            # labelled with a path edited while the worker was running.
+            # Only the newest request may update the view, even if the user
+            # navigates A -> B -> A while older requests are still queued.
+            remote_listing_generation[0]+=1
+            generation=remote_listing_generation[0]
             requested=path.text()
             # Do not leave selectable files from the previous directory while
             # the new listing is still queued or running.
@@ -3455,7 +3458,7 @@ class Main(QMainWindow):
             def show_if_current(items):
                 # A queued listing can finish after the user navigates elsewhere.
                 # Never replace the current directory view with stale results.
-                if not should_display_listing(requested,path.text()):
+                if generation!=remote_listing_generation[0] or not should_display_listing(requested,path.text()):
                     return
                 self._display_sftp_items(items,requested,listing,status)
             queue_job('list',requested,None,show_if_current)
