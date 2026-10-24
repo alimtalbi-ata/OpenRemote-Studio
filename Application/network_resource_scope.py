@@ -49,6 +49,13 @@ class NetworkResourceScope:
             resources = self._resources[::-1]
             self._resources.clear()
 
+        # No resource means no asynchronous cleanup. Starting a daemon thread
+        # merely to set an Event made failed SSH connections spuriously linger
+        # in 'cleanup' under heavily loaded Windows CI runners.
+        if not resources:
+            self._cleanup_done.set()
+            return True
+
         def cleanup():
             try:
                 for resource in resources:
