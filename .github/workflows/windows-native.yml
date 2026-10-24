@@ -77,6 +77,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R93 WinRM unit gate failed" }
           python -m py_compile Application/winrm_readonly.py Application/tests/test_winrm_readonly_r93.py
           if ($LASTEXITCODE -ne 0) { throw "R93 WinRM source compile failed" }
+      - name: R94 WinRM pywinrm timeout safety regression
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_timeout_r94.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R94 WinRM timeout contract failed" }
+          python -m py_compile Application/winrm_inventory_qt.py Application/tests/test_winrm_inventory_qt_r94.py
+          if ($LASTEXITCODE -ne 0) { throw "R94 Qt source compilation failed" }
       - name: Enforce UTF-8 and Python 3.12 for legacy tests
         run: |
           "PYTHONUTF8=1" >> $env:GITHUB_ENV
@@ -177,6 +184,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R92 bounded probe tests failed" }
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_tunnel_probe_qt_r92.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R92 Qt probe consent tests failed" }
+      - name: R94 WinRM Qt opt-in, stale response and secret redaction
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_inventory_qt_r94.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R94 WinRM Qt contract failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
