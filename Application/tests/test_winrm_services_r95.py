@@ -50,7 +50,7 @@ class ServicesTests(unittest.TestCase):
     def test_invalid_response_is_rejected(self):
         for rows in ([{'Name':'A','DisplayName':'A','State':'Running','StartMode':'Auto'},
                       {'Name':'a','DisplayName':'B','State':'Stopped','StartMode':'Manual'}],
-                     [{'Name':'A','DisplayName':'A','State':'Running\\nSECRET','StartMode':'Auto'}],
+                     [{'Name':'A','DisplayName':'A','State':'Running\nSECRET','StartMode':'Auto'}],
                      [{'Name':'A','DisplayName':'A','State':'Stopped','StartMode':'unexpected'}],
                      [{}], [None], [0] * 129):
             with self.subTest(rows=rows), self.assertRaisesRegex(WinRMError,'invalid_response'):
@@ -67,7 +67,7 @@ class ServicesTests(unittest.TestCase):
 
     def test_bad_credentials_and_cancellation_type(self):
         session = FakeSession(b'[]')
-        for provider in (None, lambda: None, lambda: '', lambda: 'bad\\x00pw'):
+        for provider in (None, lambda: None, lambda: '', lambda: 'bad\x00pw'):
             with self.assertRaises(WinRMError):
                 self.client(session, provider).services(online=True)
         with self.assertRaisesRegex(WinRMError, 'winrm_invalid_cancellation'):
