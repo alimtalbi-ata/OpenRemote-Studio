@@ -3474,7 +3474,10 @@ class Main(QMainWindow):
             try:remote=remote_child(path.text(),item.text())
             except ValueError as exc:status.setText(str(exc));return
             local=str(Path(local_path.text()).expanduser()/item.text())
-            if not Path(local).is_file():return
+            source=Path(local)
+            if source.is_symlink() or not source.is_file():
+                status.setText('Envoi refusé : source locale absente, non régulière ou symbolique')
+                return
             status.setText('Envoi exclusif : aucune substitution distante autorisée')
             queue_job('upload',remote,local,lambda _:refresh_remote())
         def download():
