@@ -109,9 +109,10 @@ class WinRMInventoryPanel(QWidget):
         self._generation += 1
         if self._pending is not None:
             self._pending.cancel()
-        self._pending = None
+        # Do not permit a second request while an invalidated network call is
+        # still draining: cancellation cannot interrupt an in-flight WinRM POST.
         self.table.clear()
-        self.refresh_button.setEnabled(not self._closed)
+        self.refresh_button.setEnabled(not self._closed and self._pending is None)
         self.status.setText('Hors ligne — consentement et paramètres à confirmer.')
 
     def refresh(self):
@@ -158,10 +159,12 @@ class WinRMInventoryPanel(QWidget):
         self._pool.start(worker)
 
     def _finished(self, generation, result):
+        # Exactly one worker may be outstanding. Even an invalidated response
+        # releases the concurrency gate, but never updates visible inventory.
+        self._pending = None
+        self.refresh_button.setEnabled(not self._closed)
         if self._closed or generation != self._generation or not self.consent.isChecked():
             return
-        self._pending = None
-        self.refresh_button.setEnabled(True)
         if not isinstance(result, dict) or result.get('state') != 'ok':
             code = result.get('code', 'winrm_transport_unavailable') if isinstance(result, dict) else 'winrm_invalid_response'
             # Never show untrusted exception strings from custom client adapters.
