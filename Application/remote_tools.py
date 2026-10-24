@@ -38,6 +38,8 @@ class Tunnel:
         self.max_connections = max_connections
         self._lifecycle_lock = threading.Lock()
         self._connections_lock = threading.Lock()
+        # All close() callers must observe completed listener teardown.
+        self._close_complete = threading.Event()
         # Accepted local socket -> SSH channel (None until open_channel returns).
         self._connections = {}
         self._started = False
@@ -116,37 +118,53 @@ class Tunnel:
                 self._started = True
             except BaseException:
                 self._closed = True
-                self.server.server_close()
+                try:
+                    self.server.server_close()
+                finally:
+                    self._close_complete.set()
                 raise
 
     def close(self):
+        """Revoke forwarding and wait for listener teardown on every call.
+
+        Concurrent callers must not return early while another caller still
+        owns the listening port. Pending SSH channel opens can outlive this
+        method until their transport timeout; late channels are rejected.
+        """
         with self._lifecycle_lock:
-            if self._closed:
-                return
-            self._closed = True
-            started = self._started
-        # Revoke channels before waiting for the accept loop. The handler may
-        # still be opening a channel: its closed check prevents late adoption.
-        with self._connections_lock:
-            connections = tuple(self._connections.items())
-        for local, channel in connections:
-            if channel is not None:
+            already_closed = self._closed
+            if not already_closed:
+                self._closed = True
+                started = self._started
+        if already_closed:
+            self._close_complete.wait()
+            return
+        try:
+            # Revoke channels before waiting for the accept loop. The handler
+            # may still be opening a channel; it cannot adopt a late result.
+            with self._connections_lock:
+                connections = tuple(self._connections.items())
+            for local, channel in connections:
+                if channel is not None:
+                    try:
+                        channel.close()
+                    except Exception:
+                        pass
                 try:
-                    channel.close()
-                except Exception:
+                    local.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                try:
+                    local.close()
+                except OSError:
                     pass
             try:
-                local.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            try:
-                local.close()
-            except OSError:
-                pass
-        try:
-            if started:
-                self.server.shutdown()
-                if threading.current_thread() is not self.thread:
-                    self.thread.join(timeout=3)
+                if started:
+                    self.server.shutdown()
+                    if threading.current_thread() is not self.thread:
+                        self.thread.join(timeout=3)
+            finally:
+                self.server.server_close()
         finally:
-            self.server.server_close()
+            # Signal even on teardown failure so no concurrent caller hangs.
+            self._close_complete.set()
