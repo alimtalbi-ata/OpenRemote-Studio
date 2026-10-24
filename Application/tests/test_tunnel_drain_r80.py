@@ -101,6 +101,49 @@ class TunnelDrainR80(unittest.TestCase):
         finally:
             tunnel.close()
 
+    def test_drain_waits_for_channel_close_not_just_handler_removal(self):
+        client = FakeClient()
+        close_entered, release = threading.Event(), threading.Event()
+        raw, remote = socket.socketpair()
+
+        class SlowChannel:
+            def fileno(self):
+                return raw.fileno()
+            def recv(self, size):
+                return raw.recv(size)
+            def sendall(self, data):
+                return raw.sendall(data)
+            def close(self):
+                close_entered.set()
+                if not release.wait(4):
+                    raise TimeoutError('fixture channel close stalled')
+                raw.close()
+
+        client.transport.open_channel = lambda *args, **kwargs: SlowChannel()
+        tunnel = Tunnel(client, '127.0.0.1', free_port(), '127.0.0.1', 22)
+        tunnel.start()
+        closer = None
+        try:
+            peer = socket.create_connection(tunnel.server.server_address, timeout=2)
+            self.assertTrue(wait_for(lambda: tunnel.active_connections == 1
+                                     and tunnel.pending_channel_opens == 0))
+            peer.close()  # Handler begins channel.close() and blocks.
+            self.assertTrue(close_entered.wait(2))
+            closer = threading.Thread(target=tunnel.close, daemon=True)
+            closer.start()
+            self.assertTrue(wait_for(lambda: tunnel._closed))
+            self.assertFalse(tunnel.wait_drained(.05),
+                             'drain must not finish before SSH channel.close returns')
+        finally:
+            release.set()
+            if closer is not None:
+                closer.join(4)
+            tunnel.close()
+            raw.close()
+            remote.close()
+        self.assertTrue(tunnel.wait_drained(1))
+        self.assertEqual(tunnel.active_connections, 0)
+
     def test_wait_requires_close_and_bounded_numeric_timeout(self):
         tunnel = Tunnel(FakeClient(), '127.0.0.1', free_port(), '127.0.0.1', 22)
         try:
