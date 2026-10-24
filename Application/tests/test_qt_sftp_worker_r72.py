@@ -81,6 +81,22 @@ class SftpWorkerTests(unittest.TestCase):
         self.assertFalse(errors)
         self.assertTrue(client.closed)
 
+    def test_listing_missing_server_metadata_does_not_fail(self):
+        client = FakeClient(FakeSftp())
+        def list_missing_metadata(_):
+            return [type('Entry', (), {
+                'filename': 'unknown', 'st_mode': None, 'st_size': None
+            })()]
+        client.sftp.listdir_attr = list_missing_metadata
+        job = SftpJob(lambda _: client, {'id': 'test'}, 'list', '.', None)
+        success, errors = [], []
+        job.signals.finished.connect(success.append)
+        job.signals.failed.connect(errors.append)
+        job.run()
+        self.assertEqual(success, [[('unknown', False, None)]])
+        self.assertFalse(errors)
+        self.assertTrue(client.closed)
+
     def test_cancel_during_listing_never_reports_success(self):
         client = FakeClient(FakeSftp())
         job = SftpJob(lambda _: client, {'id': 'test'}, 'list', '.', None)
