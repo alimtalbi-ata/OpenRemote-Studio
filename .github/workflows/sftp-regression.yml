@@ -1,0 +1,28 @@
+name: SFTP transfer regression
+on:
+  push:
+    branches: [feature/v31.8-r72-capability-gates]
+  pull_request:
+    paths:
+      - 'Application/transfer_safety.py'
+      - 'Application/tests/test_sftp_atomic_download_integration_r72.py'
+      - '.github/workflows/sftp-regression.yml'
+  workflow_dispatch:
+jobs:
+  sftp-regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile transfer safety and regression tests
+        run: python -m py_compile Application/transfer_safety.py Application/tests/test_sftp_atomic_download_integration_r72.py
+      - name: Run SFTP fake-transport regression suite
+        env:
+          PYTHONPATH: Application
+        run: python -m unittest discover -s Application/tests -p test_sftp_atomic_download_integration_r72.py -v
