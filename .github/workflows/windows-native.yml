@@ -162,6 +162,14 @@ jobs:
           $env:QT_QPA_PLATFORM = 'offscreen'
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_ssh_consent_revocation_qt_r91.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R91 Qt consent revocation failed" }
+      - name: R92 bounded SSH response probe and Qt consent regressions
+        run: |
+          $env:PYTHONPATH = 'Application;Application/tests'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_tunnel_probe_r92.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R92 bounded probe tests failed" }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_tunnel_probe_qt_r92.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R92 Qt probe consent tests failed" }
       - name: Verify native artifacts exist
         run: |
           $version = (Get-Content VERSION.txt -Raw).Trim()
