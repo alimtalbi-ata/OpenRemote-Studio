@@ -146,7 +146,9 @@ class Tunnel:
             if not self._closed:
                 raise RuntimeError('Fermer le tunnel avant drainage')
             return self._drain_condition.wait_for(
-                lambda: not self._connections and self._pending_channel_opens == 0,
+                lambda: (self._close_complete.is_set()
+                         and not self._connections
+                         and self._pending_channel_opens == 0),
                 timeout=float(timeout))
 
     def start(self):
@@ -163,7 +165,9 @@ class Tunnel:
                 try:
                     self.server.server_close()
                 finally:
-                    self._close_complete.set()
+                    with self._drain_condition:
+                        self._close_complete.set()
+                        self._drain_condition.notify_all()
                 raise
 
     def close(self):
@@ -208,5 +212,8 @@ class Tunnel:
             finally:
                 self.server.server_close()
         finally:
-            # Signal even on teardown failure so no concurrent caller hangs.
-            self._close_complete.set()
+            # Drain waiters cannot report success before listener teardown.
+            # Signal completion even on error and wake all concurrent waiters.
+            with self._drain_condition:
+                self._close_complete.set()
+                self._drain_condition.notify_all()
