@@ -46,7 +46,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s Application/tests -p 'test_netbox_filter_r75.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m py_compile Application/netbox_preview_filter.py Application/netbox_preview_qt.py Application/qt_app.py
+          python -m unittest discover -s Application/tests -p 'test_netbox_cancel_r76.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m py_compile Application/netbox_readonly.py Application/netbox_preview_filter.py Application/netbox_preview_qt.py Application/qt_app.py Application/tests/test_netbox_cancel_r76.py Application/tests/test_netbox_cancel_qt_r76.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Enforce UTF-8 and Python 3.12 for legacy tests
         run: |
