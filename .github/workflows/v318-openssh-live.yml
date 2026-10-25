@@ -90,6 +90,10 @@ jobs:
         run: |
           python -m unittest discover -s Application/tests -p 'test_grafana_readonly_r114.py' -v
           python -m py_compile Application/grafana_readonly.py Application/grafana_dashboard_qt.py Application/qt_app.py Application/tests/test_grafana_readonly_r114.py Application/tests/test_grafana_dashboard_qt_r114.py Application/tests/capture_grafana_qt_r114.py
+      - name: R115 packaged GUI smoke timeout and redaction contract (platform-neutral)
+        env:
+          PYTHONPATH: Application
+        run: python -m unittest discover -s Application/tests -p 'test_packaged_smoke_diagnostics_r115.py' -v
       - name: R102 WinRM strict response contract (offline, no Windows Server)
         env:
           PYTHONPATH: Application
