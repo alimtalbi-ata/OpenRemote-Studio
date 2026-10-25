@@ -1,4 +1,4 @@
-"""R106: CA trust file is pinned before secrets and before the WinRM request.
+"""R106 compatibility tests for the pinned WinRM CA lifecycle.
 
 Offline and injected transport only; no Windows Server or real credentials.
 Author: Abdelhalim Talbi.
@@ -33,7 +33,13 @@ class CAPinningR106(unittest.TestCase):
 
     def transport(self, *args, **kwargs):
         self.calls.append('network')
-        raise RuntimeError('never contact remote host')
+        ca_path = kwargs.get('ca_bundle')
+        if ca_path is not None:
+            # R107+ passes a per-request trust copy, never the source path.
+            self.snapshot_path = Path(ca_path)
+            self.assertNotEqual(self.snapshot_path.resolve(), self.path.resolve())
+            self.assertEqual(self.snapshot_path.read_bytes(), CA.read_bytes())
+        raise RuntimeError('synthetic transport failure; no host is contacted')
 
     def test_inventory_change_blocks_credential_and_transport(self):
         client = self.client()
@@ -67,15 +73,25 @@ class CAPinningR106(unittest.TestCase):
             client.inventory(online=True)
         self.assertEqual(self.calls, [])
 
-    def test_change_during_credential_resolution_blocks_network(self):
+    def test_change_during_credential_resolution_keeps_inflight_snapshot_pinned(self):
         def provider():
             self.calls.append('credential')
             self.path.write_bytes(self.path.read_bytes() + b'\n')
             return 'TEST_SECRET_NOT_REAL'
+
         client = self.client(provider=provider)
+        # The snapshot was validated before credential resolution. Changing
+        # the source cannot change the CA bytes already handed to transport.
+        # A synthetic transport failure avoids contacting any remote host.
+        with self.assertRaisesRegex(WinRMError, '^winrm_transport_unavailable$'):
+            client.inventory(online=True)
+        self.assertEqual(self.calls, ['credential', 'network'])
+        self.assertFalse(self.snapshot_path.exists())
+
+        # A later request must reject the changed source before WinCred/network.
         with self.assertRaisesRegex(WinRMError, '^winrm_ca_bundle_changed$'):
             client.inventory(online=True)
-        self.assertEqual(self.calls, ['credential'])
+        self.assertEqual(self.calls, ['credential', 'network'])
 
     def test_offline_never_rechecks_or_resolves(self):
         client = self.client()

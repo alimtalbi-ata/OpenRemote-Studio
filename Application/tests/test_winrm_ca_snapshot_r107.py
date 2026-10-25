@@ -88,18 +88,33 @@ class CASnapshotR107(unittest.TestCase):
         self.assertNotIn('FAKE_ONLY', str(ctx.exception))
         self.assertFalse(self.snapshots[0].parent.exists())
 
-    def test_provider_mutation_rejected_before_snapshot_or_transport(self):
-        called = []
+    def test_provider_mutation_after_snapshot_keeps_current_request_pinned(self):
+        network_calls = []
+        provider_calls = []
+
         def provider():
+            provider_calls.append(True)
             self.original.write_bytes(self.original.read_bytes() + b'\n')
             return 'FAKE_ONLY'
+
         def factory(*args, **kwargs):
-            called.append('network')
-            return self
+            network_calls.append(True)
+            return self.factory(*args, **kwargs)
+
         client = self.client(provider=provider, factory=factory)
+        # The CA snapshot is validated before provider lookup. A later change
+        # to the source path cannot affect the in-flight request using the copy.
+        self.assertEqual(client.inventory(online=True)['state'], 'ok')
+        self.assertEqual(len(provider_calls), 1)
+        self.assertEqual(len(network_calls), 1)
+        self.assertFalse(self.snapshots[0].exists())
+
+        # The next request observes the changed source and fails before secrets
+        # or transport are touched.
         with self.assertRaisesRegex(WinRMError, '^winrm_ca_bundle_changed$'):
             client.inventory(online=True)
-        self.assertEqual(called, [])
+        self.assertEqual(len(provider_calls), 1)
+        self.assertEqual(len(network_calls), 1)
 
     def test_offline_does_not_allocate_snapshot_or_request_credential(self):
         client = self.client(provider=lambda: self.fail('credential read offline'))
