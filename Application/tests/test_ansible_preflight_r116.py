@@ -1,6 +1,7 @@
 """R116 Ansible preflight contract tests. No real Ansible controller or network."""
 import base64
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -32,6 +33,25 @@ KNOWN_HOSTS = (
     + "\n"
 )
 KEY_BYTES = b"R116_PRIVATE_KEY_SENTINEL_not_a_real_key\n"
+
+
+class StuckProcess:
+    def __init__(self, args, **kwargs):
+        self.args = list(args)
+        self.kwargs = kwargs
+        self.pid = 999999
+
+    def wait(self, timeout=None):
+        raise subprocess.TimeoutExpired("ansible-playbook", timeout)
+
+    def poll(self):
+        return None
+
+    def terminate(self):
+        pass
+
+    def kill(self):
+        pass
 
 
 class FakeProcess:
@@ -308,6 +328,42 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         self.assertEqual(result["exit_code"], 4)
         self.assertNotIn("stderr", result)
         self.assertNotIn("stdout", result)
+
+    def test_global_deadline_stops_a_stalled_check_process_without_collecting_output(self):
+        def fake_popen(args, **kwargs):
+            self.assertIs(kwargs["stdout"], subprocess.DEVNULL)
+            self.assertIs(kwargs["stderr"], subprocess.DEVNULL)
+            return StuckProcess(args, **kwargs)
+        with patch("ansible_preflight.subprocess.Popen", side_effect=fake_popen):
+            with patch("ansible_preflight.time.monotonic", side_effect=[0.0, 0.0, 0.0, 11.0]):
+                with patch("ansible_preflight._stop_process") as stop:
+                    result = run_check_mode(
+                        self.playbook, self.inventory, self.known_hosts, self.key,
+                        consent=True, timeout_seconds=10,
+                        executable_lookup=lambda _name: "/fake/ansible-playbook",
+                    )
+        self.assertEqual(result["state"], "timeout")
+        self.assertEqual(result["stage"], "syntax")
+        self.assertIsNone(result["exit_code"])
+        self.assertNotIn("stdout", result)
+        self.assertNotIn("stderr", result)
+        stop.assert_called_once()
+
+    def test_cancellation_after_process_start_stops_the_active_child(self):
+        states = {"calls": 0}
+        def cancelled():
+            states["calls"] += 1
+            return states["calls"] >= 3
+        with patch("ansible_preflight.subprocess.Popen", side_effect=lambda args, **kwargs: StuckProcess(args, **kwargs)):
+            with patch("ansible_preflight._stop_process") as stop:
+                result = run_check_mode(
+                    self.playbook, self.inventory, self.known_hosts, self.key,
+                    consent=True, cancelled=cancelled,
+                    executable_lookup=lambda _name: "/fake/ansible-playbook",
+                )
+        self.assertEqual(result["state"], "cancelled")
+        self.assertEqual(result["stage"], "syntax")
+        stop.assert_called_once()
 
     def test_cancel_before_process_start_returns_cancelled(self):
         calls = []
