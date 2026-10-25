@@ -46,6 +46,14 @@ if (dest / "V31.8-R100-WINCRED-NATIVE-BOUNDARIES.md").is_file():
         ("R100 - real Windows CredMan test", "The Windows CI test writes a random session-only Generic Credential to the isolated runner account, reads it through the production wincred: resolver and deletes it in finally. No remote server is contacted. Results must be checked on the exact commit."),
         ("R100 - limits", "Real Windows Credential Manager testing does NOT qualify WinRM HTTPS against Windows Server, TLS trust chains, NTLM/Kerberos in production, physical Windows UI operation or pywinrm bundling. No screenshots are invented."),
     ])
+# R101: packaged WinRM transport does not certify a real remote WinRM session.
+if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
+    sections.extend([
+        ("R101 - Windows WinRM packaged runtime", "The Windows build installs pywinrm 0.5.x and explicitly collects winrm and spnego modules in PyInstaller. The executable supports an offline dependency self-check without network or credential access."),
+        ("R101 - binary acceptance gate", "The build executes the offline WinRM dependency self-check against both PyInstaller output and the independently extracted portable ZIP, with bounded timeouts. Missing modules block publication. Windows CI results must be checked at the exact commit."),
+        ("R101 - unchanged security model", "WinRM remains disabled by default and uses only fixed read-only CIM queries over HTTPS with certificate validation. Credentials are resolved in memory after operator consent; errors are redacted."),
+        ("R101 - unverified limits", "An importable WinRM dependency graph is not a successful connection to a real Windows Server. TLS trust, NTLM authentication, least-privilege remote access, physical Windows operator tests and real R101 screenshots remain unverified. The architecture SVG is conceptual, not a screenshot."),
+    ])
 doc = Document()
 doc.add_heading("OpenRemote Studio V" + version, 0)
 doc.add_paragraph("Windows release quality dossier | Abdelhalim Talbi")

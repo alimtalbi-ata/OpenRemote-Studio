@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="320" viewBox="0 0 1050 320" role="img" aria-label="Architecture conceptuelle R101 WinRM hors ligne et session distante non qualifiée">
+<rect width="1050" height="320" fill="#f7fafc"/>
+<text x="40" y="40" font-family="Arial,sans-serif" font-size="22" fill="#17324d">OpenRemote Studio R101 — architecture conceptuelle (pas une capture réelle)</text>
+<g font-family="Arial,sans-serif" font-size="16" text-anchor="middle">
+<rect x="30" y="95" width="225" height="110" rx="12" fill="#e5f2ff" stroke="#2c6caa" stroke-width="2"/>
+<text x="142" y="128" fill="#143a62">Panneau Qt WinRM</text><text x="142" y="155" font-size="13" fill="#143a62">Hors ligne par défaut</text><text x="142" y="180" font-size="13" fill="#143a62">Consentement explicite</text>
+<rect x="308" y="95" width="220" height="110" rx="12" fill="#e7f8ed" stroke="#218451" stroke-width="2"/>
+<text x="418" y="128" fill="#155c3a">Worker WinRM</text><text x="418" y="155" font-size="13" fill="#155c3a">pywinrm / NTLM / TLS</text><text x="418" y="180" font-size="13" fill="#155c3a">Requêtes CIM fixes</text>
+<rect x="582" y="95" width="215" height="110" rx="12" fill="#fff4dc" stroke="#b67a15" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="690" y="128" fill="#6c4a11">Windows Server</text><text x="690" y="155" font-size="13" fill="#6c4a11">HTTPS / CA / compte</text><text x="690" y="180" font-size="13" fill="#6c4a11">NON QUALIFIÉ EN R101</text>
+<rect x="835" y="95" width="190" height="110" rx="12" fill="#f3eaff" stroke="#744aa5" stroke-width="2"/>
+<text x="930" y="128" fill="#53347b">Build Windows CI</text><text x="930" y="155" font-size="13" fill="#53347b">Smoke EXE + ZIP</text><text x="930" y="180" font-size="13" fill="#53347b">Import hors ligne</text>
+</g>
+<g stroke="#476581" stroke-width="3" fill="none"><path d="M255 150 H308"/><path d="M528 150 H582" stroke-dasharray="7 5"/><path d="M835 220 H418 V205"/></g>
+<g font-family="Arial,sans-serif" font-size="14" fill="#34495e"><text x="42" y="260">Vert : adaptateur local. Pointillé : session WinRM réelle encore UNVERIFIED.</text><text x="42" y="287">Le contrôle du binaire n'ouvre aucun socket et ne résout aucun secret.</text></g>
+</svg>
