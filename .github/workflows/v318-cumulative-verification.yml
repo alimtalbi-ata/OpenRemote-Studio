@@ -238,6 +238,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R114 Grafana API contract tests failed' }
           python -m py_compile Application/grafana_readonly.py Application/grafana_dashboard_qt.py Application/qt_app.py Application/tests/test_grafana_readonly_r114.py Application/tests/test_grafana_dashboard_qt_r114.py Application/tests/capture_grafana_qt_r114.py
           if ($LASTEXITCODE -ne 0) { throw 'R114 Grafana source compilation failed' }
+      - name: R115 packaged GUI smoke timeout and redaction contract
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_packaged_smoke_diagnostics_r115.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R115 packaged GUI smoke evidence contract failed' }
       - name: R100 native WinCred read, bounded blobs and cleanup
         shell: pwsh
         run: |
