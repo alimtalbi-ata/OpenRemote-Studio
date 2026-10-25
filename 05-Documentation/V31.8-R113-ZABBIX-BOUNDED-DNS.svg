@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="520" viewBox="0 0 1160 520" role="img" aria-labelledby="title desc">
+<title id="title">OpenRemote Studio R113 — DNS borné dans la transaction Zabbix</title>
+<desc id="desc">Le demandeur HTTPS porte une deadline monotone, attend au plus jusqu'à cette deadline un pool DNS fixe de deux workers et une file de deux demandes, puis poursuit vers TCP TLS vérifié et le corps borné. Un résolveur système bloqué peut rester dans un worker mais ne crée pas de threads supplémentaires.</desc>
+<defs>
+ <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#334155"/></marker>
+ <style>
+  .box{fill:#f8fafc;stroke:#475569;stroke-width:2;rx:13;ry:13}
+  .limit{fill:#fff7ed;stroke:#c2410c;stroke-width:2;rx:13;ry:13}
+  .good{fill:#ecfdf5;stroke:#047857;stroke-width:2;rx:13;ry:13}
+  .title{font:700 18px 'Segoe UI',Arial,sans-serif;fill:#0f172a}
+  .body{font:14px 'Segoe UI',Arial,sans-serif;fill:#334155}
+  .small{font:12px 'Segoe UI',Arial,sans-serif;fill:#475569}
+  .line{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arrow)}
+ </style>
+</defs>
+<rect x="0" y="0" width="1160" height="520" fill="#ffffff"/>
+<text x="40" y="42" class="title" font-size="24">R113 — résolution DNS à budget monotone</text>
+<text x="40" y="67" class="body">But : borner l'attente de l'appelant sans créer un thread par requête.</text>
+<rect x="40" y="118" width="205" height="105" class="box"/>
+<text x="58" y="148" class="title">1. Transaction</text>
+<text x="58" y="174" class="body">Deadline monotone</text>
+<text x="58" y="194" class="body">partagée R112</text>
+<path d="M245 170 H292" class="line"/>
+<rect x="298" y="102" width="250" height="138" class="good"/>
+<text x="316" y="132" class="title">2. _DeadlineDNSResolver</text>
+<text x="316" y="158" class="body">2 workers daemon maximum</text>
+<text x="316" y="180" class="body">2 demandes en file maximum</text>
+<text x="316" y="205" class="small">Aucun worker par requête</text>
+<path d="M548 170 H594" class="line"/>
+<rect x="600" y="102" width="214" height="138" class="box"/>
+<text x="618" y="132" class="title">3. getaddrinfo</text>
+<text x="618" y="158" class="body">Résolveur OS</text>
+<text x="618" y="180" class="body">appel isolé au pool</text>
+<text x="618" y="205" class="small">Peut rester bloqué en natif</text>
+<path d="M814 170 H860" class="line"/>
+<rect x="866" y="102" width="254" height="138" class="good"/>
+<text x="884" y="132" class="title">4. TCP → TLS</text>
+<text x="884" y="158" class="body">Socket surveillée</text>
+<text x="884" y="180" class="body">Certificat + hostname vérifiés</text>
+<text x="884" y="205" class="small">Même deadline jusqu'au corps</text>
+<path d="M420 240 V292 H530" class="line"/>
+<rect x="535" y="274" width="255" height="98" class="limit"/>
+<text x="553" y="303" class="title">Deadline atteinte / file pleine</text>
+<text x="553" y="329" class="body">L'appelant reçoit un timeout neutre</text>
+<text x="553" y="350" class="small">Tâche expirée : ignorée en attente</text>
+<path d="M790 324 H845" class="line"/>
+<rect x="851" y="274" width="269" height="98" class="box"/>
+<text x="869" y="303" class="title">Limite résiduelle honnête</text>
+<text x="869" y="329" class="body">Un getaddrinfo bloqué n'est pas tué</text>
+<text x="869" y="350" class="small">2 appels OS au maximum en parallèle</text>
+<rect x="40" y="414" width="1080" height="66" class="box"/>
+<text x="58" y="441" class="title">QA : six tests R113</text>
+<text x="58" y="463" class="body">Deadline expirée • loopback TCP • DNS bloqué • tâche expirée ignorée • capacité fixe • résultat getaddrinfo normal</text>
+</svg>

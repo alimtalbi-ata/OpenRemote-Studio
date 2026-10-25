@@ -98,6 +98,16 @@ if (dest / "V31.8-R112-ZABBIX-TRANSACTION-DEADLINE.md").is_file():
         ("R112 - qualification boundary", "Seven new tests include a real loopback TLS server with an ephemeral runtime-generated trust anchor and slow-drip response headers. The temporary private key is deleted and is never archived. Platform getaddrinfo/DNS itself is not portably interruptible, and a real Zabbix instance, real token and least-privilege API role remain unverified. Zabbix stays PARTIAL; no R112 UI screenshot is claimed."),
     ])
 
+
+# R113: bound caller waits for system DNS without creating unbounded threads.
+if (dest / "V31.8-R113-ZABBIX-BOUNDED-DNS.md").is_file():
+    sections.extend([
+        ("R113 - bounded DNS transaction wait", "Zabbix HTTPS connection setup uses a fixed pool of two daemon DNS workers and a queue capped at two requests. The request thread shares the existing monotonic deadline and waits only until that deadline. Expired queued lookups are skipped before the OS resolver call begins. The first loopback CI run found that HTTPConnection assigns socket.create_connection on the instance and would shadow a same-named subclass method; R113 explicitly binds the instance callback to _deadline_create_connection and retains a regression test for that production path."),
+        ("R113 - residual DNS limitation", "A native getaddrinfo call that has already started cannot be forcibly interrupted portably; it can remain in a worker. Fixed worker and queue limits prevent unbounded per-request thread creation, and saturated callers receive a neutral timeout."),
+        ("R113 - tests and evidence", "Six unit tests cover expired deadline, valid getaddrinfo result shape, actual TCP loopback routing, bounded caller wait with a blocked resolver, expired queued lookup rejection and pool capacity limits. No external DNS, live Zabbix endpoint or real token is used. The cumulative workflow explicitly installs cryptography for the R112 ephemeral loopback TLS fixture, after its first run showed that the system Python lacked this test dependency. Windows native, OpenSSH and cumulative workflows must be verified at the exact commit before release. No R113 UI screenshot is claimed."),
+    ])
+
+
 # R101: packaged WinRM transport does not certify a real remote WinRM session.
 if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
     sections.extend([

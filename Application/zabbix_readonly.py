@@ -12,6 +12,7 @@ import http.client
 import ipaddress
 import json
 import os
+import queue
 import re
 import socket
 import threading
@@ -39,6 +40,131 @@ class ZabbixError(RuntimeError):
 class _RejectRedirects(HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, msg, headers, newurl):
         return None
+
+
+
+
+class _DeadlineDNSResolver:
+    """Resolve DNS off-thread with fixed concurrency and a bounded pending queue.
+
+    The platform resolver may block inside getaddrinfo and cannot be cancelled
+    portably. Request threads therefore wait only until their absolute deadline.
+    A fixed daemon pool caps any resolver calls that outlive a request; expired
+    queued jobs are discarded before they start. No thread logs hostnames/errors.
+    """
+
+    def __init__(self, resolver=None, *, worker_count=2, queue_capacity=2):
+        if type(worker_count) is not int or not 1 <= worker_count <= 4:
+            raise ValueError("worker_count must be between 1 and 4")
+        if type(queue_capacity) is not int or not 1 <= queue_capacity <= 8:
+            raise ValueError("queue_capacity must be between 1 and 8")
+        self._resolver = resolver if resolver is not None else socket.getaddrinfo
+        self._worker_count = worker_count
+        self._jobs = queue.Queue(maxsize=queue_capacity)
+        self._lock = threading.Lock()
+        self._threads = []
+        self._closed = False
+
+    def _ensure_workers(self):
+        with self._lock:
+            if self._closed:
+                raise socket.timeout("DNS resolver is closed")
+            while len(self._threads) < self._worker_count:
+                thread = threading.Thread(
+                    target=self._worker,
+                    name=f"openremote-zabbix-dns-{len(self._threads) + 1}",
+                    daemon=True,
+                )
+                thread.start()
+                self._threads.append(thread)
+
+    def _worker(self):
+        while True:
+            job = self._jobs.get()
+            try:
+                if job is None:
+                    return
+                host, port, deadline, result_queue = job
+                if time.monotonic() >= deadline:
+                    result = (False, socket.timeout("DNS deadline exceeded"))
+                else:
+                    try:
+                        addresses = self._resolver(host, port, type=socket.SOCK_STREAM)
+                    except Exception as exc:
+                        result = (False, exc)
+                    else:
+                        result = (True, addresses)
+                    # A result after the caller's deadline is never published as
+                    # successful, even if scheduling jitter left the waiter alive.
+                    if time.monotonic() >= deadline:
+                        result = (False, socket.timeout("DNS deadline exceeded"))
+                try:
+                    result_queue.put_nowait(result)
+                except queue.Full:
+                    # The caller already timed out or cancelled its wait.
+                    pass
+            finally:
+                self._jobs.task_done()
+
+    def resolve(self, host, port, deadline):
+        """Return getaddrinfo-compatible addresses or raise by the deadline."""
+        if (not isinstance(deadline, (int, float)) or isinstance(deadline, bool)
+                or not isinstance(host, str) or not host
+                or type(port) is not int or not 1 <= port <= 65535):
+            raise socket.timeout("Invalid DNS request")
+        remaining = float(deadline) - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("DNS deadline exceeded")
+        result_queue = queue.Queue(maxsize=1)
+        self._ensure_workers()
+        remaining = float(deadline) - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("DNS deadline exceeded")
+        try:
+            self._jobs.put((host, port, float(deadline), result_queue), timeout=remaining)
+        except queue.Full:
+            raise socket.timeout("DNS resolver capacity exhausted") from None
+        remaining = float(deadline) - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("DNS deadline exceeded")
+        try:
+            success, value = result_queue.get(timeout=remaining)
+        except queue.Empty:
+            raise socket.timeout("DNS deadline exceeded") from None
+        if time.monotonic() >= float(deadline):
+            raise socket.timeout("DNS deadline exceeded")
+        if not success:
+            raise value
+        if not isinstance(value, (list, tuple)):
+            raise OSError("DNS resolver returned an invalid address list")
+        return value
+
+    def close(self, timeout=1.0):
+        """Stop idle workers; primarily useful for isolated tests and shutdown."""
+        try:
+            timeout = max(0.0, float(timeout))
+        except (TypeError, ValueError):
+            timeout = 0.0
+        stop_at = time.monotonic() + timeout
+        with self._lock:
+            self._closed = True
+            threads = tuple(self._threads)
+        for _ in threads:
+            remaining = stop_at - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                self._jobs.put(None, timeout=remaining)
+            except queue.Full:
+                break
+        for thread in threads:
+            remaining = stop_at - time.monotonic()
+            if remaining <= 0:
+                break
+            thread.join(remaining)
+
+
+_DNS_RESOLVER = _DeadlineDNSResolver()
 
 
 # urllib passes a socket inactivity timeout to http.client. These per-request
@@ -88,6 +214,10 @@ class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
         self._deadline_in_getresponse = False
         super().__init__(*args, **kwargs)
         if self._deadline is not None:
+            # HTTPConnection.__init__ assigns socket.create_connection to the
+            # instance, which would shadow a same-named subclass method. Replace
+            # that callback explicitly or the DNS deadline pool would be bypassed.
+            self._create_connection = self._deadline_create_connection
             remaining = self._remaining_deadline()
             try:
                 configured_timeout = float(self.timeout)
@@ -139,7 +269,7 @@ class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
             self._deadline_response = None
         self._cancel_deadline_timer()
 
-    def _create_connection(self, address, timeout, source_address):
+    def _deadline_create_connection(self, address, timeout, source_address):
         # Use a fresh remaining budget for each address. DNS resolution itself is
         # performed by the platform resolver and cannot be forcibly interrupted;
         # the deadline is rechecked immediately when it returns.
@@ -147,8 +277,8 @@ class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
             return socket.create_connection(address, timeout, source_address)
         host, port = address
         last_error = None
-        for family, socktype, proto, _canonname, sockaddr in socket.getaddrinfo(
-                host, port, type=socket.SOCK_STREAM):
+        addresses = _DNS_RESOLVER.resolve(host, port, self._deadline)
+        for family, socktype, proto, _canonname, sockaddr in addresses:
             remaining = self._remaining_deadline()
             sock = socket.socket(family, socktype, proto)
             self._deadline_pending_sock = sock
