@@ -175,6 +175,10 @@ class GrafanaReadOnly:
                         sock.settimeout(remaining)
                     reader = getattr(response, "read1", response.read)
                     chunk = reader(min(_READ_CHUNK, MAX_RESPONSE_BYTES + 1 - len(payload)))
+                    # A read that returns after the deadline must not be accepted,
+                    # including the final EOF read that would otherwise exit the loop.
+                    if time.monotonic() >= deadline:
+                        raise GrafanaError("grafana_deadline_exceeded")
                     if not chunk:
                         break
                     payload.extend(chunk)
@@ -188,6 +192,9 @@ class GrafanaReadOnly:
             raise GrafanaError("grafana_http_failure") from None
         except Exception:
             # Transport exception strings may contain headers or credentials.
+            # When the configured deadline has elapsed, report only that stable code.
+            if time.monotonic() >= deadline:
+                raise GrafanaError("grafana_deadline_exceeded") from None
             raise GrafanaError("grafana_network_unavailable") from None
         finally:
             bearer = ""
