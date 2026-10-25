@@ -237,11 +237,23 @@ class ZabbixAlertsPanel(QWidget):
         layout.addWidget(QLabel("Aucun acquittement, modification Zabbix ou ouverture de session n'est déclenchée. "
                                 "Les correspondances locales sont indicatives et exigent une action opérateur séparée."))
 
-        self.origin.textChanged.connect(self._invalidate)
+        self.origin.textChanged.connect(self._origin_changed)
         self.consent.toggled.connect(self._invalidate)
         self.limit.currentIndexChanged.connect(self._invalidate)
         self.severity_filter.currentIndexChanged.connect(self._apply_filter)
         self.search_filter.textChanged.connect(self._apply_filter)
+
+    def _origin_changed(self, *_):
+        """A network approval is scoped to the exact origin the operator reviewed."""
+        if self.consent.isChecked():
+            # Toggling consent invokes _invalidate synchronously: cancel pending
+            # work, clear old data and fence off any result from the previous origin.
+            self.consent.setChecked(False)
+            self.status.setText(
+                "Origine HTTPS modifiée — consentement révoqué ; vérifier la cible puis autoriser de nouveau."
+            )
+            return
+        self._invalidate()
 
     def _invalidate(self, *_):
         self._generation += 1
