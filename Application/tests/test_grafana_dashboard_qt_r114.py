@@ -174,7 +174,7 @@ class GrafanaDashboardQtR114Tests(unittest.TestCase):
         # A visually deceptive or resolver-ambiguous origin must fail before
         # the worker asks the credential provider for a Bearer token.
         invalid_origins = (
-            "https://gr\\u0430fana.example.test",
+            "https://gr\u0430fana.example.test",
             "https://%67rafana.example.test",
             "https://grafana_test.example.test",
         )
