@@ -48,7 +48,7 @@ class AnsiblePreflightQtR116Tests(unittest.TestCase):
         self.key = self.root / "id_key"
         self.playbook.write_text(PLAYBOOK, encoding="utf-8")
         self.inventory.write_text(INVENTORY, encoding="utf-8")
-        self.hosts.write_text("node1.example.test ssh-ed25519 QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFA=\n", encoding="utf-8")
+        self.hosts.write_text("node1.example.test ssh-ed25519 QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=\n", encoding="utf-8")
         self.key.write_text("synthetic key fixture", encoding="utf-8")
         if os.name != "nt":
             os.chmod(self.key, 0o600)
