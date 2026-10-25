@@ -48,6 +48,18 @@ class WindowsSpecEntrypointR70(unittest.TestCase):
                 self.assertTrue((APP_DIR / 'grafana_readonly.py').is_file())
                 self.assertTrue((APP_DIR / 'grafana_dashboard_qt.py').is_file())
 
+    def test_r116_ansible_modules_and_yaml_parser_are_frozen_in_both_bundles(self):
+        for name in ('OpenRemoteStudio.spec', 'OpenRemoteStudio-onefile.spec'):
+            with self.subTest(name=name):
+                content = (SPEC_DIR / name).read_text(encoding='utf-8')
+                self.assertIn("collect_submodules('yaml')", content)
+                self.assertIn("'ansible_preflight'", content)
+                self.assertIn("'ansible_preflight_qt'", content)
+                self.assertTrue((APP_DIR / 'ansible_preflight.py').is_file())
+                self.assertTrue((APP_DIR / 'ansible_preflight_qt.py').is_file())
+                self.assertTrue((APP_DIR / 'tests/test_ansible_preflight_r116.py').is_file())
+                self.assertTrue((APP_DIR / 'tests/test_ansible_preflight_qt_r116.py').is_file())
+
 
 
 if __name__ == '__main__':
