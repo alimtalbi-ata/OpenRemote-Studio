@@ -26,7 +26,7 @@ sections = [
 if (dest / "V31.8-R116-ANSIBLE-CHECK-PREFLIGHT.md").is_file():
     sections.extend([
         ("R116 - Ansible offline preflight", "The Qt tool validates a bounded YAML playbook and static INI inventory against a builtin-module allowlist. It runs offline by default and reports only counts and SHA-256 fingerprints."),
-        ("R116 - Ansible check mode safety", "The optional runner requires explicit consent, a selected known_hosts file and SSH private key, rechecks input hashes, enforces StrictHostKeyChecking=yes and --check --diff, and discards all child stdout/stderr. Check mode is not a sandbox and can create remote temporary files."),
+        ("R116 - Ansible check mode safety", "The optional runner binds one-shot consent to SHA-256 fingerprints for the reviewed playbook, inventory, selected known_hosts file and SSH private key; it revalidates the fingerprints before launch, enforces StrictHostKeyChecking=yes and --check --diff, and discards all child stdout/stderr. Check mode is not a sandbox and can create remote temporary files."),
         ("R116 - Ansible qualification limits", "CI tests static validation, the runner with a fake local executable, Qt consent and stale-result invalidation. No real Ansible CLI/controller/target was qualified in this release candidate. The generated Qt screenshot is offline only."),
     ])
 
