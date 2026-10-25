@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRemote Studio R114 — intégration Grafana lecture seule</title>
+  <desc id="desc">Diagramme conceptuel. Opérateur autorise manuellement une lecture HTTPS. Le panneau Qt appelle l'adaptateur GET-only, vérifie et limite la réponse, puis reconstruit les deep links depuis l'origine et l'UID validés. Le jeton reste dans l'en-tête Authorization et n'est pas stocké ou exporté.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#34546f"/></marker>
+    <style>
+      .bg{fill:#f4f7fa}.card{fill:#fff;stroke:#31516b;stroke-width:2;rx:18}
+      .secure{fill:#eaf6ee;stroke:#2c7553;stroke-width:2;rx:18}
+      .deny{fill:#fff1ed;stroke:#a74b38;stroke-width:2;rx:18}
+      .title{font:700 25px sans-serif;fill:#18364c}.head{font:700 18px sans-serif;fill:#18364c}
+      .body{font:15px sans-serif;fill:#263746}.small{font:13px sans-serif;fill:#425567}
+      .line{stroke:#34546f;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .green{stroke:#2c7553;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect class="bg" width="1280" height="600"/>
+  <text class="title" x="40" y="48">OpenRemote Studio V31.8 — R114 · Grafana read-only</text>
+  <text class="small" x="40" y="76">Diagramme d'architecture conceptuel · ce n'est pas une capture applicative</text>
+
+  <rect class="card" x="35" y="145" width="220" height="170"/>
+  <text class="head" x="55" y="180">Opérateur</text>
+  <text class="body" x="55" y="212">Cible HTTPS vérifiée</text>
+  <text class="body" x="55" y="237">Consentement explicite</text>
+  <text class="body" x="55" y="262">Recherche facultative</text>
+  <text class="small" x="55" y="291">Aucun polling automatique</text>
+
+  <rect class="card" x="320" y="130" width="250" height="200"/>
+  <text class="head" x="340" y="165">Panneau Qt</text>
+  <text class="body" x="340" y="197">Worker asynchrone</text>
+  <text class="body" x="340" y="222">Annulation + génération</text>
+  <text class="body" x="340" y="247">Révocation sur édition</text>
+  <text class="body" x="340" y="272">Rendu de champs sûrs</text>
+  <text class="small" x="340" y="304">Outils → Tableaux Grafana</text>
+
+  <rect class="secure" x="635" y="130" width="270" height="200"/>
+  <text class="head" x="655" y="165">Adaptateur Grafana</text>
+  <text class="body" x="655" y="197">GET /api/search uniquement</text>
+  <text class="body" x="655" y="222">Bearer dans l'en-tête HTTP</text>
+  <text class="body" x="655" y="247">TLS strict · redirections refusées</text>
+  <text class="body" x="655" y="272">JSON strict · corps ≤ 1 Mio</text>
+  <text class="small" x="655" y="304">≤ 100 dashboards / requête</text>
+
+  <rect class="card" x="975" y="130" width="270" height="200"/>
+  <text class="head" x="995" y="165">Projection contrôlée</text>
+  <text class="body" x="995" y="197">UID + titre + dossier + tags</text>
+  <text class="body" x="995" y="222">URL rebâtie localement</text>
+  <text class="body" x="995" y="247">Ouverture sur clic opérateur</text>
+  <text class="small" x="995" y="277">Jamais l'URL fournie par l'API</text>
+  <text class="small" x="995" y="301">Aucune mutation Grafana</text>
+
+  <path class="line" d="M255 215 H315"/>
+  <path class="line" d="M570 215 H630"/>
+  <path class="green" d="M905 215 H970"/>
+
+  <rect class="deny" x="110" y="390" width="500" height="135"/>
+  <text class="head" x="135" y="425">Frontière d'identifiants</text>
+  <text class="body" x="135" y="455">OPENREMOTE_GRAFANA_TOKEN lu uniquement après consentement.</text>
+  <text class="body" x="135" y="482">Jamais dans URL, journal, stockage ou export.</text>
+  <path class="green" d="M385 390 V336"/>
+
+  <rect class="deny" x="675" y="390" width="500" height="135"/>
+  <text class="head" x="700" y="425">Limites / mode dégradé</text>
+  <text class="body" x="700" y="455">Offline par défaut · erreur neutre · réponse bornée.</text>
+  <text class="body" x="700" y="482">API réelle, permissions minimales et serveur entreprise : UNVERIFIED.</text>
+  <path class="line" d="M770 330 V385"/>
+
+  <text class="small" x="40" y="565">Auteur : Abdelhalim Talbi · R114 · aucune connexion Grafana réelle revendiquée</text>
+</svg>
