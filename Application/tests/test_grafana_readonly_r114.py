@@ -193,8 +193,15 @@ class GrafanaReadOnlyR114Tests(unittest.TestCase):
 
     def test_cli_is_offline_by_default_and_does_not_read_token(self):
         out = io.StringIO()
+        original_get = os.environ.get
+
+        def guarded_get(key, default=None):
+            if key == "OPENREMOTE_GRAFANA_TOKEN":
+                raise AssertionError("token read offline")
+            return original_get(key, default)
+
         with patch.dict(os.environ, {"OPENREMOTE_GRAFANA_TOKEN": TOKEN}), \
-             patch("grafana_readonly.os.environ.get", side_effect=AssertionError("token read offline")), \
+             patch("grafana_readonly.os.environ.get", side_effect=guarded_get), \
              redirect_stdout(out):
             self.assertEqual(main(["--origin", ORIGIN]), 0)
         payload = json.loads(out.getvalue())
