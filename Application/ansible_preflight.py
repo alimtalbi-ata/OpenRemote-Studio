@@ -640,7 +640,7 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             stage, code = _run_one(executable, syntax_args, env, root, deadline, cancelled)
             if stage != "ok":
                 return {
-                    "state": stage, "stage": "syntax", "exit_code": code,
+                    "state": ("syntax_failed" if stage == "failed" else stage), "stage": "syntax", "exit_code": code,
                     "read_only": True, "output_retained": False,
                     "host_count": analysis["host_count"], "task_count": analysis["task_count"],
                 }
