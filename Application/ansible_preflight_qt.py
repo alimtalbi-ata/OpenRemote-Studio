@@ -67,8 +67,8 @@ class AnsiblePreflightPanel(QWidget):
                  executable_lookup=None, pool=None):
         super().__init__(parent)
         self.setObjectName("ansiblePreflightPanel")
-        self._analyzer = analyzer
-        self._runner = runner
+        self._analyzer = analyzer or analyze_playbook
+        self._runner = runner or run_check_mode
         self._which = executable_lookup or shutil.which
         self._pool = pool or QThreadPool.globalInstance()
         self._pending = None
