@@ -293,8 +293,8 @@ class GrafanaDashboardsPanel(QWidget):
                 title = _visible(row.get("title"), 200)
                 folder = _visible(row.get("folder", ""), 120)
                 tags = row.get("tags", [])
-                if (not isinstance(tags, list) or len(tags) > 20 or not title
-                        or uid in seen):
+                if (not isinstance(uid, str) or not isinstance(tags, list)
+                        or len(tags) > 20 or not title or uid in seen):
                     raise GrafanaError("grafana_invalid_dashboard")
                 # Never trust an injected/server-supplied URL: rebuild from origin + UID.
                 link = dashboard_link(self.origin.text(), uid, title)
