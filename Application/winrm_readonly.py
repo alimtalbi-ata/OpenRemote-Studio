@@ -292,45 +292,51 @@ def _read_windows_dacl_sddl(path):
             kernel.LocalFree(descriptor)
 
 
+def _sddl_is_private(sddl, user_sid, *, directory):
+    """Pure fail-closed check of the required two-principal snapshot DACL."""
+    match = re.fullmatch(r"D:([A-Z]*)(.*)", sddl)
+    if not match:
+        return False
+    control_flags = _parse_sddl_flags(match.group(1), ("AI", "AR", "P"))
+    if control_flags is None or (directory and "P" not in control_flags):
+        return False
+    ace_text = match.group(2)
+    aces = re.findall(r"\(([^()]*)\)", ace_text)
+    if len(aces) != 2 or "".join("(" + ace + ")" for ace in aces) != ace_text:
+        return False
+    expected_sids = {user_sid.upper(), "SY", "S-1-5-18"}
+    found_sids = set()
+    for ace in aces:
+        parts = ace.split(";")
+        if len(parts) != 6 or parts[0] != "A":
+            return False
+        flags = _parse_sddl_flags(
+            parts[1], ("OI", "CI", "NP", "IO", "ID", "SA", "FA")
+        )
+        if flags is None or parts[2].lower() not in {"fa", "0x1f01ff"}:
+            return False
+        if parts[3] or parts[4]:
+            return False
+        principal = parts[5].upper()
+        if principal not in expected_sids:
+            return False
+        if directory:
+            if flags != {"OI", "CI"}:
+                return False
+        elif "ID" not in flags or "IO" in flags or "NP" in flags:
+            return False
+        found_sids.add(principal)
+    return found_sids == {user_sid.upper(), "SY"} or found_sids == {
+        user_sid.upper(), "S-1-5-18"
+    }
+
+
 def _windows_dacl_is_private(path, user_sid, *, directory):
-    """Accept only explicit current-user + SYSTEM full-control ACEs."""
+    """Read and validate a Windows DACL; inspection errors are never permissive."""
     try:
-        sddl = _read_windows_dacl_sddl(path)
-        match = re.fullmatch(r"D:([A-Z]*)(.*)", sddl)
-        if not match:
-            return False
-        control_flags = _parse_sddl_flags(match.group(1), ("AI", "AR", "P"))
-        if control_flags is None or (directory and "P" not in control_flags):
-            return False
-        ace_text = match.group(2)
-        aces = re.findall(r"\(([^()]*)\)", ace_text)
-        if len(aces) != 2 or "".join("(" + ace + ")" for ace in aces) != ace_text:
-            return False
-        expected_sids = {user_sid.upper(), "SY", "S-1-5-18"}
-        found_sids = set()
-        for ace in aces:
-            parts = ace.split(";")
-            if len(parts) != 6 or parts[0] != "A":
-                return False
-            flags = _parse_sddl_flags(
-                parts[1], ("OI", "CI", "NP", "IO", "ID", "SA", "FA")
-            )
-            if flags is None or parts[2].lower() not in {"fa", "0x1f01ff"}:
-                return False
-            if parts[3] or parts[4]:
-                return False
-            principal = parts[5].upper()
-            if principal not in expected_sids:
-                return False
-            if directory:
-                if flags != {"OI", "CI"}:
-                    return False
-            elif "ID" not in flags or "IO" in flags or "NP" in flags:
-                return False
-            found_sids.add(principal)
-        return found_sids == {user_sid.upper(), "SY"} or found_sids == {
-            user_sid.upper(), "S-1-5-18"
-        }
+        return _sddl_is_private(
+            _read_windows_dacl_sddl(path), user_sid, directory=directory
+        )
     except (OSError, ValueError, TypeError, AttributeError):
         return False
 
