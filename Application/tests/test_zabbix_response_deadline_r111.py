@@ -4,6 +4,9 @@ Synthetic transports only; no real token or network is used.
 Author: Abdelhalim Talbi.
 """
 import io
+import socket
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -88,7 +91,62 @@ class Opener:
         return self.response
 
 
+class SocketBackedResponse:
+    status = 200
+    headers = {}
+
+    def __init__(self, sock):
+        self.fp = self
+        self.raw = sock
+        self._reader = sock.makefile("rb")
+        self.calls = 0
+
+    def read1(self, amount):
+        self.calls += 1
+        return self._reader.read1(amount)
+
+    def close(self):
+        self._reader.close()
+
+
 class ZabbixResponseDeadlineR111Tests(unittest.TestCase):
+    def test_real_socket_slow_trickle_is_stopped_by_absolute_deadline(self):
+        client_sock, server_sock = socket.socketpair()
+        response = SocketBackedResponse(client_sock)
+        stop = threading.Event()
+
+        def drip_bytes():
+            try:
+                while not stop.is_set():
+                    server_sock.sendall(b"x")
+                    time.sleep(0.04)
+            except OSError:
+                pass
+            finally:
+                try:
+                    server_sock.close()
+                except OSError:
+                    pass
+
+        sender = threading.Thread(target=drip_bytes, daemon=True)
+        sender.start()
+        started = time.monotonic()
+        try:
+            with self.assertRaisesRegex(ZabbixError, "^zabbix_timeout$"):
+                _read_response_bounded(response, 0.35)
+            elapsed = time.monotonic() - started
+            self.assertGreaterEqual(response.calls, 2, "test must observe multiple body chunks")
+            self.assertGreater(elapsed, 0.20)
+            self.assertLess(elapsed, 1.5, "a slow-drip body must not extend the deadline")
+        finally:
+            stop.set()
+            response.close()
+            try:
+                client_sock.close()
+            except OSError:
+                pass
+            sender.join(timeout=1.0)
+
     def test_streams_available_chunks_under_deadline(self):
         clock = FakeClock()
         response = ChunkedResponse([b"abc", b"def"], clock, delay=0.1)
