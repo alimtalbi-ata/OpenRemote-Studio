@@ -132,10 +132,11 @@ class GrafanaDashboardQtR114Tests(unittest.TestCase):
             pane.origin.setText("https://grafana-next.example.test")
             self.assertFalse(pane.consent.isChecked())
             self.assertEqual(pane.table.topLevelItemCount(), 0)
+            self.assertIn("révoqué", pane.status.text().casefold())
             pane.refresh()
             self.assertEqual(len(token_reads), 1)
             self.assertEqual(sum(1 for call in calls if call[0] == "request"), 1)
-            self.assertIn("révoqué", pane.status.text().casefold())
+            self.assertIn("hors ligne", pane.status.text().casefold())
         finally:
             pane.close()
             pool.waitForDone(3000)
