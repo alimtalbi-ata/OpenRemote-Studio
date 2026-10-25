@@ -39,6 +39,16 @@ class WindowsSpecEntrypointR70(unittest.TestCase):
                 self.assertIn("root.parent / 'VERSION.txt'", content)
                 self.assertIn('pathex=[str(root)]', content)
 
+    def test_r114_grafana_qt_modules_are_explicitly_frozen_in_both_bundles(self):
+        for name in ('OpenRemoteStudio.spec', 'OpenRemoteStudio-onefile.spec'):
+            with self.subTest(name=name):
+                content = (SPEC_DIR / name).read_text(encoding='utf-8')
+                self.assertIn("'grafana_readonly'", content)
+                self.assertIn("'grafana_dashboard_qt'", content)
+                self.assertTrue((APP_DIR / 'grafana_readonly.py').is_file())
+                self.assertTrue((APP_DIR / 'grafana_dashboard_qt.py').is_file())
+
+
 
 if __name__ == '__main__':
     unittest.main()

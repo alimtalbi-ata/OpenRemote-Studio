@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly]
   pull_request:
     paths:
       - 'Application/**'
@@ -345,6 +345,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R113 bounded DNS deadline tests failed' }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/zabbix_readonly.py Application/tests/test_zabbix_dns_deadline_r113.py
           if ($LASTEXITCODE -ne 0) { throw 'R113 bounded DNS compilation failed' }
+      - name: R114 Grafana read-only API and Qt panel qualification
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_grafana_readonly_r114.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R114 Grafana API contract tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_grafana_dashboard_qt_r114.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R114 Grafana Qt tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/grafana_readonly.py Application/grafana_dashboard_qt.py Application/qt_app.py Application/tests/test_grafana_readonly_r114.py Application/tests/test_grafana_dashboard_qt_r114.py Application/tests/capture_grafana_qt_r114.py
+          if ($LASTEXITCODE -ne 0) { throw 'R114 Grafana source compilation failed' }
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_grafana_qt_r114.py
+          if ($LASTEXITCODE -ne 0) { throw 'R114 offline Grafana UI capture failed' }
+          if (!(Test-Path 'Binary/Qualification/qt-grafana-r114-offline.png')) { throw 'Missing R114 offline Grafana capture' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'

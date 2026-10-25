@@ -37,6 +37,7 @@ def reconcile_archive_source_manifest(files):
 UI_CAPTURE_NAMES = (
     "qt-zabbix-r109-offline.png",
     "qt-zabbix-r110-consent-revoked.png",
+    "qt-grafana-r114-offline.png",
 )
 PNG_SIGNATURE = bytes((137, 80, 78, 71, 13, 10, 26, 10))
 
