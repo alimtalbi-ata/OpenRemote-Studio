@@ -132,8 +132,12 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
         return written
     except Exception:
         if created:
-            try:sftp.remove(remote_path)
-            except OSError:pass
+            # Cleanup is best-effort: an SSHException or another transport
+            # exception must not hide the original transfer/cancellation error.
+            try:
+                sftp.remove(remote_path)
+            except Exception:
+                pass
         raise
 
 
