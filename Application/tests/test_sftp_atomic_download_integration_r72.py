@@ -38,6 +38,40 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 upload_exclusive(None, str(Path(directory)/'missing.bin'), './report.bin')
 
+    def test_upload_source_swapped_to_symlink_before_open_is_rejected(self):
+        import os
+        from unittest.mock import patch
+        from transfer_safety import upload_exclusive
+        if not getattr(os, 'O_NOFOLLOW', 0):
+            self.skipTest('O_NOFOLLOW is unavailable on this platform')
+        class Sftp:
+            def __init__(self): self.open_calls=0
+            def open(self, path, mode):
+                self.open_calls += 1
+                raise AssertionError('remote file must not be created')
+            def remove(self, path):
+                raise AssertionError('nothing was created remotely')
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            outside=Path(directory)/'outside.bin'
+            moved=Path(directory)/'original.bin'
+            source.write_bytes(b'original')
+            outside.write_bytes(b'secret!')
+            real_open=os.open
+            swapped=[False]
+            def race_open(path, flags, *args, **kwargs):
+                if os.fspath(path)==str(source) and not swapped[0]:
+                    source.rename(moved)
+                    source.symlink_to(outside)
+                    swapped[0]=True
+                return real_open(path, flags, *args, **kwargs)
+            sftp=Sftp()
+            with patch('transfer_safety.os.open', side_effect=race_open):
+                with self.assertRaises(OSError):
+                    upload_exclusive(sftp, source, './remote.bin')
+            self.assertTrue(swapped[0])
+            self.assertEqual(sftp.open_calls, 0)
+
     def test_upload_symlink_source_rejected(self):
         from transfer_safety import upload_exclusive
         with TemporaryDirectory() as directory:
