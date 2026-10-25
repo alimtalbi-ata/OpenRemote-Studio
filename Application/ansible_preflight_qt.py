@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QCheckBox, QFileDialog, QTreeWidget, QTreeWidgetItem,
 )
 
-from ansible_preflight import AnsiblePreflightError, analyze_playbook, run_check_mode
+from ansible_preflight import (AnsiblePreflightError, analyze_playbook, run_check_mode, connection_fingerprints)
 
 
 class _Signals(QObject):
@@ -74,6 +74,7 @@ class AnsiblePreflightPanel(QWidget):
         self._pending = None
         self._generation = 0
         self._analysis = None
+        self._connection_fingerprints = None
         self._closed = False
         self._last_mode = ""
 
@@ -156,7 +157,7 @@ class AnsiblePreflightPanel(QWidget):
         for field in (self.playbook_path, self.inventory_path, self.known_hosts_path,
                       self.private_key_path, self.username):
             field.textChanged.connect(self._inputs_changed)
-        self.consent.toggled.connect(self._refresh_gate)
+        self.consent.toggled.connect(self._consent_changed)
         self._refresh_gate()
 
     def _path_row(self, label, field, callback):
@@ -191,6 +192,39 @@ class AnsiblePreflightPanel(QWidget):
         if path:
             self.private_key_path.setText(path)
 
+    def _consent_changed(self, checked):
+        if not checked:
+            self._connection_fingerprints = None
+            self._refresh_gate()
+            return
+        # Consent is tied to the exact trust anchors and private-key bytes in use;
+        # their contents are never displayed or retained in the UI.
+        try:
+            self._connection_fingerprints = connection_fingerprints(
+                self.known_hosts_path.text().strip(),
+                self.private_key_path.text().strip(),
+            )
+        except AnsiblePreflightError as exc:
+            self._connection_fingerprints = None
+            self.consent.blockSignals(True)
+            self.consent.setChecked(False)
+            self.consent.blockSignals(False)
+            self.status.setText(f"Consentement refusé — {str(exc)}.")
+        except Exception:
+            self._connection_fingerprints = None
+            self.consent.blockSignals(True)
+            self.consent.setChecked(False)
+            self.consent.blockSignals(False)
+            self.status.setText("Consentement refusé — fichiers SSH indisponibles.")
+        else:
+            self.status.setText(
+                "Consentement lié aux fichiers sélectionnés — known_hosts SHA-256 "
+                f"{self._connection_fingerprints['known_hosts_sha256'][:12]}… / "
+                f"clé SHA-256 {self._connection_fingerprints['private_key_sha256'][:12]}…. "
+                "Les fichiers seront revérifiés avant l'appel réseau."
+            )
+        self._refresh_gate()
+
     def _refresh_gate(self, *_):
         pending = self._pending is not None
         self.analyze_button.setEnabled(not pending and bool(self.playbook_path.text().strip())
@@ -204,6 +238,7 @@ class AnsiblePreflightPanel(QWidget):
             and executable_available and self.consent.isChecked()
             and bool(self.known_hosts_path.text().strip())
             and bool(self.private_key_path.text().strip())
+            and isinstance(self._connection_fingerprints, dict)
         )
         self.run_button.setEnabled(bool(can_run))
         self.cancel_button.setEnabled(pending)
@@ -215,6 +250,7 @@ class AnsiblePreflightPanel(QWidget):
         if self._pending is not None:
             self._pending.cancel()
         self._analysis = None
+        self._connection_fingerprints = None
         self.summary.clear()
         self.consent.blockSignals(True)
         self.consent.setChecked(False)
@@ -268,6 +304,8 @@ class AnsiblePreflightPanel(QWidget):
             "timeout_seconds": 60,
             "expected_playbook_sha256": self._analysis["playbook_sha256"],
             "expected_inventory_sha256": self._analysis["inventory_sha256"],
+            "expected_known_hosts_sha256": self._connection_fingerprints["known_hosts_sha256"],
+            "expected_private_key_sha256": self._connection_fingerprints["private_key_sha256"],
             "executable_lookup": self._which,
         })
 
@@ -277,6 +315,7 @@ class AnsiblePreflightPanel(QWidget):
         self._generation += 1
         self._pending.cancel()
         self._analysis = None
+        self._connection_fingerprints = None
         self.summary.clear()
         self.consent.blockSignals(True)
         self.consent.setChecked(False)
@@ -317,6 +356,7 @@ class AnsiblePreflightPanel(QWidget):
             self.consent.blockSignals(True)
             self.consent.setChecked(False)
             self.consent.blockSignals(False)
+            self._connection_fingerprints = None
         self._refresh_gate()
 
     def closeEvent(self, event):
@@ -325,4 +365,5 @@ class AnsiblePreflightPanel(QWidget):
         if self._pending is not None:
             self._pending.cancel()
         self._analysis = None
+        self._connection_fingerprints = None
         super().closeEvent(event)
