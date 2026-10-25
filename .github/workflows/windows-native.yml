@@ -70,6 +70,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m py_compile Application/netbox_readonly.py Application/netbox_preview_filter.py Application/netbox_preview_qt.py Application/qt_app.py Application/tests/test_netbox_cancel_r76.py Application/tests/test_netbox_cancel_qt_r76.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: R101 packaged WinRM runtime and spec path regressions
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_runtime_r101.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R101 packaged runtime contract failed" }
       - name: R93 WinRM read-only offline and redaction regression
         run: |
           $env:PYTHONPATH = 'Application'

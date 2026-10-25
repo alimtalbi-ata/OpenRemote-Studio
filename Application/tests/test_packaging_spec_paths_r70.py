@@ -35,9 +35,9 @@ class WindowsSpecEntrypointR70(unittest.TestCase):
         for name in ('OpenRemoteStudio.spec', 'OpenRemoteStudio-onefile.spec'):
             with self.subTest(name=name):
                 content = (SPEC_DIR / name).read_text(encoding='utf-8')
-                self.assertIn("root / 'qt_app.py'", content)
-                self.assertIn("root.parent / 'VERSION.txt'", content)
-                self.assertIn('pathex=[str(root)]', content)
+                self.assertIn("root.parent / 'qt_app.py'", content)
+                self.assertIn("root.parent.parent / 'VERSION.txt'", content)
+                self.assertIn('pathex=[str(root.parent)]', content)
 
 
 if __name__ == '__main__':
