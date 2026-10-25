@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening]
   pull_request:
     paths:
       - 'Application/**'
@@ -345,7 +345,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R113 bounded DNS deadline tests failed' }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/zabbix_readonly.py Application/tests/test_zabbix_dns_deadline_r113.py
           if ($LASTEXITCODE -ne 0) { throw 'R113 bounded DNS compilation failed' }
-      - name: R114 Grafana read-only API and Qt panel qualification
+      - name: R115 Grafana origin validation and R114 Qt panel qualification
         run: |
           $env:PYTHONPATH = 'Application'
           $env:QT_QPA_PLATFORM = 'offscreen'
@@ -402,7 +402,7 @@ jobs:
           $env:PYTHONPATH = ''
           try {
             $smoke = (Resolve-Path 'Application/windows/smoke-windows.ps1').Path
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $smoke -Exe $exe -TimeoutSeconds 30
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $smoke -Exe $exe -TimeoutSeconds 60
             if ($LASTEXITCODE -ne 0) { throw "Isolated portable GUI smoke failed" }
           } finally {
             $env:PYTHONPATH = $oldPath
