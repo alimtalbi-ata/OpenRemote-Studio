@@ -161,6 +161,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R100 native WinCred gate failed" }
           python -m unittest discover -s Application/tests -p 'test_windows_credentials_v252.py' -v
           if ($LASTEXITCODE -ne 0) { throw "Legacy WinCred gate failed" }
+      - name: R104 source archive manifest reconciliation and verifier regression
+        run: |
+          $env:PYTHONPATH = '02-Compilation'
+          python -m unittest discover -s 02-Compilation -p 'test_archive*manifest*r104.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R104 source archive manifest gate failed' }
+          python -m py_compile 02-Compilation/build_cumulative_v318.py 02-Compilation/verify_cumulative_v318.py
+          if ($LASTEXITCODE -ne 0) { throw 'R104 release scripts compilation failed' }
       - name: Compile verifier sources
         shell: pwsh
         run: |
