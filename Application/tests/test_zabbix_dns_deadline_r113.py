@@ -5,11 +5,17 @@ No external DNS service, Zabbix instance, or credential is used.
 Author: Abdelhalim Talbi.
 """
 import socket
+import ssl
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
-from zabbix_readonly import _DeadlineDNSResolver
+from zabbix_readonly import (
+    _ACTIVE_HTTP_DEADLINE,
+    _DeadlineDNSResolver,
+    _DeadlineHTTPSConnection,
+)
 
 
 class ZabbixBoundedDNSDeadlineR113Tests(unittest.TestCase):
@@ -45,6 +51,50 @@ class ZabbixBoundedDNSDeadlineR113Tests(unittest.TestCase):
             self.assertTrue(all(thread.daemon for thread in pool._threads))
         finally:
             pool.close()
+
+    def test_tcp_connect_uses_bounded_resolver_pool_before_socket_connect(self):
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+        calls = []
+
+        def resolver(host, requested_port, *, type):
+            calls.append((host, requested_port, type))
+            return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP,
+                     "", ("127.0.0.1", requested_port))]
+
+        pool = _DeadlineDNSResolver(resolver=resolver, worker_count=1, queue_capacity=1)
+        deadline = time.monotonic() + 1.0
+        token = _ACTIVE_HTTP_DEADLINE.set(deadline)
+        try:
+            connection = _DeadlineHTTPSConnection(
+                "zabbix.invalid", timeout=1.0, context=ssl.create_default_context()
+            )
+        finally:
+            _ACTIVE_HTTP_DEADLINE.reset(token)
+        client_sock = None
+        accepted_sock = None
+        try:
+            with patch("zabbix_readonly._DNS_RESOLVER", pool):
+                client_sock = connection._create_connection(
+                    ("zabbix.invalid", port), timeout=1.0, source_address=None
+                )
+            accepted_sock, _address = listener.accept()
+            self.assertEqual(calls, [("zabbix.invalid", port, socket.SOCK_STREAM)])
+            self.assertEqual(client_sock.getpeername()[0], "127.0.0.1")
+        finally:
+            connection.close()
+            pool.close()
+            listener.close()
+            if client_sock is not None:
+                try:
+                    client_sock.close()
+                except OSError:
+                    pass
+            if accepted_sock is not None:
+                accepted_sock.close()
 
     def test_stalled_system_resolver_cannot_hold_caller_past_deadline(self):
         entered = threading.Event()
