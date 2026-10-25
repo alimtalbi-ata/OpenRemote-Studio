@@ -323,7 +323,7 @@ def _sddl_is_private(sddl, user_sid, *, directory):
         if directory:
             if flags != {"OI", "CI"}:
                 return False
-        elif "ID" not in flags or "IO" in flags or "NP" in flags:
+        elif flags != {"ID"}:
             return False
         found_sids.add(principal)
     return found_sids == {user_sid.upper(), "SY"} or found_sids == {
@@ -337,7 +337,9 @@ def _windows_dacl_is_private(path, user_sid, *, directory):
         return _sddl_is_private(
             _read_windows_dacl_sddl(path), user_sid, directory=directory
         )
-    except (OSError, ValueError, TypeError, AttributeError):
+    except Exception:
+        # Native ACL inspection is a security boundary: any unexpected
+        # inspection failure must be interpreted as an unsafe DACL.
         return False
 
 
@@ -413,7 +415,9 @@ def _private_snapshot_directory():
         return
     try:
         directory, user_sid = _create_windows_private_directory()
-    except OSError:
+    except Exception:
+        # Keep WinAPI errors and local paths out of UI/log messages. Any ACL
+        # setup error blocks the credential provider and network request.
         raise WinRMError("winrm_snapshot_acl_failed") from None
     try:
         yield directory, user_sid
