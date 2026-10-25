@@ -61,13 +61,17 @@ class CABundleR105(unittest.TestCase):
         self.assertEqual(client.inventory()['state'],'offline')
         self.assertEqual(transport.calls,[])
         self.assertEqual(client.inventory(online=True)['state'],'ok')
-        self.assertEqual(transport.calls[0][-1],str(CA.resolve()))
+        snapshot = Path(transport.calls[0][-1])
+        self.assertNotEqual(snapshot, CA.resolve())
+        self.assertFalse(snapshot.exists())  # ephemeral trust removed after run_ps
     def test_services_ca(self):
         transport=Transport()
         client=WinRMServicesReadOnly(ORIGIN,'reader',lambda:'TEST_PASSWORD',
                                      session_factory=transport,ca_bundle=str(CA.resolve()))
         self.assertEqual(client.services(online=True)['services'],[])
-        self.assertEqual(transport.calls[0][-1],str(CA.resolve()))
+        snapshot = Path(transport.calls[0][-1])
+        self.assertNotEqual(snapshot, CA.resolve())
+        self.assertFalse(snapshot.exists())  # ephemeral trust removed after run_ps
     def test_pywinrm_keeps_tls_validation(self):
         calls=[]
         fake=types.SimpleNamespace(Session=lambda *a,**kw:calls.append(kw))

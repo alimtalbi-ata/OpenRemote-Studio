@@ -3,7 +3,7 @@
 Never executes user-provided PowerShell. Never logs credentials or raw stderr.
 Author: Abdelhalim Talbi.
 """
-from winrm_readonly import WinRMReadOnly, WinRMError, _text, _ca_bundle_digest
+from winrm_readonly import WinRMReadOnly, WinRMError, _text, _ca_bundle_digest, _snapshot_ca_bundle
 from winrm_service_totals import unwrap_service_envelope, ServiceTotalError
 
 # Fixed query, no operator input or interpolated credentials.
@@ -73,15 +73,17 @@ class WinRMServicesReadOnly(WinRMReadOnly):
         if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
             raise WinRMError('winrm_ca_bundle_changed')
         try:
-            kwargs = {'ca_bundle': self._ca_bundle} if self._ca_bundle is not None else {}
-            session = self._factory(self._endpoint, self._username, password,
-                                    timeout=self._timeout, **kwargs)
-            response = session.run_ps(_SERVICES_PS)
-        # External transports may raise a WinRMError containing raw stderr or
-        # credentials. Treat every exception from session construction/run_ps
-        # as untrusted and suppress its chained provider context.
-        except Exception:
-            raise WinRMError('winrm_transport_unavailable') from None
+            with _snapshot_ca_bundle(self._ca_bundle, self._ca_digest) as ca_path:
+                if cancelled is not None and cancelled():
+                    raise WinRMError('winrm_cancelled')
+                try:
+                    kwargs = {'ca_bundle': ca_path} if ca_path is not None else {}
+                    session = self._factory(self._endpoint, self._username, password,
+                                            timeout=self._timeout, **kwargs)
+                    response = session.run_ps(_SERVICES_PS)
+                # Never propagate raw provider or transport exception text.
+                except Exception:
+                    raise WinRMError('winrm_transport_unavailable') from None
         finally:
             password = None
         if cancelled is not None and cancelled():

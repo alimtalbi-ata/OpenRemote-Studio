@@ -280,6 +280,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R106 CA trust pinning regression failed' }
           python -m py_compile Application/winrm_readonly.py Application/winrm_services_readonly.py Application/tests/test_winrm_ca_pinning_r106.py
           if ($LASTEXITCODE -ne 0) { throw 'R106 CA pinning source compilation failed' }
+      - name: R107 private WinRM CA snapshot and cleanup gate
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_ca_snapshot_r107.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R107 private CA snapshot failed' }
+          python -m unittest discover -s Application/tests -p 'test_winrm_ca_bundle_r105.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R107 R105 compatibility failed' }
+          python -m py_compile Application/winrm_readonly.py Application/winrm_services_readonly.py Application/tests/test_winrm_ca_snapshot_r107.py
+          if ($LASTEXITCODE -ne 0) { throw 'R107 compilation failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
