@@ -6,6 +6,8 @@ Author: Abdelhalim Talbi.
 """
 import os
 import hashlib
+import tempfile
+from contextlib import contextmanager
 import re
 import ssl
 import stat
@@ -127,7 +129,7 @@ def validate_ca_bundle(path):
     return path
 
 
-def _ca_bundle_digest(path):
+def _ca_bundle_bytes(path):
     """Pin the validated CA bytes, not just its pathname, before reading secrets.
 
     Read through a regular-file descriptor; reject symlink swaps and changes
@@ -155,8 +157,41 @@ def _ca_bundle_digest(path):
             os.close(fd)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         context.load_verify_locations(cadata=data.decode('ascii'))
-        return hashlib.sha256(data).digest()
+        return data
     except (OSError, ValueError, UnicodeError, ssl.SSLError):
+        raise WinRMError('winrm_invalid_ca_bundle') from None
+
+
+def _ca_bundle_digest(path):
+    """Digest of a safely opened and validated public CA PEM."""
+    return hashlib.sha256(_ca_bundle_bytes(path)).digest()
+
+
+@contextmanager
+def _snapshot_ca_bundle(path, expected_digest):
+    """Give pywinrm a private, immutable-for-this-request copy of pinned CA bytes.
+
+    The original file is never handed to requests. The copy is removed on both
+    success and transport failure; no snapshot is created in offline mode.
+    """
+    if path is None:
+        yield None
+        return
+    data = _ca_bundle_bytes(path)
+    if hashlib.sha256(data).digest() != expected_digest:
+        raise WinRMError('winrm_ca_bundle_changed')
+    try:
+        with tempfile.TemporaryDirectory(prefix='ors-winrm-ca-') as directory:
+            target = os.path.join(directory, 'trust.pem')
+            flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                     | getattr(os, 'O_BINARY', 0))
+            fd = os.open(target, flags, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(data)
+            if _ca_bundle_digest(target) != expected_digest:
+                raise WinRMError('winrm_invalid_ca_bundle')
+            yield target
+    except (OSError, ValueError):
         raise WinRMError('winrm_invalid_ca_bundle') from None
 
 
@@ -220,15 +255,17 @@ class WinRMReadOnly:
         if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
             raise WinRMError('winrm_ca_bundle_changed')
         try:
-            kwargs = {'ca_bundle': self._ca_bundle} if self._ca_bundle is not None else {}
-            session = self._factory(self._endpoint, self._username, password,
-                                    timeout=self._timeout, **kwargs)
-            response = session.run_ps(_INVENTORY_PS)
-        # External transports may raise a WinRMError containing raw stderr or
-        # credentials. Treat every exception from session construction/run_ps
-        # as untrusted and suppress its chained provider context.
-        except Exception:
-            raise WinRMError('winrm_transport_unavailable') from None
+            with _snapshot_ca_bundle(self._ca_bundle, self._ca_digest) as ca_path:
+                if cancelled is not None and cancelled():
+                    raise WinRMError('winrm_cancelled')
+                try:
+                    kwargs = {'ca_bundle': ca_path} if ca_path is not None else {}
+                    session = self._factory(self._endpoint, self._username, password,
+                                            timeout=self._timeout, **kwargs)
+                    response = session.run_ps(_INVENTORY_PS)
+                # Untrusted transport errors must never expose passwords or paths.
+                except Exception:
+                    raise WinRMError('winrm_transport_unavailable') from None
         finally:
             password = None
         if cancelled is not None and cancelled():
