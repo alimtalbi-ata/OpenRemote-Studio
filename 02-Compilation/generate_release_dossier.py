@@ -76,6 +76,13 @@ if (dest / "V31.8-R102-WINRM-STRICT-RESPONSE.md").is_file():
         ("R102 - qualification boundary", "Six new synthetic-transport tests plus existing R93 and R95 regression tests run locally. A real Windows Server WinRM HTTPS session, CA validation, NTLM/Kerberos in situ, physical Windows operator test and R102 screenshots remain unverified."),
     ])
 
+# R110: Zabbix network consent is bound to the exact reviewed origin.
+if (dest / "V31.8-R110-ZABBIX-CONSENT-BINDING.md").is_file():
+    sections.extend([
+        ("R110 - Zabbix consent binding", "Editing the HTTPS origin automatically unchecks online consent, clears active alert rows and invalidates pending work. A new origin requires a fresh explicit approval before the token provider can be read or another request can be sent."),
+        ("R110 - Qt regression and screenshot", "Two Qt regression tests cover re-consent after an origin change and rejection of a late response from the old origin. Windows CI captures the real Qt consent-revoked state offline with .invalid example origins; no real token or network request is used."),
+        ("R110 - limitations", "A request already inside the HTTPS transport cannot be guaranteed interrupted mid-read; its result is discarded and the request remains timeout-bounded. A real Zabbix instance, least-privilege API role, real token and production behavior remain unverified. Zabbix stays PARTIAL."),
+    ])
 # R101: packaged WinRM transport does not certify a real remote WinRM session.
 if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
     sections.extend([
