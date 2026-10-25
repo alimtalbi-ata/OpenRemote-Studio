@@ -358,6 +358,11 @@ jobs:
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_grafana_qt_r114.py
           if ($LASTEXITCODE -ne 0) { throw 'R114 offline Grafana UI capture failed' }
           if (!(Test-Path 'Binary/Qualification/qt-grafana-r114-offline.png')) { throw 'Missing R114 offline Grafana capture' }
+      - name: R115 packaged GUI smoke timeout and redaction contract
+        run: |
+          $env:PYTHONPATH = 'Application'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_packaged_smoke_diagnostics_r115.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R115 packaged GUI smoke evidence contract failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
