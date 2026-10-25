@@ -405,7 +405,16 @@ def _stop_process(process):
         if process.poll() is not None:
             return
         if os.name == "nt":
-            process.terminate()
+            # Ansible may spawn OpenSSH. Terminate the process tree instead of
+            # leaving an orphaned ssh.exe after cancellation or deadline expiry.
+            try:
+                subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, shell=False, timeout=2, check=False,
+                )
+            except Exception:
+                process.terminate()
         else:
             os.killpg(process.pid, signal.SIGTERM)
         try:
@@ -459,7 +468,8 @@ def _run_one(executable, args, env, cwd, deadline, cancelled):
 
 def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_path, *,
                    username="", consent=False, timeout_seconds=60, cancelled=None,
-                   executable_lookup=None):
+                   executable_lookup=None, expected_playbook_sha256="",
+                   expected_inventory_sha256=""):
     """Run the validated allowlist using Ansible --check --diff after explicit consent.
 
     All child stdout/stderr is discarded. The caller receives only a generic
@@ -487,8 +497,19 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
     inv_path, inv_bytes = _read_regular(inventory_path, MAX_INVENTORY_BYTES, (".ini",))
     kh_path, kh_bytes = _read_regular(known_hosts_path, MAX_KNOWN_HOSTS_BYTES)
     key_path, key_bytes = _read_regular(private_key_path, MAX_PRIVATE_KEY_BYTES)
+    if os.name != "nt":
+        try:
+            if stat.S_IMODE(key_path.stat().st_mode) & 0o077:
+                _fail("ansible_private_key_permissions_too_open")
+        except AnsiblePreflightError:
+            raise
+        except OSError:
+            _fail("ansible_input_unavailable")
     _validate_known_hosts(kh_bytes)
     analysis = _analyze_bytes(pb_path, pb_bytes, inv_path, inv_bytes)
+    if ((expected_playbook_sha256 and expected_playbook_sha256 != analysis["playbook_sha256"])
+            or (expected_inventory_sha256 and expected_inventory_sha256 != analysis["inventory_sha256"])):
+        _fail("ansible_preflight_changed_reanalyze")
     # Re-parse immediately before staging; the subprocess sees only these bounded
     # snapshots, not mutable paths supplied by the operator.
     deadline = time.monotonic() + timeout_seconds
