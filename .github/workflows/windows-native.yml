@@ -1,6 +1,8 @@
 name: Windows native build candidate
 on:
   workflow_dispatch:
+  push:
+    branches: [feature/v31.8-r108-winrm-ca-acl]
   pull_request:
     paths:
       - 'Application/**'
@@ -289,6 +291,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R107 R105 compatibility failed' }
           python -m py_compile Application/winrm_readonly.py Application/winrm_services_readonly.py Application/tests/test_winrm_ca_snapshot_r107.py
           if ($LASTEXITCODE -ne 0) { throw 'R107 compilation failed' }
+      - name: R108 protected Windows CA snapshot DACL and pre-secret order
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_snapshot_acl_r108.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R108 snapshot ACL contract failed' }
+          python -m py_compile Application/winrm_readonly.py Application/winrm_services_readonly.py Application/tests/test_winrm_snapshot_acl_r108.py Application/tests/test_winrm_ca_snapshot_r107.py
+          if ($LASTEXITCODE -ne 0) { throw 'R108 source compilation failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
