@@ -318,6 +318,8 @@ jobs:
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_zabbix_consent_binding_r110.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R110 Zabbix consent binding tests failed' }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/zabbix_alerts_qt.py Application/tests/test_zabbix_consent_binding_r110.py Application/tests/capture_zabbix_consent_r110.py Application/qt_app.py
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s 02-Compilation -p 'test_archive_ui_capture_r110.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R110 cumulative UI evidence helper tests failed' }
           if ($LASTEXITCODE -ne 0) { throw 'R110 Zabbix consent source compilation failed' }
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_zabbix_consent_r110.py
           if ($LASTEXITCODE -ne 0) { throw 'R110 consent-revocation Qt capture failed' }
