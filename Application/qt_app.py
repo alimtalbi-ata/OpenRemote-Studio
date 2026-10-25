@@ -3601,6 +3601,10 @@ class Main(QMainWindow):
         self._run_sftp(c,operation,remote,local,status,lambda _ :self._sftp_refresh(c,path,listing,status) if upload else None)
 
 def main():
+    # Offline binary gate: no WinRM connection, credential access or GUI event loop.
+    if '--check-winrm-runtime' in sys.argv:
+        from winrm_runtime_check import runtime_dependency_available
+        sys.exit(0 if runtime_dependency_available() else 13)
     # Smoke mode is opt-in and exits automatically; no remote connections are initiated.
     from startup_diagnostics import safe_record
     smoke = '--smoke-gui' in sys.argv
