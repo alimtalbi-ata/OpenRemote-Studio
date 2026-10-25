@@ -75,6 +75,11 @@ jobs:
           $env:PYTHONPATH = 'Application'
           python -m unittest discover -s Application/tests -p 'test_winrm_runtime_r101.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R101 packaged runtime contract failed" }
+      - name: R102 strict WinRM response parsing and secret redaction
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_response_r102.py' -v
+          if ($LASTEXITCODE -ne 0) { throw "R102 strict WinRM response contract failed" }
       - name: R93 WinRM read-only offline and redaction regression
         run: |
           $env:PYTHONPATH = 'Application'
