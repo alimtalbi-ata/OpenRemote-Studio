@@ -7,6 +7,7 @@ Author: Abdelhalim Talbi.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import math
 import os
@@ -24,6 +25,7 @@ MAX_QUERY_LENGTH = 120
 MAX_DASHBOARDS = 100
 _READ_CHUNK = 64 * 1024
 _UID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+_DNS_HOST = re.compile(r"(?i)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*\.?\Z")
 _CONTROL_CATEGORIES = frozenset(("Cc", "Cf", "Cs", "Zl", "Zp"))
 
 
@@ -37,21 +39,50 @@ class _RejectRedirects(HTTPRedirectHandler):
 
 
 def _origin(value):
+    """Return one canonical HTTPS origin or reject ambiguous URL authorities.
+
+    Bearer tokens are sent to this host, so Unicode lookalikes, URL-encoded
+    authorities, non-canonical numeric hosts, and empty query/fragment delimiters
+    are rejected before a credential provider can be called. IDNs must be entered
+    in their explicit ASCII/punycode form.
+    """
     if (not isinstance(value, str) or not value or len(value) > 2048
             or any(ord(char) < 33 or unicodedata.category(char) in _CONTROL_CATEGORIES
-                   for char in value)):
+                   for char in value)
+            or "\\" in value or "%" in value or "?" in value or "#" in value):
         raise GrafanaError("grafana_invalid_https_origin")
     try:
         parsed = urlsplit(value)
         port = parsed.port
-    except ValueError:
+        host = parsed.hostname
+    except (ValueError, UnicodeError):
         raise GrafanaError("grafana_invalid_https_origin") from None
-    if (parsed.scheme.lower() != "https" or not parsed.hostname
+    if (parsed.scheme.lower() != "https" or not parsed.netloc or not host
+            or not host.isascii()
             or parsed.username is not None or parsed.password is not None
             or parsed.query or parsed.fragment or parsed.path not in ("", "/")
             or (port is not None and not 1 <= port <= 65535)):
         raise GrafanaError("grafana_invalid_https_origin")
-    return "https://" + parsed.netloc
+
+    # Canonicalize IP literals and ASCII DNS names rather than preserving
+    # untrusted netloc text. Numeric non-IP names are rejected because some
+    # resolvers accept legacy integer/octal IPv4 forms.
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        dns_host = host[:-1] if host.endswith(".") else host
+        if (not dns_host or len(dns_host) > 253 or ":" in host
+                or dns_host.replace(".", "").isdigit()
+                or not _DNS_HOST.fullmatch(host)):
+            raise GrafanaError("grafana_invalid_https_origin") from None
+        canonical_host = dns_host.lower()
+    else:
+        canonical_host = address.compressed
+        if address.version == 6:
+            canonical_host = "[" + canonical_host + "]"
+
+    netloc = canonical_host + ((":" + str(port)) if port is not None else "")
+    return "https://" + netloc
 
 
 def _token(value):
