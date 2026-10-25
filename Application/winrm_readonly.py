@@ -7,6 +7,8 @@ Author: Abdelhalim Talbi.
 import os
 import hashlib
 import tempfile
+import secrets
+import shutil
 from contextlib import contextmanager
 import re
 import ssl
@@ -167,32 +169,293 @@ def _ca_bundle_digest(path):
     return hashlib.sha256(_ca_bundle_bytes(path)).digest()
 
 
+def _parse_sddl_flags(value, allowed):
+    """Parse concatenated SDDL flags without accepting unknown suffixes."""
+    tokens = []
+    remaining = value
+    while remaining:
+        token = next((item for item in allowed if remaining.startswith(item)), None)
+        if token is None:
+            return None
+        tokens.append(token)
+        remaining = remaining[len(token):]
+    return set(tokens)
+
+
+def _windows_current_user_sid():
+    """Return the current process user SID using the token API."""
+    import ctypes
+    from ctypes import wintypes
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    class SID_AND_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [("Sid", ctypes.c_void_p), ("Attributes", wintypes.DWORD)]
+
+    class TOKEN_USER(ctypes.Structure):
+        _fields_ = [("User", SID_AND_ATTRIBUTES)]
+
+    kernel.GetCurrentProcess.argtypes = []
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    advapi.OpenProcessToken.argtypes = [
+        wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)
+    ]
+    advapi.OpenProcessToken.restype = wintypes.BOOL
+    advapi.GetTokenInformation.argtypes = [
+        wintypes.HANDLE, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD)
+    ]
+    advapi.GetTokenInformation.restype = wintypes.BOOL
+    advapi.ConvertSidToStringSidW.argtypes = [
+        ctypes.c_void_p, ctypes.POINTER(wintypes.LPWSTR)
+    ]
+    advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+
+    token = wintypes.HANDLE()
+    if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 0x0008,
+                                   ctypes.byref(token)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        required = wintypes.DWORD()
+        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(required))
+        if not 1 <= required.value <= 65536:
+            raise OSError("invalid token information size")
+        buffer = ctypes.create_string_buffer(required.value)
+        if not advapi.GetTokenInformation(
+                token, 1, ctypes.cast(buffer, wintypes.LPVOID),
+                required.value, ctypes.byref(required)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        sid_pointer = ctypes.cast(
+            buffer, ctypes.POINTER(TOKEN_USER)
+        ).contents.User.Sid
+        sid_text = wintypes.LPWSTR()
+        if not advapi.ConvertSidToStringSidW(sid_pointer, ctypes.byref(sid_text)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            sid = sid_text.value or ""
+        finally:
+            kernel.LocalFree(ctypes.cast(sid_text, ctypes.c_void_p))
+    finally:
+        kernel.CloseHandle(token)
+    if not re.fullmatch(r"S-1-(?:\d+-){1,15}\d+", sid, flags=re.ASCII):
+        raise OSError("invalid process user SID")
+    return sid
+
+
+def _read_windows_dacl_sddl(path):
+    """Read only the DACL SDDL; caller rejects anything broader than expected."""
+    import ctypes
+    from ctypes import wintypes
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi.GetNamedSecurityInfoW.argtypes = [
+        wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p)
+    ]
+    advapi.GetNamedSecurityInfoW.restype = wintypes.DWORD
+    advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [
+        ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD,
+        ctypes.POINTER(wintypes.LPWSTR), ctypes.POINTER(wintypes.DWORD)
+    ]
+    advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+
+    dacl = ctypes.c_void_p()
+    descriptor = ctypes.c_void_p()
+    status = advapi.GetNamedSecurityInfoW(
+        path, 1, 0x00000004, None, None, ctypes.byref(dacl), None,
+        ctypes.byref(descriptor)
+    )
+    if status != 0:
+        raise OSError(status, "DACL inspection failed")
+    string_pointer = wintypes.LPWSTR()
+    string_length = wintypes.DWORD()
+    try:
+        if not advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                descriptor, 1, 0x00000004, ctypes.byref(string_pointer),
+                ctypes.byref(string_length)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return string_pointer.value or ""
+    finally:
+        if string_pointer:
+            kernel.LocalFree(ctypes.cast(string_pointer, ctypes.c_void_p))
+        if descriptor:
+            kernel.LocalFree(descriptor)
+
+
+def _windows_dacl_is_private(path, user_sid, *, directory):
+    """Accept only explicit current-user + SYSTEM full-control ACEs."""
+    try:
+        sddl = _read_windows_dacl_sddl(path)
+        match = re.fullmatch(r"D:([A-Z]*)(.*)", sddl)
+        if not match:
+            return False
+        control_flags = _parse_sddl_flags(match.group(1), ("AI", "AR", "P"))
+        if control_flags is None or (directory and "P" not in control_flags):
+            return False
+        ace_text = match.group(2)
+        aces = re.findall(r"\(([^()]*)\)", ace_text)
+        if len(aces) != 2 or "".join("(" + ace + ")" for ace in aces) != ace_text:
+            return False
+        expected_sids = {user_sid.upper(), "SY", "S-1-5-18"}
+        found_sids = set()
+        for ace in aces:
+            parts = ace.split(";")
+            if len(parts) != 6 or parts[0] != "A":
+                return False
+            flags = _parse_sddl_flags(
+                parts[1], ("OI", "CI", "NP", "IO", "ID", "SA", "FA")
+            )
+            if flags is None or parts[2].lower() not in {"fa", "0x1f01ff"}:
+                return False
+            if parts[3] or parts[4]:
+                return False
+            principal = parts[5].upper()
+            if principal not in expected_sids:
+                return False
+            if directory:
+                if flags != {"OI", "CI"}:
+                    return False
+            elif "ID" not in flags or "IO" in flags or "NP" in flags:
+                return False
+            found_sids.add(principal)
+        return found_sids == {user_sid.upper(), "SY"} or found_sids == {
+            user_sid.upper(), "S-1-5-18"
+        }
+    except (OSError, ValueError, TypeError, AttributeError):
+        return False
+
+
+def _create_windows_private_directory():
+    """Create a local temp directory with an explicit, protected two-principal DACL."""
+    import ctypes
+    from ctypes import wintypes
+
+    base = os.path.abspath(tempfile.gettempdir())
+    drive, _ = os.path.splitdrive(base)
+    is_junction = getattr(os.path, "isjunction", None)
+    if (not drive or not os.path.isabs(base) or base.startswith(("\\\\", "//"))
+            or not os.path.isdir(base) or os.path.islink(base)
+            or (is_junction is not None and is_junction(base))):
+        raise OSError("unsafe Windows temporary directory")
+
+    user_sid = _windows_current_user_sid()
+    sddl = "D:P(A;OICI;FA;;;" + user_sid + ")(A;OICI;FA;;;SY)"
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.DWORD)
+    ]
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
+    kernel.CreateDirectoryW.argtypes = [
+        wintypes.LPCWSTR, ctypes.c_void_p
+    ]
+    kernel.CreateDirectoryW.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+
+    class SECURITY_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [
+            ("nLength", wintypes.DWORD),
+            ("lpSecurityDescriptor", ctypes.c_void_p),
+            ("bInheritHandle", wintypes.BOOL)
+        ]
+
+    descriptor = ctypes.c_void_p()
+    descriptor_size = wintypes.DWORD()
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl, 1, ctypes.byref(descriptor), ctypes.byref(descriptor_size)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        attributes = SECURITY_ATTRIBUTES(
+            ctypes.sizeof(SECURITY_ATTRIBUTES), descriptor, False
+        )
+        for _ in range(3):
+            path = os.path.join(base, "ors-winrm-ca-" + secrets.token_hex(16))
+            if kernel.CreateDirectoryW(path, ctypes.byref(attributes)):
+                if _windows_dacl_is_private(path, user_sid, directory=True):
+                    return path, user_sid
+                try:
+                    os.rmdir(path)
+                except OSError:
+                    pass
+                raise OSError("Windows temporary directory ACL verification failed")
+            error = ctypes.get_last_error()
+            if error != 183:
+                raise ctypes.WinError(error)
+        raise OSError("could not allocate a unique Windows temporary directory")
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+@contextmanager
+def _private_snapshot_directory():
+    """Yield a per-request directory whose ACL is enforced before any secret read."""
+    if os.name != "nt":
+        with tempfile.TemporaryDirectory(prefix="ors-winrm-ca-") as directory:
+            yield directory, None
+        return
+    try:
+        directory, user_sid = _create_windows_private_directory()
+    except OSError:
+        raise WinRMError("winrm_snapshot_acl_failed") from None
+    try:
+        yield directory, user_sid
+    finally:
+        try:
+            shutil.rmtree(directory)
+        except FileNotFoundError:
+            if os.path.lexists(directory):
+                raise WinRMError("winrm_snapshot_cleanup_failed") from None
+        except OSError:
+            raise WinRMError("winrm_snapshot_cleanup_failed") from None
+
+
 @contextmanager
 def _snapshot_ca_bundle(path, expected_digest):
-    """Give pywinrm a private, immutable-for-this-request copy of pinned CA bytes.
-
-    The original file is never handed to requests. The copy is removed on both
-    success and transport failure; no snapshot is created in offline mode.
-    """
+    """Give pywinrm a pinned PEM snapshot with restrictive ACLs and bounded lifetime."""
     if path is None:
         yield None
         return
     data = _ca_bundle_bytes(path)
     if hashlib.sha256(data).digest() != expected_digest:
-        raise WinRMError('winrm_ca_bundle_changed')
+        raise WinRMError("winrm_ca_bundle_changed")
     try:
-        with tempfile.TemporaryDirectory(prefix='ors-winrm-ca-') as directory:
-            target = os.path.join(directory, 'trust.pem')
+        with _private_snapshot_directory() as (directory, user_sid):
+            target = os.path.join(directory, "trust.pem")
             flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL
-                     | getattr(os, 'O_BINARY', 0))
+                     | getattr(os, "O_BINARY", 0))
             fd = os.open(target, flags, 0o600)
-            with os.fdopen(fd, 'wb') as stream:
-                stream.write(data)
-            if _ca_bundle_digest(target) != expected_digest:
-                raise WinRMError('winrm_invalid_ca_bundle')
+            try:
+                if user_sid is not None and not _windows_dacl_is_private(
+                        target, user_sid, directory=False):
+                    raise WinRMError("winrm_snapshot_acl_failed")
+                stream = os.fdopen(fd, "wb")
+                fd = None
+                with stream:
+                    stream.write(data)
+            finally:
+                if fd is not None:
+                    os.close(fd)
+            if (_ca_bundle_digest(target) != expected_digest
+                    or (user_sid is not None and not _windows_dacl_is_private(
+                        target, user_sid, directory=False))):
+                raise WinRMError("winrm_snapshot_acl_failed"
+                                 if user_sid is not None
+                                 else "winrm_invalid_ca_bundle")
             yield target
     except (OSError, ValueError):
-        raise WinRMError('winrm_invalid_ca_bundle') from None
+        raise WinRMError("winrm_invalid_ca_bundle") from None
 
 
 def _pywinrm_session(endpoint, username, password, *, timeout, ca_bundle=None):
@@ -244,18 +507,19 @@ class WinRMReadOnly:
             raise WinRMError('winrm_ca_bundle_changed')
         if not callable(self._provider):
             raise WinRMError('winrm_credentials_required')
+        password = None
         try:
-            password = self._provider()
-        except Exception:
-            raise WinRMError('winrm_credentials_unavailable') from None
-        if not isinstance(password, str) or not password or '\x00' in password:
-            raise WinRMError('winrm_credentials_unavailable')
-        if cancelled is not None and cancelled():
-            raise WinRMError('winrm_cancelled')
-        if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
-            raise WinRMError('winrm_ca_bundle_changed')
-        try:
+            # Establish and verify the per-request trust file before resolving
+            # any credential; ACL failure must fail closed without reading it.
             with _snapshot_ca_bundle(self._ca_bundle, self._ca_digest) as ca_path:
+                if cancelled is not None and cancelled():
+                    raise WinRMError('winrm_cancelled')
+                try:
+                    password = self._provider()
+                except Exception:
+                    raise WinRMError('winrm_credentials_unavailable') from None
+                if not isinstance(password, str) or not password or '\x00' in password:
+                    raise WinRMError('winrm_credentials_unavailable')
                 if cancelled is not None and cancelled():
                     raise WinRMError('winrm_cancelled')
                 try:
