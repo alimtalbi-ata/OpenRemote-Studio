@@ -161,6 +161,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R105 CA contract failed' }
           python -m py_compile Application/winrm_readonly.py Application/winrm_inventory_qt.py Application/tests/test_winrm_ca_bundle_qt_r105.py
           if ($LASTEXITCODE -ne 0) { throw 'R105 compile failed' }
+      - name: R106 pin enterprise CA bytes before WinCred and WinRM network
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_ca_pinning_r106.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R106 CA trust pinning regression failed' }
+          python -m py_compile Application/winrm_readonly.py Application/winrm_services_readonly.py Application/tests/test_winrm_ca_pinning_r106.py
+          if ($LASTEXITCODE -ne 0) { throw 'R106 CA pinning source compilation failed' }
       - name: R100 native WinCred read, bounded blobs and cleanup
         shell: pwsh
         run: |
