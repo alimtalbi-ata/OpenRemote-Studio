@@ -88,7 +88,7 @@ if (dest / "V31.8-R111-ZABBIX-RESPONSE-DEADLINE.md").is_file():
     sections.extend([
         ("R111 - bounded Zabbix body read", "Zabbix response bodies are streamed in bounded read1 chunks. A monotonic deadline and the remaining socket timeout prevent a slow-drip body from extending a read indefinitely; cancellation is rechecked between chunks and errors remain neutral."),
         ("R111 - deadline scope", "The body deadline begins after urllib has completed connection/TLS and received response headers. The earlier connection/TLS/header phase still uses urllib's socket inactivity timeout; no end-to-end absolute deadline is claimed."),
-        ("R111 - qualification boundary", "Synthetic clock/socket tests cover deadline expiry, cancellation, response-size bounds and error redaction. A real Zabbix server, real token and effective least-privilege API role remain unverified. Zabbix stays PARTIAL and no R111 UI screenshot is claimed because the Qt interface is unchanged."),
+        ("R111 - qualification boundary", "Synthetic clock/socket tests plus a real local socketpair slow-drip scenario cover deadline expiry, cancellation, response-size bounds and error redaction. A real Zabbix server, real token and effective least-privilege API role remain unverified. Zabbix stays PARTIAL and no R111 UI screenshot is claimed because the Qt interface is unchanged."),
     ])
 # R101: packaged WinRM transport does not certify a real remote WinRM session.
 if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
