@@ -365,9 +365,6 @@ def _create_windows_private_directory():
         ctypes.POINTER(wintypes.DWORD)
     ]
     advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
-    kernel.CreateDirectoryW.argtypes = [
-        wintypes.LPCWSTR, ctypes.c_void_p
-    ]
     kernel.CreateDirectoryW.restype = wintypes.BOOL
     kernel.LocalFree.argtypes = [ctypes.c_void_p]
     kernel.LocalFree.restype = ctypes.c_void_p
@@ -379,6 +376,9 @@ def _create_windows_private_directory():
             ("bInheritHandle", wintypes.BOOL)
         ]
 
+    kernel.CreateDirectoryW.argtypes = [
+        wintypes.LPCWSTR, ctypes.POINTER(SECURITY_ATTRIBUTES)
+    ]
     descriptor = ctypes.c_void_p()
     descriptor_size = wintypes.DWORD()
     if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
