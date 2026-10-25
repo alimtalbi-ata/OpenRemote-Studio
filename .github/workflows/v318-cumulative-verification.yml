@@ -209,6 +209,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R111 Zabbix response deadline tests failed' }
           python -m py_compile Application/zabbix_readonly.py Application/tests/test_zabbix_response_deadline_r111.py
           if ($LASTEXITCODE -ne 0) { throw 'R111 Zabbix response deadline compilation failed' }
+      - name: Install ephemeral TLS fixture dependency for R112 tests
+        shell: pwsh
+        run: |
+          python -m pip install "cryptography>=41,<47"
+          if ($LASTEXITCODE -ne 0) { throw 'R112/R113 ephemeral TLS fixture dependency installation failed' }
       - name: R112 full Zabbix HTTPS transaction deadline
         shell: pwsh
         run: |
