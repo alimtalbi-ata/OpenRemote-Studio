@@ -188,14 +188,24 @@ class GrafanaDashboardsPanel(QWidget):
 
     def _invalidate(self, *_):
         self._generation += 1
-        if self._pending is not None:
+        active_request = self._pending is not None
+        if active_request:
+            # Keep the worker reference until its finished signal arrives. A
+            # native HTTPS read cannot always be interrupted immediately; this
+            # prevents a second request from starting while the old one drains.
             self._pending.cancel()
-        self._pending = None
         self.table.clear()
-        self.refresh_button.setEnabled(not self._closed)
+        self.refresh_button.setEnabled(not self._closed and not active_request)
         self.cancel_button.setEnabled(False)
         self.open_button.setEnabled(False)
-        if self.consent.isChecked() and not self._closed:
+        if self._closed:
+            self.status.setText("Panneau fermé — consentement révoqué, données effacées.")
+        elif active_request:
+            self.status.setText(
+                "Annulation demandée — la requête précédente termine son arrêt ; "
+                "aucune nouvelle lecture ne démarre entre-temps."
+            )
+        elif self.consent.isChecked():
             self.status.setText("Consentement actif — lancer une lecture explicitement.")
         else:
             self.status.setText("Hors ligne — aucune requête autorisée, aucune donnée conservée.")
@@ -208,8 +218,11 @@ class GrafanaDashboardsPanel(QWidget):
             self.consent.blockSignals(False)
         self._invalidate()
         if was_consented:
+            suffix = (" La requête précédente termine son arrêt."
+                      if self._pending is not None else "")
             self.status.setText(
                 "Cible ou recherche modifiée — consentement révoqué, données effacées."
+                + suffix
             )
 
     def _revoke(self, message):
@@ -242,20 +255,35 @@ class GrafanaDashboardsPanel(QWidget):
     def cancel_request(self):
         if self._pending is None:
             return
-        self._generation += 1
-        self._pending.cancel()
-        self._pending = None
-        self.table.clear()
-        self.open_button.setEnabled(False)
-        self.refresh_button.setEnabled(not self._closed)
-        self.cancel_button.setEnabled(False)
-        self.status.setText("Requête annulée — résultat supprimé, aucune nouvelle requête lancée.")
+        # Cancellation revokes consent and clears visible data. Keep the worker
+        # fenced as the sole active request until its completion signal drains.
+        self._revoke(
+            "Requête annulée — consentement révoqué, données effacées ; "
+            "la requête précédente termine son arrêt."
+        )
 
     def _render_result(self, generation, result):
+        # Drain the matching worker even if its result has been invalidated.
+        # Do this before the stale-result fence; otherwise the panel could stay
+        # permanently busy after a cancellation or endpoint edit.
+        if self._pending is not None and self._pending.generation == generation:
+            self._pending = None
         if (generation != self._generation or self._closed
                 or not self.consent.isChecked()):
+            if not self._closed:
+                self.refresh_button.setEnabled(True)
+                self.cancel_button.setEnabled(False)
+                self.open_button.setEnabled(False)
+                if self.consent.isChecked():
+                    self.status.setText(
+                        "Consentement actif — la requête précédente est terminée ; "
+                        "cliquer sur Charger pour effectuer une nouvelle lecture."
+                    )
+                else:
+                    self.status.setText(
+                        "Hors ligne — requête terminée, consentement révoqué, données effacées."
+                    )
             return
-        self._pending = None
         self.refresh_button.setEnabled(True)
         self.cancel_button.setEnabled(False)
         self._render(result)
