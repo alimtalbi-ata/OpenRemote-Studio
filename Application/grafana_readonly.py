@@ -26,6 +26,7 @@ MAX_DASHBOARDS = 100
 _READ_CHUNK = 64 * 1024
 _UID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 _DNS_HOST = re.compile(r"(?i)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*\.?\Z")
+_NUMERIC_HOST_LABEL = re.compile(r"(?i)(?:0x[0-9a-f]+|[0-9]+)\Z")
 _CONTROL_CATEGORIES = frozenset(("Cc", "Cf", "Cs", "Zl", "Zp"))
 
 
@@ -73,6 +74,7 @@ def _origin(value):
         dns_host = host[:-1] if host.endswith(".") else host
         if (not dns_host or len(dns_host) > 253 or ":" in host
                 or dns_host.replace(".", "").isdigit()
+                or all(_NUMERIC_HOST_LABEL.fullmatch(label) for label in dns_host.split("."))
                 or not _DNS_HOST.fullmatch(host)):
             raise GrafanaError("grafana_invalid_https_origin") from None
         canonical_host = dns_host.lower()
