@@ -345,6 +345,7 @@ class AnsiblePreflightPanel(QWidget):
             self._analysis = None
         else:
             state_labels = {
+                "syntax_failed": "Précontrôle Ansible refusé ; détail du processus non conservé.",
                 "check_succeeded": "Check mode terminé (succès du contrôleur, sans sortie conservée).",
                 "check_failed": "Check mode refusé ou en échec ; détail distant non conservé.",
                 "timeout": "Délai maximal atteint ; processus arrêté.",
