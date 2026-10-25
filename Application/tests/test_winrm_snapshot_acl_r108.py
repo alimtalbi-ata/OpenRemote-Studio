@@ -18,6 +18,7 @@ from winrm_readonly import (
     _windows_current_user_sid,
     _read_windows_dacl_sddl,
     _windows_dacl_is_private,
+    _create_windows_private_directory,
 )
 from winrm_services_readonly import WinRMServicesReadOnly
 
@@ -140,6 +141,28 @@ class SnapshotACLContractR108(unittest.TestCase):
                         getattr(client, method)(online=True)
                 self.assertEqual(self.provider_calls, [])
                 self.assertEqual(self.factory_calls, [])
+
+    @unittest.skipUnless(os.name == "nt", "native Windows DACL integration")
+    def test_windows_created_directory_dacl_round_trip(self):
+        # Bypass only the creator's in-function assertion so that a Windows
+        # runner can independently expose whether the DACL read-back/parser
+        # contract matches the actual NTFS descriptor. This test then validates
+        # the real descriptor with the production pure parser.
+        from winrm_readonly import _sddl_is_private
+        with patch("winrm_readonly._windows_dacl_is_private", return_value=True):
+            directory, sid = _create_windows_private_directory()
+        try:
+            sddl = _read_windows_dacl_sddl(directory)
+            diagnostic = sddl.replace(sid, "<CURRENT_USER_SID>")
+            self.assertTrue(
+                _sddl_is_private(sddl, sid, directory=True),
+                "Windows-created DACL did not match the strict contract: " + diagnostic
+            )
+        finally:
+            try:
+                os.rmdir(directory)
+            except OSError:
+                pass
 
     @unittest.skipUnless(os.name == "nt", "native Windows DACL integration")
     def test_windows_native_snapshot_dacl_for_inventory_and_services(self):
