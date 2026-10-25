@@ -149,6 +149,23 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
                                  callback=truncate_after_first_chunk)
             self.assertEqual(sftp.removed,['./source.bin'])
 
+    def test_upload_existing_remote_path_is_never_removed(self):
+        from transfer_safety import upload_exclusive
+        class Sftp:
+            def __init__(self): self.removed=[]
+            def open(self, path, mode):
+                self.mode=mode
+                raise FileExistsError('remote path already exists')
+            def remove(self, path): self.removed.append(path)
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'new data')
+            sftp=Sftp()
+            with self.assertRaisesRegex(FileExistsError, 'already exists'):
+                upload_exclusive(sftp, source, './existing.bin')
+            self.assertEqual(sftp.mode, 'wbx')
+            self.assertEqual(sftp.removed, [])
+
     def test_upload_regular_file_success(self):
         from transfer_safety import upload_exclusive
         class Remote:
