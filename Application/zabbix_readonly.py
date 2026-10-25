@@ -214,6 +214,10 @@ class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
         self._deadline_in_getresponse = False
         super().__init__(*args, **kwargs)
         if self._deadline is not None:
+            # HTTPConnection.__init__ assigns socket.create_connection to the
+            # instance, which would shadow a same-named subclass method. Replace
+            # that callback explicitly or the DNS deadline pool would be bypassed.
+            self._create_connection = self._deadline_create_connection
             remaining = self._remaining_deadline()
             try:
                 configured_timeout = float(self.timeout)
@@ -265,7 +269,7 @@ class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
             self._deadline_response = None
         self._cancel_deadline_timer()
 
-    def _create_connection(self, address, timeout, source_address):
+    def _deadline_create_connection(self, address, timeout, source_address):
         # Use a fresh remaining budget for each address. DNS resolution itself is
         # performed by the platform resolver and cannot be forcibly interrupted;
         # the deadline is rechecked immediately when it returns.
