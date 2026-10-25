@@ -247,6 +247,103 @@ def _windows_current_user_sid():
     return sid
 
 
+def _resolve_sddl_sid_alias(alias):
+    """Resolve the one supported variable SDDL alias to its exact numeric SID.
+
+    Windows may serialize the local Administrator SID as LA rather than its
+    numeric form. Resolve it through the OS instead of guessing from RID 500;
+    a domain Administrator must never be mistaken for the local account.
+    """
+    alias = str(alias).upper()
+    if alias == "SY":
+        return "S-1-5-18"
+    if alias != "LA":
+        return None
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+            wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p),
+            ctypes.POINTER(wintypes.DWORD)
+        ]
+        advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
+        advapi.GetSecurityDescriptorDacl.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(wintypes.BOOL),
+            ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.BOOL)
+        ]
+        advapi.GetSecurityDescriptorDacl.restype = wintypes.BOOL
+        advapi.GetAce.argtypes = [
+            ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p)
+        ]
+        advapi.GetAce.restype = wintypes.BOOL
+        advapi.IsValidSid.argtypes = [ctypes.c_void_p]
+        advapi.IsValidSid.restype = wintypes.BOOL
+        advapi.ConvertSidToStringSidW.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(wintypes.LPWSTR)
+        ]
+        advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
+        kernel.LocalFree.argtypes = [ctypes.c_void_p]
+        kernel.LocalFree.restype = ctypes.c_void_p
+
+        descriptor = ctypes.c_void_p()
+        descriptor_size = wintypes.DWORD()
+        sid_text = wintypes.LPWSTR()
+        if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                "D:(A;;FA;;;LA)", 1, ctypes.byref(descriptor),
+                ctypes.byref(descriptor_size)):
+            return None
+        try:
+            present = wintypes.BOOL()
+            dacl = ctypes.c_void_p()
+            defaulted = wintypes.BOOL()
+            if not advapi.GetSecurityDescriptorDacl(
+                    descriptor, ctypes.byref(present), ctypes.byref(dacl),
+                    ctypes.byref(defaulted)) or not present.value or not dacl.value:
+                return None
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, 0, ctypes.byref(ace)) or not ace.value:
+                return None
+            ace_header = ctypes.string_at(ace.value, 8)
+            ace_size = int.from_bytes(ace_header[2:4], "little")
+            if ace_header[0] != 0 or ace_header[1] != 0 or ace_size < 16:
+                return None
+            sid_pointer = ctypes.c_void_p(ace.value + 8)
+            if not advapi.IsValidSid(sid_pointer):
+                return None
+            if not advapi.ConvertSidToStringSidW(
+                    sid_pointer, ctypes.byref(sid_text)):
+                return None
+            resolved = (sid_text.value or "").upper()
+            if not re.fullmatch(r"S-1-(?:\d+-){1,15}\d+", resolved, flags=re.ASCII):
+                return None
+            return resolved
+        finally:
+            if sid_text:
+                kernel.LocalFree(ctypes.cast(sid_text, ctypes.c_void_p))
+            if descriptor:
+                kernel.LocalFree(descriptor)
+    except Exception:
+        # Alias resolution is a security check; any API or parsing failure
+        # leaves the alias unresolved so the later allow-list rejects it.
+        return None
+
+
+def _canonicalize_sddl_trustees(sddl):
+    """Canonicalize only known trustee aliases; unknown aliases stay untrusted."""
+    def replace_alias(match):
+        alias = match.group(1).upper()
+        if alias in {"SY", "LA"}:
+            resolved = _resolve_sddl_sid_alias(alias)
+            return resolved if resolved is not None else alias
+        return alias
+
+    return re.sub(r"(?<=;;;)([A-Za-z]{1,2})(?=\))", replace_alias, sddl)
+
+
 def _read_windows_dacl_sddl(path):
     """Read only the DACL SDDL; caller rejects anything broader than expected."""
     import ctypes
@@ -284,7 +381,8 @@ def _read_windows_dacl_sddl(path):
                 descriptor, 1, 0x00000004, ctypes.byref(string_pointer),
                 ctypes.byref(string_length)):
             raise ctypes.WinError(ctypes.get_last_error())
-        return string_pointer.value or ""
+        raw_sddl = string_pointer.value or ""
+        return _canonicalize_sddl_trustees(raw_sddl)
     finally:
         if string_pointer:
             kernel.LocalFree(ctypes.cast(string_pointer, ctypes.c_void_p))

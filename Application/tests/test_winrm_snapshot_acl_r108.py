@@ -91,6 +91,16 @@ class SnapshotACLContractR108(unittest.TestCase):
             ca_bundle=str(self.original.resolve())
         )
 
+    def test_unresolved_local_admin_alias_is_not_assumed_to_be_current_user(self):
+        # The pure parser never guesses that a variable SDDL alias is the
+        # supplied process SID. Only the Windows API resolver can canonicalize
+        # LA, preventing a domain Administrator with RID 500 from being confused
+        # with the machine's local Administrator.
+        unresolved = "D:P(A;OICI;FA;;;LA)(A;OICI;FA;;;SY)"
+        self.assertFalse(_sddl_is_private(
+            unresolved, TEST_SID, directory=True
+        ))
+
     def test_only_explicit_user_and_system_aces_are_accepted(self):
         directory_sddl = (
             f"D:P(A;OICI;FA;;;{TEST_SID})(A;OICI;FA;;;SY)"
@@ -153,6 +163,7 @@ class SnapshotACLContractR108(unittest.TestCase):
             directory, sid = _create_windows_private_directory()
         try:
             sddl = _read_windows_dacl_sddl(directory)
+            self.assertNotIn(";;;LA)", sddl)  # OS alias resolved to exact numeric SID
             diagnostic = sddl.replace(sid, "<CURRENT_USER_SID>")
             self.assertTrue(
                 _sddl_is_private(sddl, sid, directory=True),
