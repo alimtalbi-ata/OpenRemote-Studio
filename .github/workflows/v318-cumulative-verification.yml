@@ -216,7 +216,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R104 source archive manifest gate failed' }
           python -m unittest discover -s 02-Compilation -p 'test_archive_ui_capture_r110.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R110 cumulative UI evidence gate failed' }
-          python -m py_compile 02-Compilation/build_cumulative_v318.py 02-Compilation/verify_cumulative_v318.py 02-Compilation/test_archive_ui_capture_r110.py
+          python -m py_compile 02-Compilation/build_cumulative_v318.py 02-Compilation/verify_cumulative_v318.py 02-Compilation/test_archive_ui_capture_r110.py 02-Compilation/generate_release_dossier.py
           if ($LASTEXITCODE -ne 0) { throw 'R104 release scripts compilation failed' }
       - name: Compile verifier sources
         shell: pwsh
