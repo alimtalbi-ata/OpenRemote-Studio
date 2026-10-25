@@ -3,7 +3,7 @@
 Never executes user-provided PowerShell. Never logs credentials or raw stderr.
 Author: Abdelhalim Talbi.
 """
-from winrm_readonly import WinRMReadOnly, WinRMError, _text
+from winrm_readonly import WinRMReadOnly, WinRMError, _text, _ca_bundle_digest
 from winrm_service_totals import unwrap_service_envelope, ServiceTotalError
 
 # Fixed query, no operator input or interpolated credentials.
@@ -58,6 +58,8 @@ class WinRMServicesReadOnly(WinRMReadOnly):
             raise WinRMError('winrm_invalid_cancellation')
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
+        if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
+            raise WinRMError('winrm_ca_bundle_changed')
         if not callable(self._provider):
             raise WinRMError('winrm_credentials_required')
         try:
@@ -68,6 +70,8 @@ class WinRMServicesReadOnly(WinRMReadOnly):
             raise WinRMError('winrm_credentials_unavailable')
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
+        if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
+            raise WinRMError('winrm_ca_bundle_changed')
         try:
             kwargs = {'ca_bundle': self._ca_bundle} if self._ca_bundle is not None else {}
             session = self._factory(self._endpoint, self._username, password,

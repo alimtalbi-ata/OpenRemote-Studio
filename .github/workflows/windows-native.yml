@@ -272,6 +272,14 @@ jobs:
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_winrm_ca_qt_r105.py
           if ($LASTEXITCODE -ne 0) { throw 'R105 offline screenshot failed' }
           if (!(Test-Path 'Binary/Qualification/qt-winrm-ca-r105-offline.png')) { throw 'Missing R105 Qt capture' }
+      - name: R106 pin enterprise CA bytes before WinCred and WinRM network
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_ca_pinning_r106.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R106 CA trust pinning regression failed' }
+          python -m py_compile Application/winrm_readonly.py Application/winrm_services_readonly.py Application/tests/test_winrm_ca_pinning_r106.py
+          if ($LASTEXITCODE -ne 0) { throw 'R106 CA pinning source compilation failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'

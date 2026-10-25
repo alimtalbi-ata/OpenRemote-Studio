@@ -5,6 +5,7 @@ The only remote PowerShell script is a constant, without user interpolation.
 Author: Abdelhalim Talbi.
 """
 import os
+import hashlib
 import re
 import ssl
 import stat
@@ -126,6 +127,39 @@ def validate_ca_bundle(path):
     return path
 
 
+def _ca_bundle_digest(path):
+    """Pin the validated CA bytes, not just its pathname, before reading secrets.
+
+    Read through a regular-file descriptor; reject symlink swaps and changes
+    between lstat and open. The PEM contains public certificates, not secrets.
+    """
+    try:
+        before = os.lstat(path)
+        if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= 1048576:
+            raise ValueError('invalid CA file')
+        flags = os.O_RDONLY | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+        fd = os.open(path, flags)
+        try:
+            actual = os.fstat(fd)
+            if (not stat.S_ISREG(actual.st_mode) or not 0 < actual.st_size <= 1048576
+                    or (before.st_dev, before.st_ino) != (actual.st_dev, actual.st_ino)):
+                raise ValueError('CA changed during open')
+            with os.fdopen(fd, 'rb', closefd=False) as stream:
+                data = stream.read(1048577)
+            after = os.fstat(fd)
+            if (not 0 < len(data) <= 1048576 or len(data) != actual.st_size
+                    or (actual.st_size, actual.st_mtime_ns, actual.st_ctime_ns)
+                    != (after.st_size, after.st_mtime_ns, after.st_ctime_ns)):
+                raise ValueError('CA changed during read')
+        finally:
+            os.close(fd)
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cadata=data.decode('ascii'))
+        return hashlib.sha256(data).digest()
+    except (OSError, ValueError, UnicodeError, ssl.SSLError):
+        raise WinRMError('winrm_invalid_ca_bundle') from None
+
+
 def _pywinrm_session(endpoint, username, password, *, timeout, ca_bundle=None):
     try:
         import winrm
@@ -149,6 +183,8 @@ class WinRMReadOnly:
                  timeout=30, ca_bundle=None):
         self._endpoint = _endpoint(origin)
         self._ca_bundle = validate_ca_bundle(ca_bundle)
+        self._ca_digest = (_ca_bundle_digest(self._ca_bundle)
+                           if self._ca_bundle is not None else None)
         if (not isinstance(username, str) or not username or len(username) > 256
                 or any(ord(c) < 33 or ord(c) == 127 for c in username)):
             raise WinRMError('winrm_invalid_username')
@@ -169,6 +205,8 @@ class WinRMReadOnly:
             raise WinRMError('winrm_invalid_cancellation')
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
+        if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
+            raise WinRMError('winrm_ca_bundle_changed')
         if not callable(self._provider):
             raise WinRMError('winrm_credentials_required')
         try:
@@ -179,6 +217,8 @@ class WinRMReadOnly:
             raise WinRMError('winrm_credentials_unavailable')
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
+        if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
+            raise WinRMError('winrm_ca_bundle_changed')
         try:
             kwargs = {'ca_bundle': self._ca_bundle} if self._ca_bundle is not None else {}
             session = self._factory(self._endpoint, self._username, password,
