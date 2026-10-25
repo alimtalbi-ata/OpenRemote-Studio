@@ -1,4 +1,4 @@
-"""R110: cumulative package must contain the named, valid Qt UI evidence."""
+"""R110/R114: cumulative package must contain every named, valid Qt UI capture."""
 from pathlib import Path
 import tempfile
 import unittest
