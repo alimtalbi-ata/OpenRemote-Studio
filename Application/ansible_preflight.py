@@ -236,7 +236,8 @@ def _validate_args(module: str, args):
             _fail("ansible_module_option_rejected")
         elif value is not None and type(value) not in (bool, int, float):
             _fail("ansible_module_value_invalid")
-    check_strings(args)
+    for value in args.values():
+        check_strings(value)
 
     if module == "ansible.builtin.debug":
         if set(args) - {"msg"} or ("msg" in args and not isinstance(args["msg"], str)):
