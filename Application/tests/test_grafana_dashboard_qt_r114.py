@@ -170,6 +170,31 @@ class GrafanaDashboardQtR114Tests(unittest.TestCase):
             pane.close()
             pool.waitForDone(3000)
 
+    def test_unicode_and_encoded_origin_fail_before_secret_provider(self):
+        # A visually deceptive or resolver-ambiguous origin must fail before
+        # the worker asks the credential provider for a Bearer token.
+        invalid_origins = (
+            "https://gr\u0430fana.example.test",
+            "https://%67rafana.example.test",
+            "https://grafana_test.example.test",
+        )
+        for origin in invalid_origins:
+            with self.subTest(origin=repr(origin)):
+                token_reads = []
+                pane = GrafanaDashboardsPanel(
+                    token_provider=lambda: token_reads.append("read") or TOKEN,
+                )
+                try:
+                    pane.origin.setText(origin)
+                    pane.consent.setChecked(True)
+                    pane.refresh()
+                    self.assertTrue(wait_until(self.app, lambda: pane._pending is None))
+                    self.assertEqual(token_reads, [])
+                    self.assertEqual(pane.table.topLevelItemCount(), 0)
+                    self.assertIn("grafana_invalid_https_origin", pane.status.text())
+                finally:
+                    pane.close()
+
     def test_invalid_origin_fails_before_token_provider(self):
         token_reads = []
         pane = GrafanaDashboardsPanel(token_provider=lambda: token_reads.append(True) or TOKEN)

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="700" viewBox="0 0 1260 700" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRemote Studio R115 — contrôles d'origine Grafana et qualification Windows</title>
+  <desc id="desc">Diagramme conceptuel : validation stricte et canonicalisation HTTPS avant lecture du jeton; requête GET read-only en TLS strict; et en cas d'échec du smoke Windows, export limité aux diagnostics déjà expurgés.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#425466"/></marker>
+    <style>
+      .title { font: 700 25px 'Segoe UI', Arial, sans-serif; fill: #172b4d; }
+      .subtitle { font: 14px 'Segoe UI', Arial, sans-serif; fill: #425466; }
+      .head { font: 700 16px 'Segoe UI', Arial, sans-serif; fill: #172b4d; }
+      .body { font: 13px 'Segoe UI', Arial, sans-serif; fill: #263746; }
+      .muted { font: 12px 'Segoe UI', Arial, sans-serif; fill: #526579; }
+      .box { fill: #f8fafc; stroke: #7890a6; stroke-width: 1.5; rx: 12; }
+      .secure { fill: #e9f7ef; stroke: #21845b; stroke-width: 2; rx: 12; }
+      .reject { fill: #fff2f0; stroke: #c9372c; stroke-width: 1.5; rx: 12; }
+      .qa { fill: #eef4ff; stroke: #3568a8; stroke-width: 1.5; rx: 12; }
+      .line { stroke: #425466; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .divider { stroke: #d4dde6; stroke-width: 1; }
+    </style>
+  </defs>
+  <rect width="1260" height="700" fill="#ffffff"/>
+  <text x="42" y="46" class="title">R115 · Sécuriser la destination du jeton Grafana</text>
+  <text x="42" y="72" class="subtitle">Branche dédiée · lecture seule · consentement explicite · aucune cible distante qualifiée par ce diagramme</text>
+  <rect x="40" y="100" width="1180" height="330" rx="16" fill="#fbfcfe" stroke="#d4dde6"/>
+  <text x="62" y="130" class="head">A. Flux d'accès Grafana — origine canonique avant credentials</text>
+  <rect x="65" y="160" width="205" height="100" class="box"/>
+  <text x="83" y="185" class="head">Saisie opérateur</text>
+  <text x="83" y="209" class="body">Origine HTTPS racine</text>
+  <text x="83" y="230" class="body">Recherche facultative</text>
+  <text x="83" y="248" class="muted">Hors ligne par défaut</text>
+  <path d="M270 210 H305" class="line"/>
+  <rect x="310" y="150" width="250" height="120" class="secure"/>
+  <text x="328" y="177" class="head">Valider / canonicaliser</text>
+  <text x="328" y="201" class="body">DNS ASCII strict / IP littérale</text>
+  <text x="328" y="222" class="body">Refuser Unicode / % / \ / ? / #</text>
+  <text x="328" y="243" class="body">Recomposer l'autorité contrôlée</text>
+  <path d="M560 210 H600" class="line"/>
+  <rect x="605" y="160" width="205" height="100" class="secure"/>
+  <text x="623" y="185" class="head">Consentement actif</text>
+  <text x="623" y="208" class="body">Lecture du jeton</text>
+  <text x="623" y="228" class="body">seulement après validation</text>
+  <text x="623" y="248" class="muted">Jamais dans l'URL</text>
+  <path d="M810 210 H850" class="line"/>
+  <rect x="855" y="150" width="315" height="120" class="qa"/>
+  <text x="873" y="177" class="head">GET API en HTTPS / TLS strict</text>
+  <text x="873" y="201" class="body">/api/search?type=dash-db</text>
+  <text x="873" y="222" class="body">Redirections refusées · 1 Mio max</text>
+  <text x="873" y="243" class="body">100 résultats max · JSON strict</text>
+  <path d="M435 270 V302 H340 V315" class="line"/>
+  <rect x="65" y="315" width="420" height="83" class="reject"/>
+  <text x="83" y="342" class="head">Refus fail-closed</text>
+  <text x="83" y="364" class="body">Origine ambiguë → aucune lecture de jeton,</text>
+  <text x="83" y="383" class="body">aucune requête réseau, aucune ligne affichée.</text>
+  <path d="M1010 270 V310" class="line"/>
+  <rect x="855" y="315" width="315" height="83" class="box"/>
+  <text x="873" y="342" class="head">Résultats et lien manuel</text>
+  <text x="873" y="364" class="body">UID validé + origine reconstruite</text>
+  <text x="873" y="383" class="body">Ouverture par clic opérateur</text>
+  <line x1="40" y1="455" x2="1220" y2="455" class="divider"/>
+  <text x="42" y="490" class="head">B. Qualification du démarrage Windows empaqueté</text>
+  <rect x="65" y="515" width="245" height="95" class="qa"/>
+  <text x="83" y="541" class="head">Smoke borné à 60 s</text>
+  <text x="83" y="564" class="body">Onedir / portable</text>
+  <text x="83" y="585" class="muted">Pas d'accès distant initié</text>
+  <path d="M310 562 H350" class="line"/>
+  <rect x="355" y="515" width="245" height="95" class="box"/>
+  <text x="373" y="541" class="head">Résultat du smoke</text>
+  <text x="373" y="564" class="body">Succès → profil éphémère supprimé</text>
+  <text x="373" y="585" class="body">Échec → collecte minimale</text>
+  <path d="M600 562 H640" class="line"/>
+  <rect x="645" y="515" width="295" height="95" class="secure"/>
+  <text x="663" y="541" class="head">Évidence expurgée seulement</text>
+  <text x="663" y="564" class="body">startup.jsonl : étapes + error_type</text>
+  <text x="663" y="585" class="body">smoke-result.json : code générique</text>
+  <path d="M940 562 H980" class="line"/>
+  <rect x="985" y="515" width="185" height="95" class="box"/>
+  <text x="1003" y="541" class="head">Artifact CI</text>
+  <text x="1003" y="564" class="body">Qualification</text>
+  <text x="1003" y="585" class="muted">Hash à vérifier au SHA</text>
+  <text x="42" y="652" class="muted">Conceptuel — ne prouve ni serveur Grafana réel, ni jeton/role réel, ni réussite du dernier build Windows.</text>
+</svg>

@@ -68,6 +68,41 @@ class GrafanaReadOnlyR114Tests(unittest.TestCase):
             with self.subTest(origin=origin), self.assertRaises(GrafanaError):
                 GrafanaReadOnly(origin)
 
+    def test_origin_rejects_confusable_and_noncanonical_hosts(self):
+        # The destination receives a Bearer token. Reject host spellings that
+        # can be visually misleading or interpreted inconsistently by resolvers.
+        invalid_origins = (
+            "https://gr\u0430fana.example.test",  # Cyrillic 'a', not ASCII a
+            "https://%67rafana.example.test",
+            "https://grafana_test.example.test",
+            "https://grafana..example.test",
+            "https://999.999.999.999",
+            "https://2130706433",  # legacy integer-form IPv4
+            "https://0x7f000001",  # legacy hexadecimal integer-form IPv4
+            "https://0x7f.0.0.1",  # legacy mixed-notation IPv4
+            "https://0177.0.0.1",  # legacy octal-looking IPv4
+            "https://grafana.example.test/?",
+            "https://grafana.example.test/#",
+            r"https://grafana.example.test\\evil",
+        )
+        for origin in invalid_origins:
+            with self.subTest(origin=repr(origin)), self.assertRaisesRegex(
+                    GrafanaError, "grafana_invalid_https_origin"):
+                GrafanaReadOnly(origin)
+
+    def test_origin_is_canonical_and_accepts_unambiguous_ip_literals(self):
+        self.assertEqual(
+            GrafanaReadOnly("HTTPS://GRAFANA.EXAMPLE.TEST.:443/").origin,
+            "https://grafana.example.test:443",
+        )
+        self.assertEqual(
+            GrafanaReadOnly("https://127.0.0.1:3000").origin,
+            "https://127.0.0.1:3000",
+        )
+        self.assertEqual(
+            GrafanaReadOnly("https://[2001:db8::1]:3000").origin,
+            "https://[2001:db8::1]:3000",
+        )
     def test_limits_are_strict_and_finite(self):
         for timeout in (0, -1, 30.1, float("inf"), float("nan"), True):
             with self.subTest(timeout=timeout), self.assertRaisesRegex(GrafanaError, "invalid_limits"):
