@@ -32,8 +32,13 @@ class RuntimeR101Tests(unittest.TestCase):
         ntlm.HttpNtlmAuth = type('HttpNtlmAuth', (), {})
         spnego = types.ModuleType('spnego')
         spnego.client = lambda *a, **kw: None
+        requests = types.ModuleType('requests')
+        requests.__path__ = []
+        adapters = types.ModuleType('requests.adapters')
+        adapters.HTTPAdapter = type('HTTPAdapter', (), {})
         with patch.dict(sys.modules, {'winrm': winrm, 'winrm.protocol': protocol,
-                                      'requests_ntlm': ntlm, 'spnego': spnego}):
+                                      'requests_ntlm': ntlm, 'spnego': spnego,
+                                      'requests': requests, 'requests.adapters': adapters}):
             self.assertTrue(runtime_dependency_available())
 
     def test_partial_transport_fails_closed(self):
@@ -46,8 +51,13 @@ class RuntimeR101Tests(unittest.TestCase):
         ntlm.HttpNtlmAuth = type('HttpNtlmAuth', (), {})
         spnego = types.ModuleType('spnego')
         spnego.client = lambda: None
+        requests = types.ModuleType('requests')
+        requests.__path__ = []
+        adapters = types.ModuleType('requests.adapters')
+        adapters.HTTPAdapter = type('HTTPAdapter', (), {})
         with patch.dict(sys.modules, {'winrm': winrm, 'winrm.protocol': protocol,
-                                      'requests_ntlm': ntlm, 'spnego': spnego}):
+                                      'requests_ntlm': ntlm, 'spnego': spnego,
+                                      'requests': requests, 'requests.adapters': adapters}):
             self.assertFalse(runtime_dependency_available())
 
     def test_packaging_specs_and_smokes_target_real_files(self):
@@ -64,7 +74,7 @@ class RuntimeR101Tests(unittest.TestCase):
         source = (APP / 'windows' / 'build-windows.ps1').read_text()
         self.assertEqual(source.count("'winrm-runtime-smoke.ps1'"), 2)
         self.assertIn('portableExecutables[0].FullName', source)
-        self.assertIn("if '--check-winrm-runtime' in sys.argv:", (APP / 'qt_app.py').read_text())
+        self.assertIn("if '--check-winrm-runtime' in sys.argv:", (APP / 'qt_app.py').read_text(encoding='utf-8'))
 
 if __name__ == '__main__':
     unittest.main()
