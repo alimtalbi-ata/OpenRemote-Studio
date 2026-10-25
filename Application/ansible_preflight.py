@@ -297,16 +297,23 @@ def _validate_playbook(plays, groups):
             task_count += 1
             if task_count > MAX_TASKS:
                 _fail("ansible_task_limit")
-            if (not isinstance(task, dict)
-                    or set(task) - {"name", "tags"} - _MODULES
-                    or "name" not in task):
+            if not isinstance(task, dict) or "name" not in task:
+                _fail("ansible_task_schema_rejected")
+            unsupported_keys = set(task) - {"name", "tags"} - _MODULES
+            if unsupported_keys:
+                prohibited = {
+                    "shell", "command", "raw", "script", "include_tasks", "import_tasks",
+                    "include_role", "import_role", "copy", "template", "file",
+                    "uri", "get_url", "git", "package", "apt", "yum", "dnf",
+                    "user", "group", "cron", "lineinfile", "replace", "blockinfile",
+                }
+                if any(key in prohibited or
+                       (isinstance(key, str) and _MODULE_NAME.fullmatch(key))
+                       for key in unsupported_keys):
+                    _fail("ansible_module_not_allowlisted")
                 _fail("ansible_task_schema_rejected")
             module_keys = set(task).intersection(_MODULES)
-            if len(module_keys) != 1 or len(set(task).intersection(
-                    {"shell", "command", "raw", "script", "include_tasks", "import_tasks",
-                     "include_role", "import_role", "copy", "template", "file",
-                     "uri", "get_url", "git", "package", "apt", "yum", "dnf",
-                     "user", "group", "cron", "lineinfile", "replace", "blockinfile"})):
+            if len(module_keys) != 1:
                 _fail("ansible_module_not_allowlisted")
             task_name = _static_text(task["name"], maximum=120, code="ansible_task_name_invalid")
             if "tags" in task:
