@@ -72,7 +72,7 @@ class GrafanaReadOnlyR114Tests(unittest.TestCase):
         # The destination receives a Bearer token. Reject host spellings that
         # can be visually misleading or interpreted inconsistently by resolvers.
         invalid_origins = (
-            "https://gr\\u0430fana.example.test",  # Cyrillic 'a', not ASCII a
+            "https://gr\u0430fana.example.test",  # Cyrillic 'a', not ASCII a
             "https://%67rafana.example.test",
             "https://grafana_test.example.test",
             "https://grafana..example.test",
