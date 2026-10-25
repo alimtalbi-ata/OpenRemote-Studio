@@ -19,6 +19,34 @@ MAX_FILES = 20000
 MAX_TOTAL = 8 * 1024**3
 MAX_RATIO = 1000
 
+def check_manifest(archive, names, manifest, prefix, errors):
+    """Verify exact archived bytes; never trust a workspace-only manifest."""
+    if manifest not in names:
+        errors.append("missing manifest: " + manifest)
+        return
+    try:
+        raw = archive.read(manifest)
+        if len(raw) > 2 * 1024 * 1024:
+            raise ValueError("manifest too large")
+        entries = {}
+        for line in raw.decode("utf-8").splitlines():
+            if not re.fullmatch(r"[a-f0-9]{64}  [^\r\n]+", line):
+                raise ValueError("invalid manifest line")
+            digest, name = line.split("  ", 1)
+            full = prefix + name
+            if full in entries:
+                raise ValueError("duplicate manifest path")
+            entries[full] = digest
+        expected = {n for n in names if n.startswith(prefix) and not n.endswith("/")
+                    and n != manifest}
+        if set(entries) != expected:
+            raise ValueError("manifest file set mismatch")
+        for name, expected_digest in entries.items():
+            if hashlib.sha256(archive.read(name)).hexdigest() != expected_digest:
+                raise ValueError("manifest checksum mismatch: " + name)
+    except (KeyError, UnicodeError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
+        errors.append("invalid manifest " + manifest + ": " + str(exc))
+
 def verify(path, expected_commit=None):
     errors = []
     if not path.is_file():
@@ -59,6 +87,10 @@ def verify(path, expected_commit=None):
                 corrupt = archive.testzip()
                 if corrupt:
                     errors.append("corrupt ZIP entry: " + corrupt)
+            if not errors:
+                check_manifest(archive, names, "07-Manifestes/FILES-SHA256.txt", "", errors)
+                check_manifest(archive, names, "03-Sources/07-Manifestes/FILES-SHA256.txt",
+                               "03-Sources/", errors)
             provenance = "07-Manifestes/provenance.json"
             if provenance not in names:
                 errors.append("missing provenance.json")
