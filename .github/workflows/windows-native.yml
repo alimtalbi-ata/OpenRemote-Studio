@@ -85,6 +85,11 @@ jobs:
           $env:PYTHONPATH = 'Application'
           python -m unittest discover -s Application/tests -p 'test_winrm_exception_boundary*r103.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R103 WinRM boundary failed' }
+      - name: R104 WinRM Unicode spoofing and Qt display trust pure tests
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_display_trust_r104.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R104 pure WinRM display trust failed' }
       - name: R93 WinRM read-only offline and redaction regression
         run: |
           $env:PYTHONPATH = 'Application'
@@ -243,6 +248,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "R99 WinCred Qt tests failed" }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/winrm_credential_ref.py Application/winrm_inventory_qt.py
           if ($LASTEXITCODE -ne 0) { throw "R99 WinCred compilation failed" }
+      - name: R104 Qt reject spoofed WinRM service, OS and disk data
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_display_trust_qt_r104.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R104 Qt WinRM display trust failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
