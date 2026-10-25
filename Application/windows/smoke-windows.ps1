@@ -39,8 +39,8 @@ try {
     # Export only the application's already-redacted stage/status journal.
     # Keep evidence under Binary/Qualification so the failure artifact uploads it.
     try {
-      $diagnosticSource = Join-Path $env:LOCALAPPDATA 'OpenRemoteStudio\diagnostics\startup.jsonl'
-      $evidenceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\Binary\Qualification\Packaged-GUI-Smoke'))
+      $diagnosticSource = Join-Path $env:LOCALAPPDATA 'OpenRemoteStudio/diagnostics/startup.jsonl'
+      $evidenceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../Binary/Qualification/Packaged-GUI-Smoke'))
       New-Item -ItemType Directory -Path $evidenceRoot -Force | Out-Null
       $copied = $false
       if (Test-Path -LiteralPath $diagnosticSource -PathType Leaf) {
