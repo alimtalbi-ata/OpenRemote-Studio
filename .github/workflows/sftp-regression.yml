@@ -8,6 +8,8 @@ on:
       - 'Application/qt_workers.py'
       - 'Application/transfer_queue.py'
       - 'Application/tests/test_transfer_queue_cancel_r72.py'
+      - 'Application/transfer_journal.py'
+      - 'Application/tests/test_transfer_journal_state_r72.py'
       - 'Application/tests/test_qt_sftp_worker_r72.py'
       - 'Application/tests/test_sftp_atomic_download_integration_r72.py'
       - '.github/workflows/sftp-regression.yml'
@@ -25,7 +27,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile transfer safety and regression tests
-        run: python -m py_compile Application/transfer_safety.py Application/qt_workers.py Application/transfer_queue.py Application/tests/test_transfer_queue_cancel_r72.py Application/tests/test_sftp_atomic_download_integration_r72.py Application/tests/test_qt_sftp_worker_r72.py
+        run: python -m py_compile Application/transfer_safety.py Application/qt_workers.py Application/transfer_queue.py Application/transfer_journal.py Application/tests/test_transfer_journal_state_r72.py Application/tests/test_transfer_queue_cancel_r72.py Application/tests/test_sftp_atomic_download_integration_r72.py Application/tests/test_qt_sftp_worker_r72.py
       - name: Run SFTP fake-transport regression suite
         env:
           PYTHONPATH: Application
@@ -42,3 +44,8 @@ jobs:
         env:
           PYTHONPATH: Application
         run: python -m unittest discover -s Application/tests -p test_transfer_queue_cancel_r72.py -v
+
+      - name: Run transfer audit journal regression
+        env:
+          PYTHONPATH: Application
+        run: python -m unittest discover -s Application/tests -p test_transfer_journal_state_r72.py -v
