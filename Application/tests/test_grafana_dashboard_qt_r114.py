@@ -184,6 +184,61 @@ class GrafanaDashboardQtR114Tests(unittest.TestCase):
         finally:
             pane.close()
 
+    def test_cancel_revokes_consent_and_prevents_overlap_until_worker_drains(self):
+        entered, release = threading.Event(), threading.Event()
+        calls, token_reads = [], []
+
+        class BlockingClient:
+            def __init__(self, origin, *, timeout, max_dashboards):
+                calls.append(("construct", origin))
+            def dashboards(self, *, online, token, query, cancelled):
+                calls.append(("request", online))
+                entered.set()
+                release.wait(3)
+                return snapshot(title="CANCELLED_RESULT_MUST_NOT_APPEAR")
+
+        pool = QThreadPool()
+        pane = GrafanaDashboardsPanel(
+            client_factory=BlockingClient,
+            token_provider=lambda: token_reads.append("read") or TOKEN,
+            pool=pool,
+        )
+        try:
+            pane.origin.setText(ORIGIN)
+            pane.consent.setChecked(True)
+            pane.refresh()
+            self.assertTrue(entered.wait(2), "the explicit request should start")
+            pane.cancel_request()
+            self.assertFalse(pane.consent.isChecked(), "cancel must revoke online consent")
+            self.assertEqual(pane.table.topLevelItemCount(), 0)
+            self.assertIsNotNone(pane._pending, "keep the worker fenced until it drains")
+            self.assertFalse(pane.refresh_button.isEnabled())
+            pane.refresh()
+            self.assertEqual(sum(1 for item in calls if item[0] == "request"), 1,
+                             "cancellation must not create an overlapping network request")
+            self.assertEqual(token_reads, ["read"])
+            self.assertIn("consentement révoqué", pane.status.text().casefold())
+
+            release.set()
+            self.assertTrue(pool.waitForDone(4000))
+            self.app.processEvents()
+            self.assertIsNone(pane._pending)
+            self.assertFalse(pane.consent.isChecked())
+            self.assertEqual(pane.table.topLevelItemCount(), 0)
+            self.assertTrue(pane.refresh_button.isEnabled())
+            self.assertNotIn("CANCELLED_RESULT_MUST_NOT_APPEAR", pane.status.text())
+
+            # A deliberate re-approval after the prior worker has drained is allowed.
+            pane.consent.setChecked(True)
+            pane.refresh()
+            self.assertTrue(wait_until(self.app, lambda: pane._pending is None))
+            self.assertEqual(sum(1 for item in calls if item[0] == "request"), 2)
+            self.assertEqual(token_reads, ["read", "read"])
+        finally:
+            release.set()
+            pane.close()
+            pool.waitForDone(3000)
+
     def test_stale_response_after_consent_revocation_is_never_rendered(self):
         entered, release = threading.Event(), threading.Event()
         class BlockingClient:
