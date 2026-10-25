@@ -318,7 +318,8 @@ class GrafanaDashboardsPanel(QWidget):
         self.table.resizeColumnToContents(0)
         self.status.setText(
             "Lecture seule · {} dashboard(s) listé(s). "
-            "La recherche locale n'émet aucune requête supplémentaire.".format(len(safe_rows))
+            "Aucun rafraîchissement automatique ; une nouvelle recherche exige le clic sur « Charger »."
+            .format(len(safe_rows))
         )
 
     def open_selected(self):
