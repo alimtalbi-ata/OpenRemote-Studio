@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline]
   pull_request:
     paths:
       - 'Application/**'
@@ -331,6 +331,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R111 Zabbix response deadline tests failed' }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/zabbix_readonly.py Application/tests/test_zabbix_response_deadline_r111.py
           if ($LASTEXITCODE -ne 0) { throw 'R111 Zabbix response deadline compilation failed' }
+      - name: R112 full Zabbix HTTPS transaction deadline
+        run: |
+          $env:PYTHONPATH = 'Application'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_zabbix_transaction_deadline_r112.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R112 Zabbix transaction deadline tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/zabbix_readonly.py Application/tests/test_zabbix_transaction_deadline_r112.py
+          if ($LASTEXITCODE -ne 0) { throw 'R112 Zabbix transaction deadline compilation failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
