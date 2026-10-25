@@ -52,6 +52,7 @@ if (dest / "V31.8-R104-WINRM-DISPLAY-TRUST.md").is_file():
         ("R104 - Unicode display trust", "The read-only WinRM backend rejects invisible Unicode format characters, bidirectional controls, surrogates, line separators and Unicode noncharacters in remote CIM display fields. International visible text remains supported."),
         ("R104 - Qt validation boundary", "The Windows OS/disks and services Qt panels revalidate untrusted normalized results, including custom injected adapters, before populating the UI. Invalid disks, impossible free-space counts and spoofed service names are rejected with neutral errors."),
         ("R104 - evidence and limits", "Five backend tests passed locally; three Qt tests require Windows PySide6 CI and must be checked on the exact commit. No real Windows Server WinRM HTTPS session, CA/NTLM authentication or physical Windows operator walkthrough has been qualified. No R104 screenshot is claimed."),
+        ("R104 - release manifest integrity", "The first R104 CI archive exposed a stale nested source manifest despite a valid outer manifest. The cumulative builder now regenerates the source manifest from exactly archived bytes and the verifier checks both manifest file sets and SHA256 digests. Four pure tests cover this release gate; only the final CI artifact can be declared qualified."),
     ])
 # R103: external WinRM exception boundary and Qt signal redaction.
 if (dest / "V31.8-R103-WINRM-EXCEPTION-BOUNDARIES.md").is_file():
