@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts]
   pull_request:
     paths:
       - 'Application/**'
@@ -298,6 +298,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R108 snapshot ACL contract failed' }
           python -m py_compile Application/winrm_readonly.py Application/winrm_services_readonly.py Application/tests/test_winrm_snapshot_acl_r108.py Application/tests/test_winrm_ca_snapshot_r107.py
           if ($LASTEXITCODE -ne 0) { throw 'R108 source compilation failed' }
+      - name: R109 Zabbix Qt panel, backend regressions and offline capture
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_zabbix_readonly_r109.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R109 Zabbix backend tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_zabbix_alerts_qt_r109.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R109 Zabbix Qt tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/zabbix_readonly.py Application/zabbix_alerts_qt.py Application/qt_app.py Application/tests/test_zabbix_readonly_r109.py Application/tests/test_zabbix_alerts_qt_r109.py
+          if ($LASTEXITCODE -ne 0) { throw 'R109 Zabbix compilation failed' }
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_zabbix_qt_r109.py
+          if ($LASTEXITCODE -ne 0) { throw 'R109 offline UI capture failed' }
+          if (!(Test-Path 'Binary/Qualification/qt-zabbix-r109-offline.png')) { throw 'Missing R109 offline Qt capture' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
