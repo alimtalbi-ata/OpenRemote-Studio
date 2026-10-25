@@ -344,16 +344,13 @@ def _analyze_bytes(playbook_path, playbook_bytes, inventory_path, inventory_byte
     return {
         "state": "ok",
         "read_only": True,
-        "playbook_name": playbook_path.name[:128],
-        "inventory_name": inventory_path.name[:128],
         "playbook_sha256": hashlib.sha256(playbook_bytes).hexdigest(),
         "inventory_sha256": hashlib.sha256(inventory_bytes).hexdigest(),
-        "groups": sorted(groups),
+        "group_count": len(groups),
         "host_count": len(hosts),
         "play_count": len(safe_plays),
         "task_count": task_count,
         "module_counts": dict(sorted(module_counts.items())),
-        "plays": safe_plays,
         "remote_execution": False,
         "output_retained": False,
     }
@@ -619,7 +616,6 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
                 return {
                     "state": stage, "stage": "syntax", "exit_code": code,
                     "read_only": True, "output_retained": False,
-                    "playbook_name": analysis["playbook_name"],
                     "host_count": analysis["host_count"], "task_count": analysis["task_count"],
                 }
             if _cancelled(cancelled):
@@ -636,7 +632,6 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             return {
                 "state": mapped_state, "stage": "check", "exit_code": code,
                 "read_only": True, "output_retained": False,
-                "playbook_name": analysis["playbook_name"],
                 "host_count": analysis["host_count"], "task_count": analysis["task_count"],
             }
     except AnsiblePreflightError:
