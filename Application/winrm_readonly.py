@@ -5,6 +5,7 @@ The only remote PowerShell script is a constant, without user interpolation.
 Author: Abdelhalim Talbi.
 """
 import re
+import unicodedata
 from urllib.parse import urlsplit
 
 
@@ -46,7 +47,14 @@ def _endpoint(origin):
 def _text(value, maximum=160):
     if not isinstance(value, str):
         raise WinRMError('winrm_invalid_response')
-    if any(ord(c) < 32 or ord(c) == 127 for c in value) or len(value) > maximum:
+    # Remote CIM fields are untrusted display data. Invisible formatting,
+    # bidi overrides, surrogate code points and line separators can spoof
+    # Qt rows even when ordinary ASCII control characters are absent.
+    if (len(value) > maximum or any(
+            unicodedata.category(c) in ('Cc', 'Cf', 'Cs', 'Zl', 'Zp')
+            or 0xFDD0 <= ord(c) <= 0xFDEF
+            or (ord(c) & 0xFFFE) == 0xFFFE
+            for c in value)):
         raise WinRMError('winrm_invalid_response')
     return value
 
