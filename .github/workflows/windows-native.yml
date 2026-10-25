@@ -80,6 +80,11 @@ jobs:
           $env:PYTHONPATH = 'Application'
           python -m unittest discover -s Application/tests -p 'test_winrm_response_r102.py' -v
           if ($LASTEXITCODE -ne 0) { throw "R102 strict WinRM response contract failed" }
+      - name: R103 WinRM hostile exception and Qt signal boundary
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_winrm_exception_boundary*r103.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R103 WinRM boundary failed' }
       - name: R93 WinRM read-only offline and redaction regression
         run: |
           $env:PYTHONPATH = 'Application'

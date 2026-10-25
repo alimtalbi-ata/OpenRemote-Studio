@@ -150,8 +150,9 @@ class WinRMReadOnly:
             session = self._factory(self._endpoint, self._username, password,
                                     timeout=self._timeout)
             response = session.run_ps(_INVENTORY_PS)
-        except WinRMError:
-            raise
+        # External transports may raise a WinRMError containing raw stderr or
+        # credentials. Treat every exception from session construction/run_ps
+        # as untrusted and suppress its chained provider context.
         except Exception:
             raise WinRMError('winrm_transport_unavailable') from None
         finally:

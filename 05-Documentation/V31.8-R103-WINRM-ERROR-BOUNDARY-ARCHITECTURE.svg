@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300" role="img" aria-label="Schéma conceptuel WinRM R103">
+<rect width="960" height="300" fill="#f7fafc"/>
+<text x="30" y="40" font-family="Arial" font-size="23" fill="#173d57">R103 — frontières d'erreurs WinRM (conceptuel)</text>
+<g font-family="Arial" font-size="16" text-anchor="middle">
+<rect x="35" y="92" width="210" height="105" rx="9" fill="#d9eaf6" stroke="#2a75a6"/><text x="140" y="130">Qt : consentement</text><text x="140" y="158">signal à codes fixes</text>
+<rect x="300" y="92" width="260" height="105" rx="9" fill="#d9f0e2" stroke="#28824e"/><text x="430" y="130">Backends OS / services</text><text x="430" y="158">exceptions expurgées</text>
+<rect x="615" y="92" width="300" height="105" rx="9" fill="#ffebd6" stroke="#b67926"/><text x="765" y="130">Transport WinRM HTTPS</text><text x="765" y="158">réponses non fiables</text>
+</g><path d="M245 144 H300 M560 144 H615" stroke="#405e73" stroke-width="3"/>
+<text x="30" y="243" font-family="Arial" font-size="15" fill="#4c6270">Tests sur transports simulés — aucune connexion Windows Server réelle qualifiée</text>
+<text x="30" y="271" font-family="Arial" font-size="14" fill="#4c6270">Auteur : Abdelhalim Talbi</text></svg>

@@ -56,8 +56,17 @@ class _InventoryJob(QRunnable):
                 method = client.services if self._operation == 'services' else client.inventory
                 result = method(online=True, cancelled=self._cancelled.is_set)
         except WinRMError as exc:
-            # WinRMError contains only fixed, sanitized error codes.
-            result = {'state': 'error', 'code': str(exc)}
+            # Custom clients may forge a WinRMError with secret text. Never
+            # place untrusted exception text in a Qt signal payload.
+            allowed = frozenset((
+                'winrm_invalid_response', 'winrm_remote_query_failed',
+                'winrm_transport_unavailable', 'winrm_dependency_missing',
+                'winrm_cancelled', 'winrm_credentials_unavailable',
+                'winrm_credentials_required',
+            ))
+            code = str(exc)
+            result = {'state': 'error', 'code': (code if code in allowed
+                                                 else 'winrm_transport_unavailable')}
         except Exception:
             # Never propagate a provider exception: it may contain a password.
             result = {'state': 'error', 'code': 'winrm_transport_unavailable'}

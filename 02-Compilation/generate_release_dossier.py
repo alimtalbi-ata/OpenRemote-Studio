@@ -46,6 +46,13 @@ if (dest / "V31.8-R100-WINCRED-NATIVE-BOUNDARIES.md").is_file():
         ("R100 - real Windows CredMan test", "The Windows CI test writes a random session-only Generic Credential to the isolated runner account, reads it through the production wincred: resolver and deletes it in finally. No remote server is contacted. Results must be checked on the exact commit."),
         ("R100 - limits", "Real Windows Credential Manager testing does NOT qualify WinRM HTTPS against Windows Server, TLS trust chains, NTLM/Kerberos in production, physical Windows UI operation or pywinrm bundling. No screenshots are invented."),
     ])
+# R103: external WinRM exception boundary and Qt signal redaction.
+if (dest / "V31.8-R103-WINRM-EXCEPTION-BOUNDARIES.md").is_file():
+    sections.extend([
+        ("R103 - untrusted WinRM errors", "External session factories, run_ps calls and response properties may throw exceptions containing secrets. Both read-only backends now normalize all external exceptions to fixed error codes and suppress chained provider context."),
+        ("R103 - Qt signal privacy", "The Qt worker emits only allowlisted error codes. Unexpected WinRMError strings from injected clients cannot enter the signal payload. Explicit consent, verified HTTPS, offline default and fixed CIM read-only commands are unchanged."),
+        ("R103 - qualification boundary", "Hostile in-memory transports are covered by backend tests; Qt signal tests require PySide6 and Windows CI. Real Windows Server WinRM HTTPS, CA/NTLM/Kerberos and physical operator UI remain unverified. No R103 screenshots are claimed."),
+    ])
 # R102: reject ambiguous remote WinRM responses without leaking provider errors.
 if (dest / "V31.8-R102-WINRM-STRICT-RESPONSE.md").is_file():
     sections.extend([
