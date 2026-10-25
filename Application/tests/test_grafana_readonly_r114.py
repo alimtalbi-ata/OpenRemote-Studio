@@ -4,6 +4,7 @@ Author: Abdelhalim Talbi.
 import io
 import json
 import os
+import time
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
@@ -146,6 +147,26 @@ class GrafanaReadOnlyR114Tests(unittest.TestCase):
         fake.payload = b" " * (1024 * 1024 + 2)
         with self.assertRaisesRegex(GrafanaError, "grafana_response_too_large"):
             GrafanaReadOnly(ORIGIN, opener=fake).dashboards(online=True, token=TOKEN)
+
+    def test_body_read_returning_after_deadline_is_rejected(self):
+        class SlowReply(io.BytesIO):
+            status = 200
+            def read1(self, size=-1):
+                time.sleep(0.025)
+                return super().read1(size)
+
+        class SlowOpen:
+            def __call__(self, request, timeout):
+                self.request = request
+                self.timeout = timeout
+                return SlowReply(json.dumps([dashboard()]).encode("utf-8"))
+
+        fake = SlowOpen()
+        with self.assertRaisesRegex(GrafanaError, "grafana_deadline_exceeded") as caught:
+            GrafanaReadOnly(ORIGIN, opener=fake, timeout=0.005).dashboards(
+                online=True, token=TOKEN
+            )
+        self.assertNotIn(TOKEN, str(caught.exception))
 
     def test_duplicate_json_keys_and_invalid_json_are_rejected(self):
         for payload in (b'{"uid":"x","uid":"y"}', b'NaN', b'not json'):
