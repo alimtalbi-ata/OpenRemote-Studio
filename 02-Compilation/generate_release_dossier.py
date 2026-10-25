@@ -125,6 +125,16 @@ if (dest / "V31.8-R114-GRAFANA-READONLY.md").is_file():
         ("R114 - limitations and release boundary", "A real Grafana instance, real token and effective least-privilege role remain unverified. Pagination, Grafana reverse-proxy subpaths, physical operator acceptance and signed binaries are not qualified. The transport uses strict urllib TLS trust, rejects redirects and enforces response limits; it cannot guarantee immediate interruption of an already blocked native read. Grafana is PARTIAL, not IMPLEMENTED."),
     ])
 
+
+# R115: canonicalize Grafana origin before reading a bearer credential; retain only redacted Windows smoke evidence.
+if (dest / "V31.8-R115-GRAFANA-ORIGIN-HARDENING.md").is_file():
+    sections.extend([
+        ("R115 - Grafana origin canonicalization", "The Grafana API accepts only a canonical HTTPS root origin. ASCII DNS labels are strictly validated and normalized, literal IP addresses are normalized with ipaddress, Unicode host lookalikes, percent escapes, empty query/fragment delimiters, invalid labels and ambiguous numeric hosts are rejected. Validation occurs before the Qt token provider is read. R114 remains GET-only with strict TLS, no redirects, bounded JSON responses and links rebuilt from validated origin plus UID."),
+        ("R115 - origin validation tests", "The backend contract tests cover Unicode homographs, encoded and malformed authorities, ambiguous numeric IPv4 spellings, DNS normalization and IPv4/IPv6 literals. Qt tests assert that invalid targets fail before credential-provider invocation and render no results. Tests use fake transport/client; they do not contact a live Grafana server or use a real token."),
+        ("R115 - bounded packaged GUI smoke", "The previous native Windows candidate run exceeded the 30-second packaged GUI startup smoke. The onedir and extracted-portable GUI smoke waits now use a 60-second upper bound. A failure can export only the application-generated startup journal with stage/outcome and exception type, plus a generic smoke-result code; it does not export exception messages, traceback or credentials. A passing smoke still removes the temporary profile. The increased limit is not itself proof of a resolved startup defect."),
+        ("R115 - release evidence limits", "The build must be requalified at the final R115 SHA on Windows native, OpenSSH live integration and cumulative verification. Inspect the redacted packaged-GUI evidence if the smoke still fails. A real Grafana instance, token, effective least-privilege API role, reverse-proxy subpath, binary signing and physical operator acceptance remain unverified. Grafana remains PARTIAL."),
+    ])
+
 doc = Document()
 doc.add_heading("OpenRemote Studio V" + version, 0)
 doc.add_paragraph("Windows release quality dossier | Abdelhalim Talbi")
