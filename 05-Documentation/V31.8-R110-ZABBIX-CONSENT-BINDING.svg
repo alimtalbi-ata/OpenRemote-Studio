@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="320" viewBox="0 0 1120 320" role="img" aria-labelledby="title desc">
+  <title id="title">R110 — révocation du consentement Zabbix après changement d'origine</title>
+  <desc id="desc">Modifier l'origine HTTPS décoche le consentement, invalide les résultats en attente et efface les alertes. Une nouvelle requête exige une nouvelle approbation.</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#334155"/></marker></defs>
+  <rect x="16" y="24" width="250" height="112" rx="12" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/>
+  <text x="141" y="56" font-family="Segoe UI,Arial,sans-serif" font-size="17" text-anchor="middle" fill="#0c4a6e">1. Origine éditée</text>
+  <text x="141" y="82" font-family="Segoe UI,Arial,sans-serif" font-size="14" text-anchor="middle" fill="#0c4a6e">HTTPS cible changée</text>
+  <text x="141" y="104" font-family="Segoe UI,Arial,sans-serif" font-size="13" text-anchor="middle" fill="#0c4a6e">pas de requête auto</text>
+  <path d="M266 80 H306" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="314" y="24" width="250" height="112" rx="12" fill="#fee2e2" stroke="#b91c1c" stroke-width="2"/>
+  <text x="439" y="56" font-family="Segoe UI,Arial,sans-serif" font-size="17" text-anchor="middle" fill="#7f1d1d">2. Révocation</text>
+  <text x="439" y="82" font-family="Segoe UI,Arial,sans-serif" font-size="14" text-anchor="middle" fill="#7f1d1d">consentement décoché</text>
+  <text x="439" y="104" font-family="Segoe UI,Arial,sans-serif" font-size="13" text-anchor="middle" fill="#7f1d1d">données effacées</text>
+  <path d="M564 80 H604" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="612" y="24" width="250" height="112" rx="12" fill="#fef3c7" stroke="#b45309" stroke-width="2"/>
+  <text x="737" y="56" font-family="Segoe UI,Arial,sans-serif" font-size="17" text-anchor="middle" fill="#78350f">3. Résultats tardifs</text>
+  <text x="737" y="82" font-family="Segoe UI,Arial,sans-serif" font-size="14" text-anchor="middle" fill="#78350f">génération invalidée</text>
+  <text x="737" y="104" font-family="Segoe UI,Arial,sans-serif" font-size="13" text-anchor="middle" fill="#78350f">jamais affichés</text>
+  <path d="M862 80 H902" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="910" y="24" width="194" height="112" rx="12" fill="#dcfce7" stroke="#15803d" stroke-width="2"/>
+  <text x="1007" y="56" font-family="Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle" fill="#14532d">4. Nouvelle lecture</text>
+  <text x="1007" y="82" font-family="Segoe UI,Arial,sans-serif" font-size="13" text-anchor="middle" fill="#14532d">re-cocher explicitement</text>
+  <text x="1007" y="104" font-family="Segoe UI,Arial,sans-serif" font-size="13" text-anchor="middle" fill="#14532d">avant lecture du jeton</text>
+  <rect x="16" y="184" width="1088" height="92" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="34" y="214" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#0f172a">Garantie :</text>
+  <text x="126" y="214" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#0f172a">le changement d'origine bloque toute nouvelle lecture sans réapprobation.</text>
+  <text x="34" y="242" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#334155">Limite explicite :</text>
+  <text x="160" y="242" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#334155">une requête réseau déjà en cours reste timeout-bornée ; son résultat est rejeté.</text>
+  <text x="34" y="263" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#64748b">Concept de contrôle UI · aucun serveur Zabbix réel ni jeton réel utilisé dans cette preuve.</text>
+</svg>
