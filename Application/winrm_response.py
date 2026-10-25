@@ -26,15 +26,18 @@ def decode_winrm_json(response):
 
     Never inspect or propagate remote stderr or transport exception strings.
     """
+    # Properties of external transport replies are untrusted, including
+    # WinRMError instances which might contain remote stderr or secrets.
     try:
         status = response.status_code
-        if type(status) is not int:
-            raise WinRMError('winrm_invalid_response')
-        if status != 0:
-            raise WinRMError('winrm_remote_query_failed')
+    except Exception:
+        raise WinRMError('winrm_invalid_response') from None
+    if type(status) is not int:
+        raise WinRMError('winrm_invalid_response')
+    if status != 0:
+        raise WinRMError('winrm_remote_query_failed')
+    try:
         output = response.std_out
-    except WinRMError:
-        raise
     except Exception:
         raise WinRMError('winrm_invalid_response') from None
     if type(output) is not bytes or not 0 < len(output) <= 65536:
