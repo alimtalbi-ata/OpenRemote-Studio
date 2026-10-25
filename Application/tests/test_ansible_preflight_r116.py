@@ -178,24 +178,33 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         self.assertNotIn(KEY_BYTES.decode("utf-8").strip(), repr(fingerprints))
 
     def test_changed_known_hosts_or_private_key_requires_reapproval_before_spawn(self):
-        fingerprints = connection_fingerprints(self.known_hosts, self.key)
-        self.known_hosts.write_text(
-            "server1.example.test ssh-ed25519 "
-            + base64.b64encode(b"DIFFERENT approved fixture key material").decode("ascii")
-            + "\n", encoding="utf-8",
-        )
-        with patch("ansible_preflight.subprocess.Popen") as popen:
-            with self.assertRaisesRegex(AnsiblePreflightError, "ansible_connection_input_changed_reapprove"):
-                run_check_mode(
-                    self.playbook, self.inventory, self.known_hosts, self.key,
-                    consent=True,
-                    expected_playbook_sha256=analyze_playbook(self.playbook, self.inventory)["playbook_sha256"],
-                    expected_inventory_sha256=analyze_playbook(self.playbook, self.inventory)["inventory_sha256"],
-                    expected_known_hosts_sha256=fingerprints["known_hosts_sha256"],
-                    expected_private_key_sha256=fingerprints["private_key_sha256"],
-                    executable_lookup=lambda _name: "/fake/ansible-playbook",
-                )
-        popen.assert_not_called()
+        for changed_file in ("known_hosts", "private_key"):
+            with self.subTest(changed_file=changed_file):
+                self.write_inputs()
+                fingerprints = connection_fingerprints(self.known_hosts, self.key)
+                if changed_file == "known_hosts":
+                    self.known_hosts.write_text(
+                        "server1.example.test ssh-ed25519 "
+                        + base64.b64encode(b"DIFFERENT approved fixture key material").decode("ascii")
+                        + "\n", encoding="utf-8",
+                    )
+                else:
+                    self.key.write_bytes(b"R116 different key bytes")
+                    if os.name != "nt":
+                        os.chmod(self.key, 0o600)
+                report = analyze_playbook(self.playbook, self.inventory)
+                with patch("ansible_preflight.subprocess.Popen") as popen:
+                    with self.assertRaisesRegex(AnsiblePreflightError, "ansible_connection_input_changed_reapprove"):
+                        run_check_mode(
+                            self.playbook, self.inventory, self.known_hosts, self.key,
+                            consent=True,
+                            expected_playbook_sha256=report["playbook_sha256"],
+                            expected_inventory_sha256=report["inventory_sha256"],
+                            expected_known_hosts_sha256=fingerprints["known_hosts_sha256"],
+                            expected_private_key_sha256=fingerprints["private_key_sha256"],
+                            executable_lookup=lambda _name: "/fake/ansible-playbook",
+                        )
+                popen.assert_not_called()
 
     def test_consent_is_required_before_cli_discovery_or_process_creation(self):
         lookup_calls = []
