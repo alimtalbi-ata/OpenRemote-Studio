@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
+<title id="title">OpenRemote Studio R109 — flux Zabbix en lecture seule</title>
+<desc id="desc">Le consentement explicite et la validation HTTPS précèdent la lecture du jeton. Deux méthodes API en lecture seule retournent un instantané borné, filtré en mémoire puis présenté dans Qt. Aucune écriture ni ouverture automatique de session.</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#3b5066"/></marker></defs>
+<rect x="0" y="0" width="1200" height="500" fill="#f5f7fa" rx="18"/>
+<text x="600" y="42" text-anchor="middle" font-family="Segoe UI,Arial" font-size="25" font-weight="700" fill="#18324b">OpenRemote Studio V31.8 · R109</text>
+<text x="600" y="70" text-anchor="middle" font-family="Segoe UI,Arial" font-size="16" fill="#40566b">Triage Zabbix — lecture seule, opt-in, erreurs expurgées</text>
+<g font-family="Segoe UI,Arial" font-size="16" text-anchor="middle">
+  <rect x="40" y="132" width="220" height="104" rx="12" fill="#e6f0fa" stroke="#557b9d" stroke-width="2"/>
+  <text x="150" y="165" font-weight="700" fill="#193c5a">Panneau Qt</text><text x="150" y="191" fill="#193c5a">Hors ligne par défaut</text><text x="150" y="214" fill="#193c5a">Consentement explicite</text>
+  <rect x="330" y="132" width="220" height="104" rx="12" fill="#e5f5eb" stroke="#458a61" stroke-width="2"/>
+  <text x="440" y="165" font-weight="700" fill="#1d5737">Validation locale</text><text x="440" y="191" fill="#1d5737">Origine HTTPS</text><text x="440" y="214" fill="#1d5737">Puis lecture du jeton</text>
+  <rect x="620" y="132" width="240" height="104" rx="12" fill="#fff0d9" stroke="#ad7a2c" stroke-width="2"/>
+  <text x="740" y="165" font-weight="700" fill="#694711">Adaptateur API</text><text x="740" y="191" fill="#694711">problem.get</text><text x="740" y="214" fill="#694711">trigger.get · HTTPS strict</text>
+  <rect x="930" y="132" width="230" height="104" rx="12" fill="#eee8fb" stroke="#7964a6" stroke-width="2"/>
+  <text x="1045" y="165" font-weight="700" fill="#3d2d66">Zabbix</text><text x="1045" y="191" fill="#3d2d66">API autorisée</text><text x="1045" y="214" fill="#3d2d66">Rôle de lecture minimal</text>
+  <path d="M260 184 H323" stroke="#3b5066" stroke-width="3" marker-end="url(#arrow)"/><path d="M550 184 H613" stroke="#3b5066" stroke-width="3" marker-end="url(#arrow)"/><path d="M860 184 H923" stroke="#3b5066" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M1045 236 V278 H740 V292" fill="none" stroke="#3b5066" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect x="520" y="292" width="440" height="80" rx="12" fill="#e8eef3" stroke="#607b91" stroke-width="2"/>
+  <text x="740" y="322" font-weight="700" fill="#233e53">Validation, limites et expurgation</text><text x="740" y="348" fill="#233e53">JSON strict · réponses ≤ 1 Mio · aucun corps d'erreur brut</text>
+  <path d="M740 372 V400" stroke="#3b5066" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect x="400" y="400" width="680" height="64" rx="12" fill="#e5f5eb" stroke="#458a61" stroke-width="2"/>
+  <text x="740" y="425" font-weight="700" fill="#1d5737">Instantané Qt en mémoire</text><text x="740" y="449" fill="#1d5737">Filtres locaux · profils candidats · aucune écriture / session automatique</text>
+  <text x="70" y="318" text-anchor="start" font-weight="700" fill="#a12622">REFUSÉ</text><text x="70" y="344" text-anchor="start" fill="#a12622">HTTP / redirect</text><text x="70" y="368" text-anchor="start" fill="#a12622">Token absent</text><text x="70" y="392" text-anchor="start" fill="#a12622">Résultat périmé</text>
+</g>
+</svg>
