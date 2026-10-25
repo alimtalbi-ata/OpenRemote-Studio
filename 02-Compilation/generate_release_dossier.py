@@ -116,6 +116,15 @@ if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
         ("R101 - unchanged security model", "WinRM remains disabled by default and uses only fixed read-only CIM queries over HTTPS with certificate validation. Credentials are resolved in memory after operator consent; errors are redacted."),
         ("R101 - unverified limits", "An importable WinRM dependency graph is not a successful connection to a real Windows Server. TLS trust, NTLM authentication, least-privilege remote access, physical Windows operator tests and real R101 screenshots remain unverified. The architecture SVG is conceptual, not a screenshot."),
     ])
+# R114: Grafana dashboard discovery is opt-in and GET-only; synthetic tests do not attest live Grafana.
+if (dest / "V31.8-R114-GRAFANA-READONLY.md").is_file():
+    sections.extend([
+        ("R114 - Grafana read-only dashboard discovery", "The Outils menu exposes an offline-by-default Grafana panel. It lists only dashboard search results returned by GET /api/search with type=dash-db, projects UID/title/folder/tags, bounds the response to 1 MiB and 100 dashboards, rejects redirects, and rebuilds links from a validated HTTPS origin and UID. The browser opens only after an explicit operator action."),
+        ("R114 - consent and secret handling", "The origin and search query must remain unchanged after consent; edits, cancel, hide or close clear displayed data and revoke consent. OPENREMOTE_GRAFANA_TOKEN is read only after consent and a valid HTTPS origin. The bearer is sent in the Authorization header, not in URLs, logs, persistence or exports. Errors are normalized."),
+        ("R114 - tests and evidence", "Eighteen backend contract tests and nine Qt tests use fake transports/clients and a test token; they make no request to an external Grafana service. Windows CI generates a real offscreen PNG of the Grafana panel with consent disabled; that image is evidence of the offline UI state only, not of a live dashboard."),
+        ("R114 - limitations and release boundary", "A real Grafana instance, real token and effective least-privilege role remain unverified. Pagination, Grafana reverse-proxy subpaths, physical operator acceptance and signed binaries are not qualified. The transport uses strict urllib TLS trust, rejects redirects and enforces response limits; it cannot guarantee immediate interruption of an already blocked native read. Grafana is PARTIAL, not IMPLEMENTED."),
+    ])
+
 doc = Document()
 doc.add_heading("OpenRemote Studio V" + version, 0)
 doc.add_paragraph("Windows release quality dossier | Abdelhalim Talbi")
