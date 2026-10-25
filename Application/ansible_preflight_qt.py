@@ -283,6 +283,10 @@ class AnsiblePreflightPanel(QWidget):
             self.status.setText("Sélectionnez un playbook et un inventaire statique.")
             return
         self._analysis = None
+        self._connection_fingerprints = None
+        self.consent.blockSignals(True)
+        self.consent.setChecked(False)
+        self.consent.blockSignals(False)
         self.summary.clear()
         self._launch("analyze", self._analyzer, {
             "playbook_path": playbook, "inventory_path": inventory,
