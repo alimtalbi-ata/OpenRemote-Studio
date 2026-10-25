@@ -18,6 +18,8 @@ panel.origin.setText("https://zabbix-b.example.invalid/zabbix")
 assert not panel.consent.isChecked(), "origin edit must revoke consent"
 assert panel.table.topLevelItemCount() == 0
 assert "révoqué" in panel.status.text().casefold()
+panel.show()
+app.processEvents()
 dest = Path("Binary/Qualification/qt-zabbix-r110-consent-revoked.png")
 dest.parent.mkdir(parents=True, exist_ok=True)
 if not panel.grab().save(str(dest), "PNG"):
