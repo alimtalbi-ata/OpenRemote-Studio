@@ -90,6 +90,14 @@ if (dest / "V31.8-R111-ZABBIX-RESPONSE-DEADLINE.md").is_file():
         ("R111 - deadline scope", "The body deadline begins after urllib has completed connection/TLS and received response headers. The earlier connection/TLS/header phase still uses urllib's socket inactivity timeout; no end-to-end absolute deadline is claimed."),
         ("R111 - qualification boundary", "Synthetic clock/socket tests plus a real local socketpair slow-drip scenario cover deadline expiry, cancellation, response-size bounds and error redaction. A real Zabbix server, real token and effective least-privilege API role remain unverified. Zabbix stays PARTIAL and no R111 UI screenshot is claimed because the Qt interface is unchanged."),
     ])
+# R112: enforce one absolute deadline across the Zabbix HTTPS transaction.
+if (dest / "V31.8-R112-ZABBIX-TRANSACTION-DEADLINE.md").is_file():
+    sections.extend([
+        ("R112 - Zabbix absolute HTTPS deadline", "One monotonic deadline now spans HTTPS opening, TCP connect, TLS handshake, HTTP status/headers and body reading. A deadline watchdog shuts down the active socket; the body reader reuses the original deadline rather than receiving a new timeout budget."),
+        ("R112 - TLS and privacy", "The default SSLContext still requires certificate validation and hostname checks; redirects remain rejected, response bytes remain capped at 1 MiB, and only the existing read-only problem.get and trigger.get methods are allowed. Errors contain no remote text or credential."),
+        ("R112 - qualification boundary", "Seven new tests include a real loopback TLS server with an ephemeral runtime-generated trust anchor and slow-drip response headers. The temporary private key is deleted and is never archived. Platform getaddrinfo/DNS itself is not portably interruptible, and a real Zabbix instance, real token and least-privilege API role remain unverified. Zabbix stays PARTIAL; no R112 UI screenshot is claimed."),
+    ])
+
 # R101: packaged WinRM transport does not certify a real remote WinRM session.
 if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
     sections.extend([

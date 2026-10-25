@@ -8,16 +8,19 @@ Author: Abdelhalim Talbi.
 from __future__ import annotations
 
 import argparse
+import http.client
 import ipaddress
 import json
 import os
 import re
 import socket
+import threading
 import time
 import unicodedata
+from contextvars import ContextVar
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_TOKEN_LENGTH = 4096
@@ -36,6 +39,211 @@ class ZabbixError(RuntimeError):
 class _RejectRedirects(HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, msg, headers, newurl):
         return None
+
+
+# urllib passes a socket inactivity timeout to http.client. These per-request
+# context variables let the default HTTPS handler carry one absolute deadline
+# through connect, TLS, status/headers and response-body reads.
+_ACTIVE_HTTP_DEADLINE = ContextVar("openremote_zabbix_http_deadline", default=None)
+_ACTIVE_HTTP_CONNECTION = ContextVar("openremote_zabbix_http_connection", default=None)
+
+
+class _DeadlineHTTPResponse(http.client.HTTPResponse):
+    """HTTPResponse that keeps its owner reachable after urllib closes h.sock."""
+
+    def __init__(self, sock, *args, **kwargs):
+        super().__init__(sock, *args, **kwargs)
+        self._deadline_sock = sock
+        self._deadline_owner = _ACTIVE_HTTP_CONNECTION.get()
+        if self._deadline_owner is not None:
+            self._deadline_owner._deadline_response = self
+
+    def close(self):
+        owner = getattr(self, "_deadline_owner", None)
+        try:
+            super().close()
+        finally:
+            if owner is not None:
+                owner._response_closed(self)
+
+
+class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection whose watchdog closes a transaction at one deadline.
+
+    The timer is armed before network activity. It shuts down both an in-flight
+    connect socket and the response socket, including while urllib is parsing a
+    slow status line/header. urllib deliberately closes the connection object's
+    socket after getresponse(), so the response keeps an explicit socket reference
+    until it is closed. The default SSLContext/certificate validation is retained.
+    """
+
+    response_class = _DeadlineHTTPResponse
+
+    def __init__(self, *args, **kwargs):
+        self._deadline = _ACTIVE_HTTP_DEADLINE.get()
+        self._deadline_timer = None
+        self._deadline_expired = False
+        self._deadline_pending_sock = None
+        self._deadline_response = None
+        self._deadline_in_getresponse = False
+        super().__init__(*args, **kwargs)
+        if self._deadline is not None:
+            remaining = self._remaining_deadline()
+            try:
+                configured_timeout = float(self.timeout)
+            except (TypeError, ValueError):
+                configured_timeout = remaining
+            self.timeout = min(configured_timeout, remaining)
+            self._deadline_timer = threading.Timer(remaining, self._expire_deadline)
+            self._deadline_timer.daemon = True
+            self._deadline_timer.start()
+
+    def _remaining_deadline(self):
+        if self._deadline is None:
+            return self.timeout
+        remaining = self._deadline - time.monotonic()
+        if self._deadline_expired or remaining <= 0:
+            self._expire_deadline()
+            raise socket.timeout("Zabbix HTTPS transaction deadline exceeded")
+        return remaining
+
+    @staticmethod
+    def _shutdown_socket(sock):
+        if sock is None:
+            return
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except Exception:
+            pass
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+    def _expire_deadline(self):
+        self._deadline_expired = True
+        self._shutdown_socket(self._deadline_pending_sock)
+        self._shutdown_socket(self.sock)
+        response = self._deadline_response
+        if response is not None:
+            self._shutdown_socket(getattr(response, "_deadline_sock", None))
+
+    def _cancel_deadline_timer(self):
+        timer = self._deadline_timer
+        if timer is not None:
+            timer.cancel()
+            self._deadline_timer = None
+
+    def _response_closed(self, response):
+        if self._deadline_response is response:
+            self._deadline_response = None
+        self._cancel_deadline_timer()
+
+    def _create_connection(self, address, timeout, source_address):
+        # Use a fresh remaining budget for each address. DNS resolution itself is
+        # performed by the platform resolver and cannot be forcibly interrupted;
+        # the deadline is rechecked immediately when it returns.
+        if self._deadline is None:
+            return socket.create_connection(address, timeout, source_address)
+        host, port = address
+        last_error = None
+        for family, socktype, proto, _canonname, sockaddr in socket.getaddrinfo(
+                host, port, type=socket.SOCK_STREAM):
+            remaining = self._remaining_deadline()
+            sock = socket.socket(family, socktype, proto)
+            self._deadline_pending_sock = sock
+            try:
+                sock.settimeout(remaining)
+                if source_address:
+                    sock.bind(source_address)
+                sock.settimeout(self._remaining_deadline())
+                sock.connect(sockaddr)
+                self._remaining_deadline()
+                # Keep the pending reference until connect() has installed the
+                # socket on the connection and completed TLS setup. The watchdog
+                # can then close it even during the hand-off window.
+                return sock
+            except OSError as exc:
+                last_error = exc
+                self._shutdown_socket(sock)
+                self._deadline_pending_sock = None
+                if self._deadline_expired or time.monotonic() >= self._deadline:
+                    self._expire_deadline()
+                    raise socket.timeout("Zabbix HTTPS transaction deadline exceeded") from None
+        if last_error is not None:
+            raise last_error
+        raise OSError("address resolution returned no endpoints")
+
+    def connect(self):
+        if self._deadline is None:
+            return super().connect()
+        self.timeout = self._remaining_deadline()
+        # Run the plain HTTP connect/tunnel phase first; its _create_connection
+        # override accounts for each address and keeps the in-flight socket
+        # reachable by the watchdog.
+        http.client.HTTPConnection.connect(self)
+        server_hostname = self._tunnel_host or self.host
+        # Defer TLS handshake until the SSLSocket is assigned to self.sock. That
+        # lets the deadline watchdog shutdown the live TLS socket during a stalled
+        # handshake instead of only closing the now-detached raw socket.
+        self.sock = self._context.wrap_socket(
+            self.sock, server_hostname=server_hostname, do_handshake_on_connect=False
+        )
+        remaining = self._remaining_deadline()
+        self.sock.settimeout(remaining)
+        self.sock.do_handshake()
+        remaining = self._remaining_deadline()
+        self.sock.settimeout(remaining)
+        self._deadline_pending_sock = None
+
+    def send(self, data):
+        if self._deadline is not None:
+            remaining = self._remaining_deadline()
+            if self.sock is not None:
+                self.sock.settimeout(remaining)
+        return super().send(data)
+
+    def getresponse(self):
+        if self._deadline is not None:
+            self._remaining_deadline()
+        self._deadline_in_getresponse = True
+        connection_token = _ACTIVE_HTTP_CONNECTION.set(self)
+        try:
+            response = super().getresponse()
+        except Exception:
+            raise
+        finally:
+            _ACTIVE_HTTP_CONNECTION.reset(connection_token)
+            self._deadline_in_getresponse = False
+        response._deadline_owner = self
+        self._deadline_response = response
+        try:
+            self._remaining_deadline()
+        except Exception:
+            response.close()
+            raise
+        return response
+
+    def close(self):
+        # http.client closes the connection internally for Connection: close while
+        # getresponse() is still constructing the response. Do not cancel its
+        # watchdog until the response body itself has been closed.
+        if not self._deadline_in_getresponse and self._deadline_response is None:
+            self._cancel_deadline_timer()
+            pending = self._deadline_pending_sock
+            self._deadline_pending_sock = None
+            self._shutdown_socket(pending)
+        super().close()
+
+
+class _DeadlineHTTPSHandler(HTTPSHandler):
+    """Default HTTPS handler with an absolute transaction deadline watchdog."""
+
+    def https_open(self, req):
+        return self.do_open(
+            _DeadlineHTTPSConnection, req,
+            context=self._context,
+        )
 
 
 def _endpoint(origin: str) -> str:
@@ -109,13 +317,14 @@ def _response_socket(response):
     return None
 
 
-def _read_response_bounded(response, timeout, *, cancelled=None, clock=None):
+def _read_response_bounded(response, timeout, *, cancelled=None, clock=None, deadline=None):
     """Stream a response under a monotonic body deadline, with cancellation checks.
 
-    urllib's timeout is an inactivity timeout. A peer that continually drips body
-    bytes could otherwise keep a read alive much longer than the configured value.
-    Apply the remaining wall-clock budget to the underlying socket before each
-    read1() and stop if the monotonic deadline is reached.
+    A caller may provide the absolute transaction deadline established before
+    HTTPS open; this prevents response processing from receiving a fresh budget
+    after slow connect/TLS/status/header phases. A peer that continually drips
+    body bytes cannot reset the deadline: apply the remaining budget to the socket
+    before each read1() and stop if the monotonic deadline is reached.
     """
     clock = clock or time.monotonic
     try:
@@ -124,7 +333,12 @@ def _read_response_bounded(response, timeout, *, cancelled=None, clock=None):
         raise ZabbixError("zabbix_invalid_limits") from None
     if not 0 < timeout <= 30:
         raise ZabbixError("zabbix_invalid_limits")
-    deadline = clock() + timeout
+    if deadline is None:
+        deadline = clock() + timeout
+    elif not isinstance(deadline, (int, float)) or isinstance(deadline, bool):
+        raise ZabbixError("zabbix_invalid_limits")
+    if deadline <= clock():
+        raise ZabbixError("zabbix_timeout")
 
     # urllib.response.addinfourl wraps http.client.HTTPResponse in .fp. read1()
     # reads at most the available chunk; response.read(n) may try to fill n bytes.
@@ -280,7 +494,7 @@ class ZabbixReadOnly:
             raise ZabbixError("zabbix_invalid_limits")
         self.timeout = float(timeout)
         self.max_problems = max_problems
-        self._opener = opener or build_opener(_RejectRedirects()).open
+        self._opener = opener or build_opener(_RejectRedirects(), _DeadlineHTTPSHandler()).open
 
     def __repr__(self):
         return "<ZabbixReadOnly redacted>"
@@ -323,31 +537,61 @@ class ZabbixReadOnly:
                      "Authorization": "Bearer " + token},
             method="POST",
         )
+        deadline = time.monotonic() + self.timeout
+        deadline_token = _ACTIVE_HTTP_DEADLINE.set(deadline)
         try:
-            response = self._opener(request, timeout=self.timeout)
-            with response:
-                status = getattr(response, "status", getattr(response, "code", 200))
-                if status != 200:
-                    raise ZabbixError(self._http_error_code(status))
-                headers = getattr(response, "headers", {})
-                length = headers.get("Content-Length") if hasattr(headers, "get") else None
-                if length is not None:
-                    if not isinstance(length, str) or not length.isascii() or not length.isdecimal():
-                        raise ZabbixError("zabbix_invalid_response")
-                    if int(length) > MAX_RESPONSE_BYTES:
-                        raise ZabbixError("zabbix_response_too_large")
-                raw = _read_response_bounded(response, self.timeout, cancelled=cancelled)
-        except ZabbixError:
-            raise
-        except HTTPError as exc:
-            code = self._http_error_code(exc.code)
             try:
-                exc.close()
-            except Exception:
-                pass
-            raise ZabbixError(code) from None
-        except Exception:
-            raise ZabbixError("zabbix_network_unavailable") from None
+                response = self._opener(request, timeout=self.timeout)
+                if time.monotonic() >= deadline:
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
+                    raise ZabbixError("zabbix_timeout")
+                with response:
+                    status = getattr(response, "status", getattr(response, "code", 200))
+                    if time.monotonic() >= deadline:
+                        raise ZabbixError("zabbix_timeout")
+                    if status != 200:
+                        raise ZabbixError(self._http_error_code(status))
+                    headers = getattr(response, "headers", {})
+                    length = headers.get("Content-Length") if hasattr(headers, "get") else None
+                    if length is not None:
+                        if not isinstance(length, str) or not length.isascii() or not length.isdecimal():
+                            raise ZabbixError("zabbix_invalid_response")
+                        if int(length) > MAX_RESPONSE_BYTES:
+                            raise ZabbixError("zabbix_response_too_large")
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise ZabbixError("zabbix_timeout")
+                    raw = _read_response_bounded(
+                        response, remaining, cancelled=cancelled, deadline=deadline
+                    )
+            except ZabbixError:
+                raise
+            except HTTPError as exc:
+                if time.monotonic() >= deadline:
+                    raise ZabbixError("zabbix_timeout") from None
+                code = self._http_error_code(exc.code)
+                try:
+                    exc.close()
+                except Exception:
+                    pass
+                raise ZabbixError(code) from None
+            except Exception as exc:
+                reason = getattr(exc, "reason", None)
+                timeout_error = isinstance(exc, (socket.timeout, TimeoutError)) or isinstance(
+                    reason, (socket.timeout, TimeoutError)
+                )
+                if time.monotonic() >= deadline or timeout_error:
+                    raise ZabbixError("zabbix_timeout") from None
+                try:
+                    self._check_cancelled(cancelled)
+                except ZabbixError:
+                    raise
+                raise ZabbixError("zabbix_network_unavailable") from None
+        finally:
+            _ACTIVE_HTTP_DEADLINE.reset(deadline_token)
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ZabbixError("zabbix_response_too_large")
         self._check_cancelled(cancelled)
