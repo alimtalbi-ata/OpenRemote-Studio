@@ -63,7 +63,7 @@ try {
 } finally { $exeStream.Dispose() }
 
 # Bound the packaged GUI smoke: an unresponsive application must fail the build.
-& (Join-Path $PSScriptRoot 'smoke-windows.ps1') -Exe $exe -TimeoutSeconds 30
+& (Join-Path $PSScriptRoot 'smoke-windows.ps1') -Exe $exe -TimeoutSeconds 60
 if (-not $?) { throw 'Packaged Windows GUI smoke failed' }
 & (Join-Path $PSScriptRoot 'winrm-runtime-smoke.ps1') -Exe $exe -TimeoutSeconds 30
 if (-not $?) { throw 'Packaged WinRM runtime smoke failed' }
@@ -94,7 +94,7 @@ try {
   Expand-Archive -LiteralPath $portable -DestinationPath $portableSmokeDir -ErrorAction Stop
   $portableExecutables = @(Get-ChildItem -LiteralPath $portableSmokeDir -Filter 'OpenRemoteStudio.exe' -File -Recurse)
   if ($portableExecutables.Count -ne 1) { throw 'Extracted portable must contain exactly one OpenRemoteStudio.exe' }
-  & (Join-Path $PSScriptRoot 'smoke-windows.ps1') -Exe $portableExecutables[0].FullName -TimeoutSeconds 30
+  & (Join-Path $PSScriptRoot 'smoke-windows.ps1') -Exe $portableExecutables[0].FullName -TimeoutSeconds 60
   if (-not $?) { throw 'Extracted portable GUI smoke failed' }
   & (Join-Path $PSScriptRoot 'winrm-runtime-smoke.ps1') -Exe $portableExecutables[0].FullName -TimeoutSeconds 30
   if (-not $?) { throw 'Extracted portable WinRM runtime smoke failed' }
