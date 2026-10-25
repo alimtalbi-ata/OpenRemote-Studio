@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="390" viewBox="0 0 1180 390" role="img" aria-label="R102 WinRM read-only response validation architecture conceptual diagram">
+<rect width="1180" height="390" fill="#f5f8fc"/>
+<text x="40" y="48" font-family="DejaVu Sans,Arial" font-size="27" fill="#102f4e" font-weight="bold">OpenRemote Studio · R102 — WinRM fail-closed</text>
+<text x="40" y="76" font-family="DejaVu Sans,Arial" font-size="15" fill="#52647b">Diagramme conceptuel — pas une capture d'écran réelle</text>
+<g font-family="DejaVu Sans,Arial" font-size="17" text-anchor="middle">
+<rect x="35" y="123" width="225" height="132" rx="13" fill="#d8ecff" stroke="#2369a8" stroke-width="2"/>
+<text x="147" y="155" fill="#173d64" font-weight="bold">Qt / consentement</text><text x="147" y="183" fill="#173d64">Hors ligne par défaut</text><text x="147" y="208" fill="#173d64">WinCred en mémoire</text><text x="147" y="233" fill="#173d64">Annulation bornée</text>
+<rect x="310" y="123" width="240" height="132" rx="13" fill="#e1f3e9" stroke="#28744b" stroke-width="2"/>
+<text x="430" y="155" fill="#1c5d3d" font-weight="bold">HTTPS WinRM</text><text x="430" y="183" fill="#1c5d3d">Certificat vérifié</text><text x="430" y="208" fill="#1c5d3d">Scripts CIM fixes</text><text x="430" y="233" fill="#1c5d3d">Inventaire / services</text>
+<rect x="602" y="111" width="278" height="158" rx="13" fill="#fff1d9" stroke="#b77b21" stroke-width="2.5"/>
+<text x="741" y="145" fill="#7a4c08" font-weight="bold">Décodeur partagé R102</text><text x="741" y="173" fill="#7a4c08">Statut entier = 0</text><text x="741" y="198" fill="#7a4c08">JSON UTF-8 ≤ 65 536 o</text><text x="741" y="223" fill="#7a4c08">Clés uniques / valeurs finies</text><text x="741" y="248" fill="#7a4c08">Erreurs expurgées</text>
+<rect x="932" y="123" width="212" height="132" rx="13" fill="#e8e3f7" stroke="#6a53a4" stroke-width="2"/>
+<text x="1038" y="155" fill="#503b81" font-weight="bold">Résultat validé</text><text x="1038" y="184" fill="#503b81">OS / disques</text><text x="1038" y="211" fill="#503b81">Services / évolution</text><text x="1038" y="237" fill="#503b81">UI lecture seule</text>
+</g>
+<g stroke="#52647b" stroke-width="3" fill="none"><path d="M260 189 H307"/><path d="M550 189 H598"/><path d="M880 189 H928"/></g>
+<g fill="#52647b"><path d="M307 189 l-11 -7 v14z"/><path d="M598 189 l-11 -7 v14z"/><path d="M928 189 l-11 -7 v14z"/></g>
+<rect x="604" y="299" width="540" height="50" rx="8" fill="#fee7e7" stroke="#c45353"/>
+<text x="874" y="329" text-anchor="middle" font-family="DejaVu Sans,Arial" font-size="16" fill="#873131">Échec → code fixe · aucun stderr ni secret dans les journaux</text>
+<path d="M741 269 V297" stroke="#c45353" stroke-width="2.5"/>
+</svg>
