@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ansible_preflight import (
-    AnsiblePreflightError, analyze_playbook, run_check_mode,
+    AnsiblePreflightError, analyze_playbook, run_check_mode, connection_fingerprints,
 )
 
 PLAYBOOK = """- name: Read-only diagnostic
@@ -168,6 +168,34 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
             self.skipTest("Symlink creation is not permitted in this runner")
         with self.assertRaisesRegex(AnsiblePreflightError, "ansible_symlink_input_rejected"):
             analyze_playbook(link, self.inventory)
+
+    def test_selected_host_trust_and_key_fingerprints_never_return_file_bytes(self):
+        fingerprints = connection_fingerprints(self.known_hosts, self.key)
+        self.assertEqual(set(fingerprints), {"known_hosts_sha256", "private_key_sha256"})
+        self.assertEqual(len(fingerprints["known_hosts_sha256"]), 64)
+        self.assertEqual(len(fingerprints["private_key_sha256"]), 64)
+        self.assertNotIn("R116_PRIVATE_KEY_SENTINEL", repr(fingerprints))
+        self.assertNotIn(KEY_BYTES.decode("utf-8").strip(), repr(fingerprints))
+
+    def test_changed_known_hosts_or_private_key_requires_reapproval_before_spawn(self):
+        fingerprints = connection_fingerprints(self.known_hosts, self.key)
+        self.known_hosts.write_text(
+            "server1.example.test ssh-ed25519 "
+            + base64.b64encode(b"DIFFERENT approved fixture key material").decode("ascii")
+            + "\n", encoding="utf-8",
+        )
+        with patch("ansible_preflight.subprocess.Popen") as popen:
+            with self.assertRaisesRegex(AnsiblePreflightError, "ansible_connection_input_changed_reapprove"):
+                run_check_mode(
+                    self.playbook, self.inventory, self.known_hosts, self.key,
+                    consent=True,
+                    expected_playbook_sha256=analyze_playbook(self.playbook, self.inventory)["playbook_sha256"],
+                    expected_inventory_sha256=analyze_playbook(self.playbook, self.inventory)["inventory_sha256"],
+                    expected_known_hosts_sha256=fingerprints["known_hosts_sha256"],
+                    expected_private_key_sha256=fingerprints["private_key_sha256"],
+                    executable_lookup=lambda _name: "/fake/ansible-playbook",
+                )
+        popen.assert_not_called()
 
     def test_consent_is_required_before_cli_discovery_or_process_creation(self):
         lookup_calls = []
