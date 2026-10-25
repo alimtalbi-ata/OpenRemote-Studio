@@ -33,6 +33,12 @@ class CAPinningR106(unittest.TestCase):
 
     def transport(self, *args, **kwargs):
         self.calls.append('network')
+        ca_path = kwargs.get('ca_bundle')
+        if ca_path is not None:
+            # R107+ passes the immutable-for-this-request copy, not the source.
+            self.snapshot_path = Path(ca_path)
+            self.assertNotEqual(self.snapshot_path.resolve(), self.path.resolve())
+            self.assertEqual(self.snapshot_path.read_bytes(), CA.read_bytes())
         raise RuntimeError('never contact remote host')
 
     def test_inventory_change_blocks_credential_and_transport(self):
@@ -67,15 +73,73 @@ class CAPinningR106(unittest.TestCase):
             client.inventory(online=True)
         self.assertEqual(self.calls, [])
 
-    def test_change_during_credential_resolution_blocks_network(self):
+    def test_change_during_credential_resolution_does_not_change_inflight_snapshot(self):
         def provider():
             self.calls.append('credential')
             self.path.write_bytes(self.path.read_bytes() + b'\n')
             return 'TEST_SECRET_NOT_REAL'
         client = self.client(provider=provider)
-        with self.assertRaisesRegex(WinRMError, '^winrm_ca_bundle_changed$'):
+        # The private snapshot was validated before the credential provider.
+        # This transport intentionally fails after checking that the copied CA
+        # is still the original pinned content, even though the source changed.
+        with self.assertRaisesRegex(WinRMError, '^winrm_transport_unavailable
+    def test_offline_never_rechecks_or_resolves(self):
+        client = self.client()
+        self.path.unlink()
+        self.assertEqual(client.inventory()['state'], 'offline')
+        self.assertEqual(self.calls, [])
+
+    def test_no_ca_uses_existing_transport_contract(self):
+        client = WinRMReadOnly(ORIGIN, 'readonly', self.password,
+                               session_factory=self.transport)
+        with self.assertRaisesRegex(WinRMError, '^winrm_transport_unavailable$'):
             client.inventory(online=True)
-        self.assertEqual(self.calls, ['credential'])
+        self.assertEqual(self.calls, ['credential', 'network'])
+
+    def test_identical_bytes_remain_valid(self):
+        client = self.client()
+        self.path.write_bytes(CA.read_bytes())
+        with self.assertRaisesRegex(WinRMError, '^winrm_transport_unavailable$'):
+            client.inventory(online=True)
+        self.assertEqual(self.calls, ['credential', 'network'])
+
+
+if __name__ == '__main__':
+    unittest.main()
+):
+            client.inventory(online=True)
+        self.assertEqual(self.calls, ['credential', 'network'])
+        self.assertFalse(self.snapshot_path.exists())
+
+        # A subsequent request sees the changed source and stops before secrets
+        # or network; it cannot silently adopt the changed trust configuration.
+        with self.assertRaisesRegex(WinRMError, '^winrm_ca_bundle_changed
+    def test_offline_never_rechecks_or_resolves(self):
+        client = self.client()
+        self.path.unlink()
+        self.assertEqual(client.inventory()['state'], 'offline')
+        self.assertEqual(self.calls, [])
+
+    def test_no_ca_uses_existing_transport_contract(self):
+        client = WinRMReadOnly(ORIGIN, 'readonly', self.password,
+                               session_factory=self.transport)
+        with self.assertRaisesRegex(WinRMError, '^winrm_transport_unavailable$'):
+            client.inventory(online=True)
+        self.assertEqual(self.calls, ['credential', 'network'])
+
+    def test_identical_bytes_remain_valid(self):
+        client = self.client()
+        self.path.write_bytes(CA.read_bytes())
+        with self.assertRaisesRegex(WinRMError, '^winrm_transport_unavailable$'):
+            client.inventory(online=True)
+        self.assertEqual(self.calls, ['credential', 'network'])
+
+
+if __name__ == '__main__':
+    unittest.main()
+):
+            client.inventory(online=True)
+        self.assertEqual(self.calls, ['credential', 'network'])
 
     def test_offline_never_rechecks_or_resolves(self):
         client = self.client()
