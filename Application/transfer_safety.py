@@ -79,9 +79,12 @@ def upload_exclusive(sftp, local_path, remote_path, callback=None, chunk_size=25
     if cancelled is not None and cancelled():
         raise InterruptedError('Upload cancelled before remote creation')
     try:
-        with source.open('rb') as local:
-            # Verify the opened handle, not just the path checked above:
-            # a path may be swapped for a symlink between check and open.
+        # Open without following a final-component symlink where the OS supports
+        # O_NOFOLLOW. The earlier path checks alone are vulnerable to a swap
+        # between validation and open (TOCTOU). fstat remains authoritative.
+        flags=os.O_RDONLY | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+        source_fd=os.open(str(source), flags)
+        with os.fdopen(source_fd, 'rb') as local:
             opened=os.fstat(local.fileno())
             if not stat.S_ISREG(opened.st_mode):
                 raise ValueError('Source locale non régulière')
