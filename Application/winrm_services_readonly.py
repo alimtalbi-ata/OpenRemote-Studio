@@ -62,18 +62,19 @@ class WinRMServicesReadOnly(WinRMReadOnly):
             raise WinRMError('winrm_ca_bundle_changed')
         if not callable(self._provider):
             raise WinRMError('winrm_credentials_required')
+        password = None
         try:
-            password = self._provider()
-        except Exception:
-            raise WinRMError('winrm_credentials_unavailable') from None
-        if not isinstance(password, str) or not password or '\x00' in password:
-            raise WinRMError('winrm_credentials_unavailable')
-        if cancelled is not None and cancelled():
-            raise WinRMError('winrm_cancelled')
-        if self._ca_digest is not None and _ca_bundle_digest(self._ca_bundle) != self._ca_digest:
-            raise WinRMError('winrm_ca_bundle_changed')
-        try:
+            # Make and verify the trust snapshot before reading WinCred; ACL
+            # provisioning failure must not cause a credential lookup.
             with _snapshot_ca_bundle(self._ca_bundle, self._ca_digest) as ca_path:
+                if cancelled is not None and cancelled():
+                    raise WinRMError('winrm_cancelled')
+                try:
+                    password = self._provider()
+                except Exception:
+                    raise WinRMError('winrm_credentials_unavailable') from None
+                if not isinstance(password, str) or not password or '\x00' in password:
+                    raise WinRMError('winrm_credentials_unavailable')
                 if cancelled is not None and cancelled():
                     raise WinRMError('winrm_cancelled')
                 try:
