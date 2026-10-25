@@ -19,6 +19,21 @@ SECTIONS = ("01-Application/", "02-Compilation/", "03-Sources/",
             "04-Tests-et-Qualification/", "05-Documentation/",
             "06-Historique/", "07-Manifestes/")
 
+def reconcile_archive_source_manifest(files):
+    """Hash the exact archived source bytes, not untracked CI workspace files.
+
+    The workspace manifest may include generated DOCX/PDF files absent from
+    git ls-files or stale installer metadata. Rebuild only the archived copy.
+    """
+    prefix = "03-Sources/"
+    manifest = prefix + "07-Manifestes/FILES-SHA256.txt"
+    entries = sorted((name[len(prefix):], data) for name, data in files.items()
+                     if name.startswith(prefix) and name != manifest)
+    files[manifest] = ("\n".join(
+        f"{hashlib.sha256(data).hexdigest()}  {name}" for name, data in entries
+    ) + "\n").encode("utf-8")
+    return len(entries)
+
 def main():
     if VERSION != "31.8":
         raise SystemExit(f"Wrong release version: {VERSION}")
@@ -49,6 +64,10 @@ def main():
             add("03-Sources/" + name, path.read_bytes())
             if name.startswith(("02-Compilation/", "04-Tests-et-Qualification/", "05-Documentation/")):
                 add(name, path.read_bytes())
+    # R104: source manifest describes the archived snapshot, not untracked
+    # generated workspace docs or pre-build installer metadata.
+    source_count = reconcile_archive_source_manifest(files)
+    print(f"Reconciled archived source manifest: {source_count} source files")
     add("01-Application/Installer/" + installer.name, installer.read_bytes())
     add("01-Application/Portable/" + portable.name, portable.read_bytes())
     for path in docs:

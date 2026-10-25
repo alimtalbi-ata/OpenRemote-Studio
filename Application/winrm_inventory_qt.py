@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QLabel,
                                QLineEdit, QCheckBox, QPushButton, QTreeWidget,
                                QTreeWidgetItem, QInputDialog)
 
-from winrm_readonly import WinRMReadOnly, WinRMError
+from winrm_readonly import WinRMReadOnly, WinRMError, _text, _size, _DRIVE
 from winrm_services_readonly import WinRMServicesReadOnly, _STATES, _MODES
 from winrm_service_totals import validated_display_total, ServiceTotalError
 from winrm_service_drift import compare_service_snapshots, ServiceDriftError
@@ -276,15 +276,16 @@ class WinRMInventoryPanel(QWidget):
                 for item in items:
                     if not isinstance(item, dict):
                         raise ValueError('invalid service')
-                    row = tuple(item[key] for key in ('name', 'display_name', 'state', 'start_mode'))
-                    if (any(not isinstance(v, str) or len(v) > 256
-                            or any(ord(ch) < 32 or ord(ch) == 127 for ch in v) for v in row)
-                            or not row[0] or row[2] not in _STATES or row[3] not in _MODES
+                    row = (_text(item['name'], 256),
+                           _text(item['display_name'], 256),
+                           _text(item['state'], 32),
+                           _text(item['start_mode'], 32))
+                    if (not row[0] or row[2] not in _STATES or row[3] not in _MODES
                             or row[0].casefold() in seen):
                         raise ValueError('invalid service fields')
                     seen.add(row[0].casefold())
                     rows.append(row)
-            except (KeyError, TypeError, ValueError, ServiceTotalError):
+            except (KeyError, TypeError, ValueError, ServiceTotalError, WinRMError):
                 self.status.setText('Réponse WinRM invalide.')
                 return
             # Compare only successful readings under unchanged consent and endpoint.
@@ -330,15 +331,27 @@ class WinRMInventoryPanel(QWidget):
                                     '/' + str(total_count) + ' reçus' + warning)
             return
         try:
-            os_info = result['os']
-            rows = [('Système', os_info['caption']), ('Version', os_info['version']),
-                    ('Build', os_info['build']), ('Machine', os_info['computer'])]
-            for disk in result['disks']:
-                rows.append(('Volume ' + disk['drive'],
-                             str(disk['free_bytes']) + ' libres / ' + str(disk['size_bytes']) + ' octets'))
-            if len(rows) > 132 or any(not isinstance(a, str) or not isinstance(b, str) for a, b in rows):
-                raise ValueError('invalid inventory')
-        except (KeyError, TypeError, ValueError):
+            if result.get('read_only') is not True:
+                raise ValueError('not read only')
+            os_info, disks = result['os'], result['disks']
+            if not isinstance(os_info, dict) or not isinstance(disks, list) or len(disks) > 128:
+                raise ValueError('invalid inventory shape')
+            rows = [('Système', _text(os_info['caption'])),
+                    ('Version', _text(os_info['version'], 64)),
+                    ('Build', _text(os_info['build'], 32)),
+                    ('Machine', _text(os_info['computer'], 253))]
+            seen_drives = set()
+            for disk in disks:
+                if not isinstance(disk, dict):
+                    raise ValueError('invalid disk')
+                drive = _text(disk['drive'], 2)
+                size, free = _size(disk['size_bytes']), _size(disk['free_bytes'])
+                if not _DRIVE.fullmatch(drive) or drive in seen_drives or free > size:
+                    raise ValueError('invalid disk fields')
+                seen_drives.add(drive)
+                rows.append(('Volume ' + drive,
+                             str(free) + ' libres / ' + str(size) + ' octets'))
+        except (KeyError, TypeError, ValueError, WinRMError):
             self.status.setText('Réponse WinRM invalide.')
             return
         self.table.clear()

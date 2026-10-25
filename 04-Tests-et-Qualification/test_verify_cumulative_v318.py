@@ -1,5 +1,6 @@
 """V31.8 release archive verifier regression tests."""
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -14,15 +15,25 @@ spec.loader.exec_module(verifier)
 class ArchiveTests(unittest.TestCase):
     def make_zip(self, directory, extra=(), provenance=True, commit="a" * 40):
         target = Path(directory) / "test.zip"
+        files = {prefix + "placeholder.txt": b"sample" for prefix in verifier.REQUIRED}
+        if provenance:
+            files["07-Manifestes/provenance.json"] = json.dumps({
+                "commit": commit, "windows_build_run": "123"
+            }).encode()
+        for name in extra:
+            files[name] = b"x"
+        source_entries = [(name[len("03-Sources/"):], data)
+                          for name, data in sorted(files.items())
+                          if name.startswith("03-Sources/")]
+        files["03-Sources/07-Manifestes/FILES-SHA256.txt"] = ("\n".join(
+            f"{hashlib.sha256(data).hexdigest()}  {name}" for name, data in source_entries
+        ) + "\n").encode()
+        files["07-Manifestes/FILES-SHA256.txt"] = ("\n".join(
+            f"{hashlib.sha256(data).hexdigest()}  {name}" for name, data in sorted(files.items())
+        ) + "\n").encode()
         with zipfile.ZipFile(target, "w") as archive:
-            for prefix in verifier.REQUIRED:
-                archive.writestr(prefix + "placeholder.txt", "sample")
-            if provenance:
-                archive.writestr("07-Manifestes/provenance.json", json.dumps({
-                    "commit": commit, "windows_build_run": "123"
-                }))
-            for name in extra:
-                archive.writestr(name, "x")
+            for name, data in files.items():
+                archive.writestr(name, data)
         return target
 
     def test_valid_archive(self):
