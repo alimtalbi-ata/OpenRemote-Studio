@@ -46,6 +46,13 @@ if (dest / "V31.8-R100-WINCRED-NATIVE-BOUNDARIES.md").is_file():
         ("R100 - real Windows CredMan test", "The Windows CI test writes a random session-only Generic Credential to the isolated runner account, reads it through the production wincred: resolver and deletes it in finally. No remote server is contacted. Results must be checked on the exact commit."),
         ("R100 - limits", "Real Windows Credential Manager testing does NOT qualify WinRM HTTPS against Windows Server, TLS trust chains, NTLM/Kerberos in production, physical Windows UI operation or pywinrm bundling. No screenshots are invented."),
     ])
+# R104: WinRM remote display fields are untrusted, including injected adapters.
+if (dest / "V31.8-R104-WINRM-DISPLAY-TRUST.md").is_file():
+    sections.extend([
+        ("R104 - Unicode display trust", "The read-only WinRM backend rejects invisible Unicode format characters, bidirectional controls, surrogates, line separators and Unicode noncharacters in remote CIM display fields. International visible text remains supported."),
+        ("R104 - Qt validation boundary", "The Windows OS/disks and services Qt panels revalidate untrusted normalized results, including custom injected adapters, before populating the UI. Invalid disks, impossible free-space counts and spoofed service names are rejected with neutral errors."),
+        ("R104 - evidence and limits", "Five backend tests passed locally; three Qt tests require Windows PySide6 CI and must be checked on the exact commit. No real Windows Server WinRM HTTPS session, CA/NTLM authentication or physical Windows operator walkthrough has been qualified. No R104 screenshot is claimed."),
+    ])
 # R103: external WinRM exception boundary and Qt signal redaction.
 if (dest / "V31.8-R103-WINRM-EXCEPTION-BOUNDARIES.md").is_file():
     sections.extend([
