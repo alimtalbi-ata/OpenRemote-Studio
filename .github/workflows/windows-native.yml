@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight]
   pull_request:
     paths:
       - 'Application/**'
@@ -358,6 +358,20 @@ jobs:
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_grafana_qt_r114.py
           if ($LASTEXITCODE -ne 0) { throw 'R114 offline Grafana UI capture failed' }
           if (!(Test-Path 'Binary/Qualification/qt-grafana-r114-offline.png')) { throw 'Missing R114 offline Grafana capture' }
+      - name: R116 Ansible static preflight, Qt consent and offline screenshot
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_ansible_preflight_r116.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R116 Ansible static preflight tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_ansible_preflight_qt_r116.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R116 Ansible Qt tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/ansible_preflight.py Application/ansible_preflight_qt.py Application/qt_app.py Application/tests/test_ansible_preflight_r116.py Application/tests/test_ansible_preflight_qt_r116.py Application/tests/capture_ansible_preflight_qt_r116.py
+          if ($LASTEXITCODE -ne 0) { throw 'R116 Ansible sources failed compilation' }
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_ansible_preflight_qt_r116.py
+          if ($LASTEXITCODE -ne 0) { throw 'R116 offline Ansible UI capture failed' }
+          $capture = Get-Item 'Binary/Qualification/ansible-preflight-r116.png' -ErrorAction Stop
+          if ($capture.Length -lt 128) { throw 'R116 offline Ansible screenshot is too small' }
       - name: R115 packaged GUI smoke timeout and redaction contract
         run: |
           $env:PYTHONPATH = 'Application'

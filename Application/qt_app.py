@@ -756,7 +756,7 @@ class Main(QMainWindow):
             menu.addAction(title,fn)
         menu=self.menuBar().addMenu('Outils')
         for title,fn in [('Accueil',self.show_home),('Fractionner la vue',self.split_view),
-                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Tunnel SSH local (sécurisé)',self.show_ssh_tunnel),('Comparer NetBox (lecture seule)',self.show_netbox_preview),('Inventaire Windows WinRM (lecture seule)',self.show_winrm_inventory),('Services Windows WinRM (lecture seule)',self.show_winrm_services),('Alertes Zabbix (lecture seule)',self.show_zabbix_alerts),('Tableaux Grafana (lecture seule)',self.show_grafana_dashboards),('Qualification interface',self.show_qa_summary)]:
+                         ('Diagnostic local',self.show_local_readiness),('Outils installés',self.show_integrations),('Diagnostic clients Windows',self.show_windows_clients),('Vue sessions',self.show_session_overview),('Historique sessions',self.show_session_history),('Fiabilité connexions',self.show_connection_reliability),('Historique diagnostics',self.show_probe_history),('Sessions externes',self.show_external_sessions),('Historique SFTP',self.show_transfer_history),('Tunnel SSH local (sécurisé)',self.show_ssh_tunnel),('Comparer NetBox (lecture seule)',self.show_netbox_preview),('Inventaire Windows WinRM (lecture seule)',self.show_winrm_inventory),('Services Windows WinRM (lecture seule)',self.show_winrm_services),('Alertes Zabbix (lecture seule)',self.show_zabbix_alerts),('Tableaux Grafana (lecture seule)',self.show_grafana_dashboards),('Ansible — prévalidation et check mode',self.show_ansible_preflight),('Qualification interface',self.show_qa_summary)]:
             menu.addAction(title,fn)
         help_menu=self.menuBar().addMenu('Aide')
         help_menu.addAction('Démarrage rapide et raccourcis (F1)',self.show_quick_guide)
@@ -2099,6 +2099,13 @@ class Main(QMainWindow):
         from grafana_dashboard_qt import GrafanaDashboardsPanel
         pane = GrafanaDashboardsPanel(parent=self.tabs)
         self.tabs.addTab(pane, 'Grafana · tableaux')
+        self.tabs.setCurrentWidget(pane)
+
+    def show_ansible_preflight(self):
+        """Open static offline Ansible preflight; execution is opt-in, allowlisted and check-only."""
+        from ansible_preflight_qt import AnsiblePreflightPanel
+        pane = AnsiblePreflightPanel(parent=self.tabs)
+        self.tabs.addTab(pane, 'Ansible · aperçu')
         self.tabs.setCurrentWidget(pane)
 
 

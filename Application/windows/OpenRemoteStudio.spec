@@ -4,7 +4,7 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules
 root = Path(SPECPATH).resolve().parent
 hidden = (collect_submodules('paramiko') + collect_submodules('winrm')
-          + collect_submodules('spnego') + ['grafana_readonly', 'grafana_dashboard_qt'])
+          + collect_submodules('spnego') + collect_submodules('yaml') + ['grafana_readonly', 'grafana_dashboard_qt', 'ansible_preflight', 'ansible_preflight_qt'])
 a = Analysis([str(root / 'qt_app.py')], pathex=[str(root)], binaries=[], datas=[(str(root.parent / 'VERSION.txt'), '.')],
              hiddenimports=hidden, hookspath=[], hooksconfig={}, runtime_hooks=[],
              excludes=['tkinter', 'unittest', 'pytest'], noarchive=False)

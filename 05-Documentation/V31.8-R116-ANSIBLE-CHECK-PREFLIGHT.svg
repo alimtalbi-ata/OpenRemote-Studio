@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRemote Studio R116 — Ansible preflight and guarded check-mode flow</title>
+  <desc id="desc">Static offline parsing and allowlist validation precede an optional, operator-approved SSH check-mode execution with pinned host keys and bounded process output.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#315b75"/></marker>
+    <style>
+      .title{font:700 26px sans-serif;fill:#17384e}
+      .subtitle{font:15px sans-serif;fill:#36596e}
+      .label{font:700 16px sans-serif;fill:#17384e}
+      .body{font:14px sans-serif;fill:#213e4d}
+      .small{font:12px sans-serif;fill:#385565}
+      .box{fill:#f6fafc;stroke:#40718b;stroke-width:2;rx:14}
+      .secure{fill:#e8f5ed;stroke:#42825c;stroke-width:2;rx:14}
+      .deny{fill:#fff0ef;stroke:#b75b52;stroke-width:2;rx:14}
+      .arrow{fill:none;stroke:#315b75;stroke-width:2.5;marker-end:url(#arrow)}
+      .dash{stroke-dasharray:7 5}
+    </style>
+  </defs>
+  <rect width="1200" height="720" fill="#ffffff"/>
+  <text x="48" y="52" class="title">OpenRemote Studio V31.8 — R116 · Ansible prévalidation</text>
+  <text x="48" y="79" class="subtitle">Analyse locale hors ligne par défaut · exécution distante facultative · aucune sortie brute conservée</text>
+
+  <rect x="45" y="125" width="250" height="130" class="box"/>
+  <text x="65" y="153" class="label">Entrées opérateur</text>
+  <text x="65" y="180" class="body">Playbook YAML statique</text>
+  <text x="65" y="201" class="body">Inventaire INI statique</text>
+  <text x="65" y="222" class="body">Pas de mot de passe</text>
+  <text x="65" y="242" class="small">Taille et fichiers bornés</text>
+
+  <path d="M295 190 H340" class="arrow"/>
+  <rect x="350" y="125" width="300" height="130" class="box"/>
+  <text x="370" y="153" class="label">Prévalidation locale</text>
+  <text x="370" y="180" class="body">YAML sûr + clés uniques</text>
+  <text x="370" y="201" class="body">Groupes/hôtes statiques</text>
+  <text x="370" y="222" class="body">7 modules builtin autorisés</text>
+  <text x="370" y="242" class="small">Aucune connexion / aucun process</text>
+
+  <path d="M650 190 H695" class="arrow"/>
+  <rect x="705" y="125" width="440" height="130" class="secure"/>
+  <text x="725" y="153" class="label">Rapport de contrôle local</text>
+  <text x="725" y="180" class="body">Compteurs · modules · empreintes SHA-256</text>
+  <text x="725" y="201" class="body">Aucun contenu de tâche, hôte ou argument</text>
+  <text x="725" y="222" class="body">Résultat stale invalidé si entrée modifiée</text>
+  <text x="725" y="242" class="small">Pas d'export, pas de secret dans les logs</text>
+
+  <path d="M925 255 V303" class="arrow"/>
+  <rect x="705" y="314" width="440" height="125" class="box"/>
+  <text x="725" y="341" class="label">Barrières d'exécution (toutes requises)</text>
+  <text x="725" y="367" class="body">Clic explicite + CLI présente + hash identique</text>
+  <text x="725" y="389" class="body">Clé privée + known_hosts sélectionné</text>
+  <text x="725" y="411" class="body">StrictHostKeyChecking=yes · public key only</text>
+  <text x="725" y="431" class="small">Pas de proxy, agent, forwarding ni config utilisateur</text>
+
+  <path d="M705 378 H655 V491 H610" class="arrow"/>
+  <rect x="285" y="465" width="325" height="145" class="secure"/>
+  <text x="307" y="493" class="label">Runner Ansible borné</text>
+  <text x="307" y="520" class="body">1. --syntax-check</text>
+  <text x="307" y="542" class="body">2. --check --diff</text>
+  <text x="307" y="564" class="body">Deadline globale 10–120 s</text>
+  <text x="307" y="586" class="small">Sans shell · stdout/stderr vers DEVNULL</text>
+  <text x="307" y="603" class="small">Annulation et arrêt du processus</text>
+
+  <path d="M610 538 H665" class="arrow"/>
+  <rect x="675" y="465" width="270" height="145" class="box"/>
+  <text x="695" y="493" class="label">Résultat neutre</text>
+  <text x="695" y="520" class="body">Succès / échec / timeout</text>
+  <text x="695" y="542" class="body">Code retour entier seulement</text>
+  <text x="695" y="564" class="body">Pas de sortie distante stockée</text>
+  <text x="695" y="586" class="small">Consentement consommé après l'appel</text>
+
+  <path d="M285 545 H215 V465" class="arrow dash"/>
+  <rect x="45" y="314" width="205" height="296" class="deny"/>
+  <text x="65" y="344" class="label">Refus fail-closed</text>
+  <text x="65" y="372" class="body">shell / command / raw</text>
+  <text x="65" y="395" class="body">copy / template / file</text>
+  <text x="65" y="418" class="body">Rôles / imports / become</text>
+  <text x="65" y="441" class="body">Jinja / lookups / plugins</text>
+  <text x="65" y="464" class="body">Inventaire dynamique</text>
+  <text x="65" y="487" class="body">Host key non approuvée</text>
+  <text x="65" y="510" class="body">Clé trop permissive</text>
+  <text x="65" y="533" class="body">Empreinte modifiée</text>
+  <text x="65" y="570" class="small">Aucun fallback vers exécution libre</text>
+  <text x="65" y="589" class="small">Erreur publique générique</text>
+
+  <rect x="975" y="465" width="170" height="145" class="deny"/>
+  <text x="992" y="493" class="label">Limite</text>
+  <text x="992" y="520" class="small">Check mode ≠ sandbox</text>
+  <text x="992" y="540" class="small">Fichiers temporaires</text>
+  <text x="992" y="560" class="small">distants possibles</text>
+  <text x="992" y="586" class="small">Recette lab requise</text>
+
+  <text x="48" y="666" class="small">Diagramme d'architecture conceptuel — la capture CI distincte montre seulement l'interface Qt hors ligne, pas une cible Ansible réelle.</text>
+  <text x="48" y="690" class="small">Auteur : Abdelhalim Talbi · R116 · 25/10/2026 · Toute recette externe reste UNVERIFIED tant qu'elle n'est pas exécutée et documentée.</text>
+</svg>
