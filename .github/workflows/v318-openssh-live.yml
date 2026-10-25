@@ -58,10 +58,10 @@ jobs:
           done
           docker exec -u root openremote-sftp /usr/sbin/sshd -T -C user=tester,host=localhost,addr=127.0.0.1 | grep -Eq '^allowtcpforwarding (yes|local)$'
       - name: R109 Zabbix read-only API boundary (synthetic transport)
+        shell: bash
         run: |
-          $env:PYTHONPATH = 'Application'
+          export PYTHONPATH=Application
           python -m unittest discover -s Application/tests -p 'test_zabbix_readonly_r109.py' -v
-          if ($LASTEXITCODE -ne 0) { throw 'R109 Zabbix API contract failed' }
       - name: R102 WinRM strict response contract (offline, no Windows Server)
         env:
           PYTHONPATH: Application
