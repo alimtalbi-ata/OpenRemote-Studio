@@ -90,6 +90,13 @@ jobs:
           $env:PYTHONPATH = 'Application'
           python -m unittest discover -s Application/tests -p 'test_winrm_display_trust_r104.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R104 pure WinRM display trust failed' }
+      - name: R104 source archive manifest reconciliation and verifier regression
+        run: |
+          $env:PYTHONPATH = '02-Compilation'
+          python -m unittest discover -s 02-Compilation -p 'test_archive*manifest*r104.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R104 source archive manifest gate failed' }
+          python -m py_compile 02-Compilation/build_cumulative_v318.py 02-Compilation/verify_cumulative_v318.py
+          if ($LASTEXITCODE -ne 0) { throw 'R104 release scripts compilation failed' }
       - name: R93 WinRM read-only offline and redaction regression
         run: |
           $env:PYTHONPATH = 'Application'
