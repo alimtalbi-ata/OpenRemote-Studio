@@ -46,6 +46,14 @@ if (dest / "V31.8-R100-WINCRED-NATIVE-BOUNDARIES.md").is_file():
         ("R100 - real Windows CredMan test", "The Windows CI test writes a random session-only Generic Credential to the isolated runner account, reads it through the production wincred: resolver and deletes it in finally. No remote server is contacted. Results must be checked on the exact commit."),
         ("R100 - limits", "Real Windows Credential Manager testing does NOT qualify WinRM HTTPS against Windows Server, TLS trust chains, NTLM/Kerberos in production, physical Windows UI operation or pywinrm bundling. No screenshots are invented."),
     ])
+# R102: reject ambiguous remote WinRM responses without leaking provider errors.
+if (dest / "V31.8-R102-WINRM-STRICT-RESPONSE.md").is_file():
+    release_notes.extend([
+        ("R102 - strict WinRM reply decoding", "OS/disk and Windows service inventory now share a bounded UTF-8 JSON decoder: 1-65536 bytes, unique object keys, finite JSON values and integer status code. Invalid or deeply nested payloads are rejected."),
+        ("R102 - redaction and offline guarantee", "Unexpected transport response property errors are replaced with fixed error codes without exposing provider exceptions or remote stderr. No network is attempted without explicit operator consent; fixed CIM queries and TLS validation are unchanged."),
+        ("R102 - qualification boundary", "Six new synthetic-transport tests plus existing R93 and R95 regression tests run locally. A real Windows Server WinRM HTTPS session, CA validation, NTLM/Kerberos in situ, physical Windows operator test and R102 screenshots remain unverified."),
+    ])
+
 # R101: packaged WinRM transport does not certify a real remote WinRM session.
 if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
     sections.extend([
