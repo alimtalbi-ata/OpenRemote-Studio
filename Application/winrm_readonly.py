@@ -4,7 +4,10 @@ No network on import or offline calls. pywinrm is an OPTIONAL runtime dependency
 The only remote PowerShell script is a constant, without user interpolation.
 Author: Abdelhalim Talbi.
 """
+import os
 import re
+import ssl
+import stat
 import unicodedata
 from urllib.parse import urlsplit
 
@@ -104,14 +107,35 @@ def _inventory(raw):
     return {'state': 'ok', 'read_only': True, 'os': os_info, 'disks': normalized}
 
 
-def _pywinrm_session(endpoint, username, password, *, timeout):
+def validate_ca_bundle(path):
+    """Fail-closed validation of optional local PEM trust; no TLS bypass."""
+    if path is None or path == '':
+        return None
+    if (not isinstance(path, str) or len(path) > 1024
+            or not os.path.isabs(path) or path.startswith(('\\\\', '//'))
+            or any(ord(c) < 32 or ord(c) == 127 for c in path)):
+        raise WinRMError('winrm_invalid_ca_bundle')
+    try:
+        info = os.lstat(path)
+        if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 1048576:
+            raise ValueError('not a bounded regular file')
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=path)
+    except (OSError, ValueError, ssl.SSLError):
+        raise WinRMError('winrm_invalid_ca_bundle') from None
+    return path
+
+
+def _pywinrm_session(endpoint, username, password, *, timeout, ca_bundle=None):
     try:
         import winrm
     except ImportError:
         raise WinRMError('winrm_dependency_missing') from None
     # pywinrm uses requests with CA validation; no HTTP or certificate bypass.
+    kwargs = {'ca_trust_path': ca_bundle} if ca_bundle is not None else {}
     return winrm.Session(endpoint, auth=(username, password), transport='ntlm',
                          server_cert_validation='validate',
+                         **kwargs,
                          # pywinrm requires read_timeout_sec > operation_timeout_sec + 10.
                          # R93 used equality at 15/30s and failed before sending a request.
                          operation_timeout_sec=min(20, timeout - 11),
@@ -122,8 +146,9 @@ class WinRMReadOnly:
     """No connection without online=True and a runtime credential callback."""
 
     def __init__(self, origin, username, credential_provider=None, *, session_factory=None,
-                 timeout=30):
+                 timeout=30, ca_bundle=None):
         self._endpoint = _endpoint(origin)
+        self._ca_bundle = validate_ca_bundle(ca_bundle)
         if (not isinstance(username, str) or not username or len(username) > 256
                 or any(ord(c) < 33 or ord(c) == 127 for c in username)):
             raise WinRMError('winrm_invalid_username')
@@ -155,8 +180,9 @@ class WinRMReadOnly:
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
         try:
+            kwargs = {'ca_bundle': self._ca_bundle} if self._ca_bundle is not None else {}
             session = self._factory(self._endpoint, self._username, password,
-                                    timeout=self._timeout)
+                                    timeout=self._timeout, **kwargs)
             response = session.run_ps(_INVENTORY_PS)
         # External transports may raise a WinRMError containing raw stderr or
         # credentials. Treat every exception from session construction/run_ps

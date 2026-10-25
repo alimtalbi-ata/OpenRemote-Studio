@@ -46,6 +46,13 @@ if (dest / "V31.8-R100-WINCRED-NATIVE-BOUNDARIES.md").is_file():
         ("R100 - real Windows CredMan test", "The Windows CI test writes a random session-only Generic Credential to the isolated runner account, reads it through the production wincred: resolver and deletes it in finally. No remote server is contacted. Results must be checked on the exact commit."),
         ("R100 - limits", "Real Windows Credential Manager testing does NOT qualify WinRM HTTPS against Windows Server, TLS trust chains, NTLM/Kerberos in production, physical Windows UI operation or pywinrm bundling. No screenshots are invented."),
     ])
+# R105: local enterprise CA trust is not remote WinRM acceptance.
+if (dest / "V31.8-R105-WINRM-ENTERPRISE-CA.md").is_file():
+    sections.extend([
+        ("R105 - enterprise CA WinRM HTTPS", "Windows inventory and services accept an optional local PEM CA trust file. The default system trust remains unchanged. Explicit CA trust is passed to pywinrm with server certificate validation enabled."),
+        ("R105 - fail closed and consent", "Absolute local regular PEM only, no symlinks or UNC, maximum 1 MiB, parsed before credential access. Changing the CA revokes Qt consent. Errors expose no path or secret."),
+        ("R105 - qualification limits", "Eight offline backend tests use a real public CA test certificate; three Qt tests and an actual offline UI capture run in Windows CI. No real Windows Server WinRM HTTPS, NTLM/Kerberos or operator acceptance is claimed."),
+    ])
 # R104: WinRM remote display fields are untrusted, including injected adapters.
 if (dest / "V31.8-R104-WINRM-DISPLAY-TRUST.md").is_file():
     sections.extend([

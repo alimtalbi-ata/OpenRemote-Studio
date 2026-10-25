@@ -261,6 +261,17 @@ jobs:
           $env:QT_QPA_PLATFORM = 'offscreen'
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_display_trust_qt_r104.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R104 Qt WinRM display trust failed' }
+      - name: R105 enterprise CA WinRM Qt and backend qualification
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_ca_bundle_r105.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R105 backend failed' }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_winrm_ca_bundle_qt_r105.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R105 Qt failed' }
+          & Application/.venv-build/Scripts/python.exe Application/tests/capture_winrm_ca_qt_r105.py
+          if ($LASTEXITCODE -ne 0) { throw 'R105 offline screenshot failed' }
+          if (!(Test-Path 'Binary/Qualification/qt-winrm-ca-r105-offline.png')) { throw 'Missing R105 Qt capture' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
