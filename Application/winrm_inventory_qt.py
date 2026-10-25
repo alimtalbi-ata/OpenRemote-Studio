@@ -24,7 +24,8 @@ class _Signals(QObject):
 
 class _InventoryJob(QRunnable):
     def __init__(self, generation, origin, username, password, client_factory,
-                 operation='inventory', credential_ref=None, credential_resolver=None):
+                 operation='inventory', credential_ref=None, credential_resolver=None,
+                 ca_bundle=None):
         super().__init__()
         self.generation = generation
         self._origin = origin
@@ -34,6 +35,7 @@ class _InventoryJob(QRunnable):
         self._operation = operation
         self._credential_ref = credential_ref
         self._credential_resolver = credential_resolver
+        self._ca_bundle = ca_bundle
         self._cancelled = Event()
         self.signals = _Signals()
 
@@ -50,8 +52,9 @@ class _InventoryJob(QRunnable):
                         self._credential_ref, resolver=self._credential_resolver)
                 if self._cancelled.is_set():
                     raise WinRMError('winrm_cancelled')
+                kwargs = {'ca_bundle': self._ca_bundle} if self._ca_bundle else {}
                 client = self._factory(self._origin, self._username,
-                                       credential_provider=lambda: self._password)
+                                       credential_provider=lambda: self._password, **kwargs)
                 # Operation is selected internally from a fixed allowlist.
                 method = client.services if self._operation == 'services' else client.inventory
                 result = method(online=True, cancelled=self._cancelled.is_set)
@@ -62,7 +65,7 @@ class _InventoryJob(QRunnable):
                 'winrm_invalid_response', 'winrm_remote_query_failed',
                 'winrm_transport_unavailable', 'winrm_dependency_missing',
                 'winrm_cancelled', 'winrm_credentials_unavailable',
-                'winrm_credentials_required',
+                'winrm_credentials_required', 'winrm_invalid_ca_bundle',
             ))
             code = str(exc)
             result = {'state': 'error', 'code': (code if code in allowed
@@ -76,6 +79,7 @@ class _InventoryJob(QRunnable):
             self._credential_resolver = None
             self._username = None
             self._origin = None
+            self._ca_bundle = None
         if self._cancelled.is_set():
             result = {'state': 'cancelled'}
         self.signals.finished.emit(self.generation, result)
@@ -116,6 +120,11 @@ class WinRMInventoryPanel(QWidget):
         self.origin.setMaxLength(300)
         self.origin.setPlaceholderText('https://windows.example.internal:5986')
         form.addRow('Origine WinRM HTTPS', self.origin)
+        self.ca_bundle = QLineEdit()
+        self.ca_bundle.setObjectName('winrmCaBundle')
+        self.ca_bundle.setMaxLength(1024)
+        self.ca_bundle.setPlaceholderText('PEM CA local facultatif (CA système par défaut)')
+        form.addRow('Certificats CA approuvés (PEM)', self.ca_bundle)
         self.username = QLineEdit()
         self.username.setObjectName('winrmUsername')
         self.username.setMaxLength(256)
@@ -159,6 +168,7 @@ class WinRMInventoryPanel(QWidget):
         layout.addWidget(QLabel('Aucune commande libre, aucune modification distante, '
                                 'aucun mot de passe enregistré. Le certificat HTTPS est vérifié.'))
         self.origin.textChanged.connect(self._invalidate)
+        self.ca_bundle.textChanged.connect(self._invalidate)
         self.username.textChanged.connect(self._invalidate)
         self.credential_ref.textChanged.connect(self._invalidate)
         self.consent.toggled.connect(self._invalidate)
@@ -166,7 +176,7 @@ class WinRMInventoryPanel(QWidget):
     def _invalidate(self, *_):
         # Consent is bound to the exact endpoint, account and credential ref.
         # A changed field always requires a new operator authorization.
-        if (self.sender() in (self.origin, self.username, self.credential_ref)
+        if (self.sender() in (self.origin, self.ca_bundle, self.username, self.credential_ref)
                 and self.consent.isChecked()):
             self.consent.setChecked(False)
             return
@@ -202,7 +212,8 @@ class WinRMInventoryPanel(QWidget):
             # Validate with the production parser, not a replaceable test/provider
             # factory: a custom constructor may have side effects or open sockets.
             WinRMReadOnly(self.origin.text(), self.username.text(),
-                          credential_provider=lambda: '')
+                          credential_provider=lambda: '',
+                          ca_bundle=self.ca_bundle.text() or None)
         except WinRMError as exc:
             self.status.setText('Configuration refusée : ' + str(exc))
             return
@@ -238,7 +249,8 @@ class WinRMInventoryPanel(QWidget):
         worker = _InventoryJob(self._generation, self.origin.text(),
                                self.username.text(), password, self._client_factory,
                                operation=self._mode, credential_ref=reference or None,
-                               credential_resolver=self._credential_resolver)
+                               credential_resolver=self._credential_resolver,
+                               ca_bundle=self.ca_bundle.text() or None)
         password = None
         self._pending = worker
         worker.signals.finished.connect(self._finished)
@@ -259,7 +271,7 @@ class WinRMInventoryPanel(QWidget):
             allowed = {'winrm_invalid_response', 'winrm_remote_query_failed',
                        'winrm_transport_unavailable', 'winrm_dependency_missing',
                        'winrm_cancelled', 'winrm_credentials_unavailable',
-                       'winrm_credentials_required'}
+                       'winrm_credentials_required', 'winrm_invalid_ca_bundle'}
             self.status.setText('Lecture refusée : ' + (code if isinstance(code, str) and code in allowed else 'winrm_transport_unavailable'))
             return
         if self._mode == 'services':

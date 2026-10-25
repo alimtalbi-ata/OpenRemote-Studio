@@ -69,8 +69,9 @@ class WinRMServicesReadOnly(WinRMReadOnly):
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
         try:
+            kwargs = {'ca_bundle': self._ca_bundle} if self._ca_bundle is not None else {}
             session = self._factory(self._endpoint, self._username, password,
-                                    timeout=self._timeout)
+                                    timeout=self._timeout, **kwargs)
             response = session.run_ps(_SERVICES_PS)
         # External transports may raise a WinRMError containing raw stderr or
         # credentials. Treat every exception from session construction/run_ps

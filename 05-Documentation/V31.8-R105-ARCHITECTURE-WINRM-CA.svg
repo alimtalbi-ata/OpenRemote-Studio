@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="310" viewBox="0 0 1050 310" role="img" aria-label="Schéma conceptuel WinRM CA R105">
+<rect width="1050" height="310" fill="#f7fafc"/>
+<text x="25" y="42" font-family="Arial" font-size="24" font-weight="bold" fill="#143a56">R105 — WinRM HTTPS, CA approuvée explicitement</text>
+<text x="25" y="67" font-family="Arial" font-size="14" fill="#526579">Diagramme conceptuel, serveur Windows réel non qualifié</text>
+<g font-family="Arial" font-size="16" text-anchor="middle">
+<rect x="20" y="110" width="215" height="115" rx="12" fill="#dbeafe" stroke="#2563eb"/><text x="127" y="148">Qt consentement</text><text x="127" y="177">Origine + CA PEM</text><text x="127" y="202">Révocation si édition</text>
+<rect x="282" y="110" width="215" height="115" rx="12" fill="#dcfce7" stroke="#16a34a"/><text x="390" y="148">Validation PEM</text><text x="390" y="177">Chemin / taille / SSL</text><text x="390" y="202">Avant mot de passe</text>
+<rect x="544" y="110" width="215" height="115" rx="12" fill="#fef3c7" stroke="#d97706"/><text x="651" y="148">Worker pywinrm</text><text x="651" y="177">CA explicite/système</text><text x="651" y="202">TLS validate ON</text>
+<rect x="806" y="110" width="215" height="115" rx="12" fill="#e5e7eb" stroke="#64748b" stroke-dasharray="7 5"/><text x="913" y="148">Windows Server</text><text x="913" y="177">HTTPS 5986 / CIM</text><text x="913" y="202">UNVERIFIED</text>
+</g>
+<g stroke="#475569" stroke-width="3"><path d="M235 167h47"/><path d="M497 167h47"/><path d="M759 167h47"/></g>
+<text x="525" y="269" font-family="Arial" font-size="15" text-anchor="middle" fill="#991b1b">Fail-closed : pas de HTTP, bypass TLS ni secret dans les logs</text>
+<text x="525" y="292" font-family="Arial" font-size="12" text-anchor="middle" fill="#526579">Auteur Abdelhalim Talbi · SVG éditable · 25 octobre 2026</text>
+</svg>

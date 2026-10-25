@@ -1,7 +1,7 @@
 name: SFTP OpenSSH live integration
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r84-headless-ssh-watchdog, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r94-winrm-timeout-qt-preview, feature/v31.8-r95-winrm-services-readonly, feature/v31.8-r97-winrm-service-precise-count, feature/v31.8-r98-winrm-service-drift, feature/v31.8-r99-winrm-wincred-reference, feature/v31.8-r100-wincred-native-boundaries, feature/v31.8-r101-winrm-packaged-runtime, feature/v31.8-r102-winrm-strict-response, feature/v31.8-r103-winrm-exception-boundaries, feature/v31.8-r104-winrm-display-trust]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r84-headless-ssh-watchdog, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r94-winrm-timeout-qt-preview, feature/v31.8-r95-winrm-services-readonly, feature/v31.8-r97-winrm-service-precise-count, feature/v31.8-r98-winrm-service-drift, feature/v31.8-r99-winrm-wincred-reference, feature/v31.8-r100-wincred-native-boundaries, feature/v31.8-r101-winrm-packaged-runtime, feature/v31.8-r102-winrm-strict-response, feature/v31.8-r103-winrm-exception-boundaries, feature/v31.8-r104-winrm-display-trust, feature/v31.8-r105-winrm-enterprise-ca]
   pull_request:
     branches: [main, develop/v31.8-windows-ci, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r95-winrm-services-readonly, feature/v31.8-r96-winrm-services-qt-filter, feature/v31.8-r97-winrm-service-precise-count, feature/v31.8-r98-winrm-service-drift, feature/v31.8-r99-winrm-wincred-reference, feature/v31.8-r100-wincred-native-boundaries]
   workflow_dispatch:
@@ -33,6 +33,10 @@ jobs:
         env:
           PYTHONPATH: Application
         run: python -m unittest discover -s Application/tests -p 'test_winrm_display_trust_r104.py' -v
+      - name: R105 WinRM CA PEM fail-closed (offline)
+        env:
+          PYTHONPATH: Application
+        run: python -m unittest discover -s Application/tests -p 'test_winrm_ca_bundle_r105.py' -v
       - name: Start real OpenSSH SFTP server
         run: |
           docker run -d --name openremote-sftp -p 127.0.0.1:2222:22 atmoz/sftp tester:testpassword:::upload
