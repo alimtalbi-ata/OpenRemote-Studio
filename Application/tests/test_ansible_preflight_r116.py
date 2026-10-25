@@ -353,7 +353,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         states = {"calls": 0}
         def cancelled():
             states["calls"] += 1
-            return states["calls"] >= 3
+            return states["calls"] >= 4
         with patch("ansible_preflight.subprocess.Popen", side_effect=lambda args, **kwargs: StuckProcess(args, **kwargs)):
             with patch("ansible_preflight._stop_process") as stop:
                 result = run_check_mode(
