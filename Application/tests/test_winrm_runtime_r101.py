@@ -54,9 +54,9 @@ class RuntimeR101Tests(unittest.TestCase):
         for name in ('OpenRemoteStudio.spec', 'OpenRemoteStudio-onefile.spec'):
             with self.subTest(spec=name):
                 source = (APP / 'windows' / name).read_text(encoding='utf-8')
-                self.assertIn("root.parent / 'qt_app.py'", source)
-                self.assertIn("root.parent.parent / 'VERSION.txt'", source)
-                self.assertIn('pathex=[str(root.parent)]', source)
+                self.assertIn("root / 'qt_app.py'", source)
+                self.assertIn("root.parent / 'VERSION.txt'", source)
+                self.assertIn('pathex=[str(root)]', source)
                 self.assertIn("collect_submodules('winrm')", source)
                 self.assertIn("collect_submodules('spnego')", source)
                 self.assertTrue((APP / 'qt_app.py').is_file())

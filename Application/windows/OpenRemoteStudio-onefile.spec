@@ -5,7 +5,7 @@ from PyInstaller.utils.hooks import collect_submodules
 root = Path(SPECPATH).resolve().parent
 hidden = (collect_submodules('paramiko') + collect_submodules('winrm')
           + collect_submodules('spnego'))
-a = Analysis([str(root.parent / 'qt_app.py')], pathex=[str(root.parent)], binaries=[], datas=[(str(root.parent.parent / 'VERSION.txt'), '.')],
+a = Analysis([str(root / 'qt_app.py')], pathex=[str(root)], binaries=[], datas=[(str(root.parent / 'VERSION.txt'), '.')],
              hiddenimports=hidden, hookspath=[], hooksconfig={}, runtime_hooks=[],
              excludes=['tkinter', 'unittest', 'pytest'], noarchive=False)
 pyz = PYZ(a.pure)
