@@ -110,6 +110,9 @@ class AnsiblePreflightQtR116Tests(unittest.TestCase):
             self.assertTrue(calls[0]["consent"])
             self.assertEqual(calls[0]["expected_playbook_sha256"], pane._analysis["playbook_sha256"])
             self.assertEqual(calls[0]["expected_inventory_sha256"], pane._analysis["inventory_sha256"])
+            self.assertEqual(calls[0]["expected_known_hosts_sha256"], pane._connection_fingerprints["known_hosts_sha256"])
+            self.assertEqual(calls[0]["expected_private_key_sha256"], pane._connection_fingerprints["private_key_sha256"])
+            self.assertNotIn("synthetic key fixture", pane.status.text())
             self.assertFalse(pane.consent.isChecked(), "consent is one-shot")
             self.assertNotIn("stdout", pane.status.text().lower())
         finally:
@@ -129,6 +132,25 @@ class AnsiblePreflightQtR116Tests(unittest.TestCase):
             self.assertEqual(pane.summary.topLevelItemCount(), 0)
             self.assertFalse(pane.run_button.isEnabled())
             self.assertIn("révoqué", pane.status.text())
+        finally:
+            pane.close()
+
+    def test_invalid_known_hosts_refuses_consent_before_runner_invocation(self):
+        self.hosts.write_text("not a valid host key\n", encoding="utf-8")
+        calls = []
+        def runner(**kwargs):
+            calls.append(kwargs)
+            return {"state": "check_succeeded"}
+        pane = self.make_panel(runner=runner, lookup=lambda _name: "/fake/ansible-playbook")
+        try:
+            pane.analyze_button.click()
+            self.assertTrue(wait_until(self.app, lambda: pane._pending is None))
+            pane.consent.setChecked(True)
+            self.assertFalse(pane.consent.isChecked())
+            self.assertFalse(pane.run_button.isEnabled())
+            self.assertEqual(calls, [])
+            self.assertIn("Consentement refusé", pane.status.text())
+            self.assertNotIn("synthetic key fixture", pane.status.text())
         finally:
             pane.close()
 
