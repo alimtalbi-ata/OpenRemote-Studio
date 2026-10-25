@@ -214,7 +214,9 @@ jobs:
           $env:PYTHONPATH = '02-Compilation'
           python -m unittest discover -s 02-Compilation -p 'test_archive*manifest*r104.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R104 source archive manifest gate failed' }
-          python -m py_compile 02-Compilation/build_cumulative_v318.py 02-Compilation/verify_cumulative_v318.py
+          python -m unittest discover -s 02-Compilation -p 'test_archive_ui_capture_r110.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R110 cumulative UI evidence gate failed' }
+          python -m py_compile 02-Compilation/build_cumulative_v318.py 02-Compilation/verify_cumulative_v318.py 02-Compilation/test_archive_ui_capture_r110.py
           if ($LASTEXITCODE -ne 0) { throw 'R104 release scripts compilation failed' }
       - name: Compile verifier sources
         shell: pwsh
@@ -269,6 +271,23 @@ jobs:
       - name: Execute official Windows build entry point
         shell: cmd
         run: call 02-Compilation\BUILD-WINDOWS.cmd
+      - name: R110 run Qt consent tests and generate required offline UI evidence
+        shell: pwsh
+        run: |
+          $python = 'Application/.venv-build/Scripts/python.exe'
+          if (!(Test-Path $python)) { throw 'Missing built Windows Python runtime for Qt evidence' }
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & $python -m unittest discover -s Application/tests -p 'test_zabbix_consent_binding_r110.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R110 Zabbix Qt consent tests failed in cumulative build' }
+          & $python Application/tests/capture_zabbix_qt_r109.py
+          if ($LASTEXITCODE -ne 0) { throw 'R109 offline Qt screenshot failed in cumulative build' }
+          & $python Application/tests/capture_zabbix_consent_r110.py
+          if ($LASTEXITCODE -ne 0) { throw 'R110 offline Qt screenshot failed in cumulative build' }
+          foreach ($name in @('qt-zabbix-r109-offline.png', 'qt-zabbix-r110-consent-revoked.png')) {
+            $file = Join-Path 'Binary/Qualification' $name
+            if (!(Test-Path $file) -or (Get-Item $file).Length -lt 128) { throw "Required Qt evidence missing or too small: $name" }
+          }
       - name: Assemble and verify cumulative ZIP
         shell: pwsh
         run: |
