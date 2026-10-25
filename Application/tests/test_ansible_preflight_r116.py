@@ -143,7 +143,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
             analyze_playbook(self.playbook, self.inventory)
 
     def test_jinja_aliases_and_explicit_yaml_tags_are_rejected(self):
-        self.write_inputs(PLAYBOOK.replace("Verify SSH transport", "{{ lookup('env','X') }}"))
+        self.write_inputs(PLAYBOOK.replace("Verify SSH transport", "\"{{ lookup('env','X') }}\""))
         with self.assertRaisesRegex(AnsiblePreflightError, "ansible_dynamic_expression_rejected"):
             analyze_playbook(self.playbook, self.inventory)
         self.write_inputs(PLAYBOOK.replace("gather_facts: false", "gather_facts: !!str false"))
