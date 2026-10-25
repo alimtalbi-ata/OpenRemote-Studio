@@ -209,6 +209,21 @@ class AtomicDownloadIntegrationTests(unittest.TestCase):
             self.assertEqual(progress,[1])
             self.assertEqual(sftp.removed,['./source.bin'])
 
+    def test_upload_cleanup_error_does_not_mask_primary_failure(self):
+        from transfer_safety import upload_exclusive
+        class Remote:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def write(self, data): return 0
+        class Sftp:
+            def open(self, path, mode): return Remote()
+            def remove(self, path): raise RuntimeError('cleanup transport failure')
+        with TemporaryDirectory() as directory:
+            source=Path(directory)/'source.bin'
+            source.write_bytes(b'data')
+            with self.assertRaisesRegex(OSError, 'Écriture SFTP'):
+                upload_exclusive(Sftp(), source, './source.bin')
+
     def test_upload_zero_write_fails_and_cleans_remote(self):
         from transfer_safety import upload_exclusive
         class Remote:
