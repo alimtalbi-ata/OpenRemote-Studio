@@ -83,6 +83,13 @@ if (dest / "V31.8-R110-ZABBIX-CONSENT-BINDING.md").is_file():
         ("R110 - Qt regression and screenshot", "Two Qt regression tests cover re-consent after an origin change and rejection of a late response from the old origin. Windows CI captures the real Qt consent-revoked state offline with .invalid example origins; no real token or network request is used."),
         ("R110 - limitations", "A request already inside the HTTPS transport cannot be guaranteed interrupted mid-read; its result is discarded and the request remains timeout-bounded. A real Zabbix instance, least-privilege API role, real token and production behavior remain unverified. Zabbix stays PARTIAL."),
     ])
+# R111: enforce a monotonic deadline while reading Zabbix response bodies.
+if (dest / "V31.8-R111-ZABBIX-RESPONSE-DEADLINE.md").is_file():
+    sections.extend([
+        ("R111 - bounded Zabbix body read", "Zabbix response bodies are streamed in bounded read1 chunks. A monotonic deadline and the remaining socket timeout prevent a slow-drip body from extending a read indefinitely; cancellation is rechecked between chunks and errors remain neutral."),
+        ("R111 - deadline scope", "The body deadline begins after urllib has completed connection/TLS and received response headers. The earlier connection/TLS/header phase still uses urllib's socket inactivity timeout; no end-to-end absolute deadline is claimed."),
+        ("R111 - qualification boundary", "Synthetic clock/socket tests cover deadline expiry, cancellation, response-size bounds and error redaction. A real Zabbix server, real token and effective least-privilege API role remain unverified. Zabbix stays PARTIAL and no R111 UI screenshot is claimed because the Qt interface is unchanged."),
+    ])
 # R101: packaged WinRM transport does not certify a real remote WinRM session.
 if (dest / "V31.8-R101-WINRM-PACKAGED-RUNTIME.md").is_file():
     sections.extend([
