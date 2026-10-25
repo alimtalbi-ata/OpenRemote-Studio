@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline]
   pull_request:
     paths:
       - 'Application/**'
@@ -324,6 +324,13 @@ jobs:
           & Application/.venv-build/Scripts/python.exe Application/tests/capture_zabbix_consent_r110.py
           if ($LASTEXITCODE -ne 0) { throw 'R110 consent-revocation Qt capture failed' }
           if (!(Test-Path 'Binary/Qualification/qt-zabbix-r110-consent-revoked.png')) { throw 'Missing R110 consent-revocation capture' }
+      - name: R111 Zabbix response-body deadline regression
+        run: |
+          $env:PYTHONPATH = 'Application'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_zabbix_response_deadline_r111.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R111 Zabbix response deadline tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/zabbix_readonly.py Application/tests/test_zabbix_response_deadline_r111.py
+          if ($LASTEXITCODE -ne 0) { throw 'R111 Zabbix response deadline compilation failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
