@@ -12,6 +12,8 @@ import ipaddress
 import json
 import os
 import re
+import socket
+import time
 import unicodedata
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
@@ -19,6 +21,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 MAX_RESPONSE_BYTES = 1024 * 1024
 MAX_TOKEN_LENGTH = 4096
+_RESPONSE_READ_CHUNK = 64 * 1024
 _ALLOWED_API_METHODS = frozenset(("problem.get", "trigger.get"))
 _SEVERITY_LABELS = (
     "Non classée", "Information", "Avertissement", "Moyenne", "Haute", "Désastre"
@@ -77,6 +80,96 @@ def _endpoint(origin: str) -> str:
     if len(endpoint) > 600:
         raise ZabbixError("zabbix_invalid_https_origin")
     return endpoint
+
+
+def _response_socket(response):
+    """Find urllib's underlying socket without depending on one wrapper depth."""
+    pending = [response]
+    visited = set()
+    while pending and len(visited) < 64:
+        current = pending.pop()
+        identity = id(current)
+        if identity in visited:
+            continue
+        visited.add(identity)
+        try:
+            settimeout = getattr(current, "settimeout", None)
+            recv = getattr(current, "recv", None)
+            if callable(settimeout) and callable(recv):
+                return current
+        except Exception:
+            pass
+        for attribute in ("fp", "raw", "_sock", "sock"):
+            try:
+                child = getattr(current, attribute, None)
+            except Exception:
+                child = None
+            if child is not None and id(child) not in visited:
+                pending.append(child)
+    return None
+
+
+def _read_response_bounded(response, timeout, *, cancelled=None, clock=None):
+    """Stream a response under a monotonic body deadline, with cancellation checks.
+
+    urllib's timeout is an inactivity timeout. A peer that continually drips body
+    bytes could otherwise keep a read alive much longer than the configured value.
+    Apply the remaining wall-clock budget to the underlying socket before each
+    read1() and stop if the monotonic deadline is reached.
+    """
+    clock = clock or time.monotonic
+    try:
+        timeout = float(timeout)
+    except (TypeError, ValueError):
+        raise ZabbixError("zabbix_invalid_limits") from None
+    if not 0 < timeout <= 30:
+        raise ZabbixError("zabbix_invalid_limits")
+    deadline = clock() + timeout
+
+    # urllib.response.addinfourl wraps http.client.HTTPResponse in .fp. read1()
+    # reads at most the available chunk; response.read(n) may try to fill n bytes.
+    source = getattr(response, "fp", None)
+    if source is None:
+        source = response
+    reader = getattr(source, "read1", None)
+    if not callable(reader):
+        reader = getattr(response, "read1", None)
+    if not callable(reader):
+        reader = getattr(response, "read", None)
+    if not callable(reader):
+        raise ZabbixError("zabbix_invalid_response")
+
+    network_socket = _response_socket(response)
+    content = bytearray()
+    while True:
+        if cancelled is not None and cancelled():
+            raise ZabbixError("zabbix_request_cancelled")
+        remaining = deadline - clock()
+        if remaining <= 0:
+            raise ZabbixError("zabbix_timeout")
+        if network_socket is not None:
+            try:
+                network_socket.settimeout(remaining)
+            except Exception:
+                # Do not continue with a socket whose deadline could not be applied.
+                raise ZabbixError("zabbix_timeout_enforcement_failed") from None
+        amount = min(_RESPONSE_READ_CHUNK, MAX_RESPONSE_BYTES + 1 - len(content))
+        try:
+            chunk = reader(amount)
+        except (socket.timeout, TimeoutError):
+            raise ZabbixError("zabbix_timeout") from None
+        if cancelled is not None and cancelled():
+            raise ZabbixError("zabbix_request_cancelled")
+        if clock() >= deadline:
+            raise ZabbixError("zabbix_timeout")
+        if not isinstance(chunk, (bytes, bytearray)):
+            raise ZabbixError("zabbix_invalid_response")
+        if not chunk:
+            break
+        content.extend(chunk)
+        if len(content) > MAX_RESPONSE_BYTES:
+            raise ZabbixError("zabbix_response_too_large")
+    return bytes(content)
 
 
 def _unique_pairs(pairs):
@@ -243,7 +336,7 @@ class ZabbixReadOnly:
                         raise ZabbixError("zabbix_invalid_response")
                     if int(length) > MAX_RESPONSE_BYTES:
                         raise ZabbixError("zabbix_response_too_large")
-                raw = response.read(MAX_RESPONSE_BYTES + 1)
+                raw = _read_response_bounded(response, self.timeout, cancelled=cancelled)
         except ZabbixError:
             raise
         except HTTPError as exc:
