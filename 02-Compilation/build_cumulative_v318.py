@@ -34,6 +34,28 @@ def reconcile_archive_source_manifest(files):
     ) + "\n").encode("utf-8")
     return len(entries)
 
+UI_CAPTURE_NAMES = (
+    "qt-zabbix-r109-offline.png",
+    "qt-zabbix-r110-consent-revoked.png",
+)
+PNG_SIGNATURE = bytes((137, 80, 78, 71, 13, 10, 26, 10))
+
+
+def collect_required_ui_captures(qualification_dir):
+    """Collect only named, generated Qt evidence and fail if a capture is absent."""
+    directory = Path(qualification_dir)
+    captures = []
+    for name in UI_CAPTURE_NAMES:
+        path = directory / name
+        if not path.is_file():
+            raise SystemExit(f"Missing required Qt UI capture: {name}")
+        data = path.read_bytes()
+        if len(data) < 128 or not data.startswith(PNG_SIGNATURE):
+            raise SystemExit(f"Invalid Qt UI capture: {name}")
+        captures.append((name, data))
+    return captures
+
+
 def main():
     if VERSION != "31.8":
         raise SystemExit(f"Wrong release version: {VERSION}")
@@ -74,6 +96,10 @@ def main():
         add("05-Documentation/" + path.name, path.read_bytes())
     for path in (ROOT / "Binary" / "Qualification").glob("*.json"):
         add("04-Tests-et-Qualification/" + path.name, path.read_bytes())
+    ui_captures = collect_required_ui_captures(ROOT / "Binary" / "Qualification")
+    for name, data in ui_captures:
+        add("04-Tests-et-Qualification/" + name, data)
+    print("Included offline Qt UI evidence: " + ", ".join(name for name, _ in ui_captures))
     for path in (ROOT / "Binary").glob("build-*.log"):
         add("04-Tests-et-Qualification/" + path.name, path.read_bytes())
     add("06-Historique/VERSION.txt", (VERSION + "\n").encode())
