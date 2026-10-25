@@ -78,6 +78,9 @@ class GrafanaReadOnlyR114Tests(unittest.TestCase):
             "https://grafana..example.test",
             "https://999.999.999.999",
             "https://2130706433",  # legacy integer-form IPv4
+            "https://0x7f000001",  # legacy hexadecimal integer-form IPv4
+            "https://0x7f.0.0.1",  # legacy mixed-notation IPv4
+            "https://0177.0.0.1",  # legacy octal-looking IPv4
             "https://grafana.example.test/?",
             "https://grafana.example.test/#",
             r"https://grafana.example.test\\evil",
