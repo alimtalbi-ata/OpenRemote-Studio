@@ -4,7 +4,6 @@ No network on import or offline calls. pywinrm is an OPTIONAL runtime dependency
 The only remote PowerShell script is a constant, without user interpolation.
 Author: Abdelhalim Talbi.
 """
-import json
 import re
 from urllib.parse import urlsplit
 
@@ -159,13 +158,5 @@ class WinRMReadOnly:
             password = None
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
-        if getattr(response, 'status_code', None) != 0:
-            raise WinRMError('winrm_remote_query_failed')
-        output = getattr(response, 'std_out', None)
-        if not isinstance(output, bytes) or len(output) > 65536:
-            raise WinRMError('winrm_invalid_response')
-        try:
-            data = json.loads(output.decode('utf-8-sig'))
-        except (UnicodeDecodeError, ValueError):
-            raise WinRMError('winrm_invalid_response') from None
-        return _inventory(data)
+        from winrm_response import decode_winrm_json
+        return _inventory(decode_winrm_json(response))

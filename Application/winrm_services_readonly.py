@@ -3,7 +3,6 @@
 Never executes user-provided PowerShell. Never logs credentials or raw stderr.
 Author: Abdelhalim Talbi.
 """
-import json
 from winrm_readonly import WinRMReadOnly, WinRMError, _text
 from winrm_service_totals import unwrap_service_envelope, ServiceTotalError
 
@@ -81,13 +80,5 @@ class WinRMServicesReadOnly(WinRMReadOnly):
             password = None
         if cancelled is not None and cancelled():
             raise WinRMError('winrm_cancelled')
-        if getattr(response, 'status_code', None) != 0:
-            raise WinRMError('winrm_remote_query_failed')
-        output = getattr(response, 'std_out', None)
-        if not isinstance(output, bytes) or len(output) > 65536:
-            raise WinRMError('winrm_invalid_response')
-        try:
-            parsed = json.loads(output.decode('utf-8-sig'))
-        except (UnicodeDecodeError, ValueError):
-            raise WinRMError('winrm_invalid_response') from None
-        return _normalize_services(parsed)
+        from winrm_response import decode_winrm_json
+        return _normalize_services(decode_winrm_json(response))
