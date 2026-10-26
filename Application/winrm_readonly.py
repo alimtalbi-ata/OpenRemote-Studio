@@ -427,7 +427,10 @@ def _sddl_is_private(sddl, user_sid, *, directory, allow_explicit_file=False):
         if directory:
             if flags != {"OI", "CI"}:
                 return False
-        elif flags == {"ID"}:
+        elif "ID" in flags and flags.issubset({"ID", "OI", "CI"}):
+            # A file may retain OI/CI propagation flags from a nested inherited
+            # DACL. These flags affect descendants, not the current file's access.
+            # IO/NP and every unknown flag remain rejected.
             pass
         elif allow_explicit_file and not flags and "P" in control_flags:
             found_explicit_file_ace = True
