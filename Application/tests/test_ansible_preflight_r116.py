@@ -430,32 +430,46 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         ]
         acl_checked = []
         observed_configs = []
+        diagnostics = []
         original_acl_check = ansible_preflight._require_staged_file_acl
+
+        def check(condition, label):
+            if not condition:
+                diagnostics.append(label)
 
         def record_acl_check(path, user_sid):
             acl_checked.append(Path(path).name)
             return original_acl_check(path, user_sid)
 
         def fake_popen(args, **kwargs):
-            config_path = Path(kwargs["env"]["ANSIBLE_CONFIG"])
-            root = config_path.parent
-            self.assertEqual(config_path.name, "ansible.cfg")
-            cfg = config_path.read_text(encoding="utf-8")
-            for name in protected_names:
-                candidate = root / name
-                self.assertEqual(candidate.parent, root)
-                self.assertTrue(candidate.is_file(), name)
-            self.assertEqual((root / "known_hosts").read_bytes(), KNOWN_HOSTS.encode("utf-8"))
-            self.assertEqual((root / "empty_known_hosts").read_bytes(), b"")
-            self.assertEqual((root / "empty_config").read_bytes(), b"")
-            self.assertIn((root / "known_hosts").as_posix(), cfg)
-            self.assertIn((root / "empty_known_hosts").as_posix(), cfg)
-            self.assertIn((root / "empty_config").as_posix(), cfg)
-            self.assertIn((root / "id_key").as_posix(), cfg)
-            self.assertNotIn(".ssh/known_hosts", cfg)
-            self.assertIn("IdentitiesOnly=yes", cfg)
-            self.assertIn("IdentityAgent=none", cfg)
-            observed_configs.append(cfg)
+            try:
+                config_path = Path(kwargs["env"]["ANSIBLE_CONFIG"])
+                root = config_path.parent
+                cfg = config_path.read_text(encoding="utf-8")
+                check(config_path.name == "ansible.cfg", "ansible_config_not_at_root")
+                for name in protected_names:
+                    candidate = root / name
+                    check(candidate.parent == root, "control_file_not_direct_child:" + name)
+                    check(candidate.is_file(), "control_file_missing:" + name)
+                check(
+                    (root / "known_hosts").read_bytes() == KNOWN_HOSTS.encode("utf-8"),
+                    "known_hosts_snapshot_changed",
+                )
+                check((root / "empty_known_hosts").read_bytes() == b"", "global_known_hosts_not_empty")
+                check((root / "empty_config").read_bytes() == b"", "ssh_config_not_empty")
+                check((root / "known_hosts").as_posix() in cfg, "selected_known_hosts_path_missing")
+                check((root / "empty_known_hosts").as_posix() in cfg, "global_known_hosts_path_missing")
+                check((root / "empty_config").as_posix() in cfg, "ssh_config_path_missing")
+                check((root / "id_key").as_posix() in cfg, "selected_identity_path_missing")
+                check(".ssh/known_hosts" not in cfg, "nested_known_hosts_reference")
+                check("IdentitiesOnly=yes" in cfg, "identities_only_missing")
+                check("IdentityAgent=none" in cfg, "identity_agent_not_disabled")
+                observed_configs.append(cfg)
+            except Exception as exc:
+                # _run_one deliberately normalizes Popen exceptions; retain only
+                # the exception class here so the test itself remains diagnostic
+                # without echoing a local path, key, or process command.
+                diagnostics.append("fake_popen_inspection_exception:" + type(exc).__name__)
             return FakeProcess(args, **kwargs)
 
         FakeProcess.next_codes = [0, 0]
@@ -467,6 +481,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
                     executable_lookup=lambda _name: "/fake/ansible-playbook",
                 )
 
+        self.assertEqual(diagnostics, [])
         self.assertEqual(result["state"], "check_succeeded")
         self.assertEqual(len(observed_configs), 2)
         self.assertEqual(acl_checked, protected_names * 3)
@@ -478,6 +493,37 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         self.assertFalse(result["output_retained"])
         self.assertNotIn("stdout", result)
         self.assertNotIn("stderr", result)
+
+
+    def test_runner_refuses_to_spawn_when_staged_known_hosts_acl_is_unverified(self):
+        import ansible_preflight
+
+        checked = []
+        original_acl_check = ansible_preflight._require_staged_file_acl
+
+        def reject_selected_host_trust(path, user_sid):
+            name = Path(path).name
+            checked.append(name)
+            if name == "known_hosts":
+                raise AnsiblePreflightError("ansible_staging_acl_unverified")
+            return original_acl_check(path, user_sid)
+
+        with patch("ansible_preflight.subprocess.Popen") as popen:
+            with patch(
+                "ansible_preflight._require_staged_file_acl",
+                side_effect=reject_selected_host_trust,
+            ):
+                with self.assertRaisesRegex(
+                    AnsiblePreflightError, "ansible_staging_acl_unverified"
+                ):
+                    run_check_mode(
+                        self.playbook, self.inventory, self.known_hosts, self.key,
+                        consent=True, timeout_seconds=30,
+                        executable_lookup=lambda _name: "/fake/ansible-playbook",
+                    )
+
+        self.assertEqual(checked, ["playbook.yml", "inventory.ini", "known_hosts"])
+        popen.assert_not_called()
 
 
 if __name__ == "__main__":
