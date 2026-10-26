@@ -46,3 +46,14 @@ class TransferQueue:
             self.active["job"].cancel()
             # Cancellation is a request; the worker must report its outcome.
             # Keep the active slot until completion to prevent overlapping jobs.
+    def complete_cancelled(self, entry):
+        """Complete the active entry after the worker confirms cancellation.
+
+        Requesting cancellation never frees the active slot by itself: the
+        worker must first stop and release its SFTP resources.
+        """
+        if self.active is not entry:
+            raise ValueError("Opération non active")
+        entry["state"] = "cancelled"
+        self.history.append(entry)
+        self.active = None
