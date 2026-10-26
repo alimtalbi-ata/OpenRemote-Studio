@@ -2,19 +2,59 @@
 from session_diagnostics import explain_session_failure
 import re
 
-_SECRET = re.compile(r"(?i)\b(password|passwd|token|secret|api[_-]?key|authorization)\b\s*[:=]\s*([^\s,;]+)")
+_SECRET_KEYS = (
+    r"aws[_-]?secret[_-]?access[_-]?key|secret[_-]?access[_-]?key|"
+    r"client[_-]?secret|proxy-authorization|authorization|private[_-]?key|"
+    r"access[_-]?key|access[_-]?token|refresh[_-]?token|session[_-]?token|"
+    r"oauth[_-]?token|id[_-]?token|csrf[_-]?token|x-api-key|x-auth-token|"
+    r"api[_-]?key|set-cookie|password|passwd|pwd|token|secret|cookie"
+)
+_SECRET_ASSIGNMENT = re.compile(
+    r'''(?ix)
+    (?P<prefix>(?<![\w-])["']?(?:''' + _SECRET_KEYS + r''')["']?\s*[:=]\s*)
+    (?P<value>
+        "(?:\\.|[^"\\])*"
+        | '(?:\\.|[^'\\])*'
+        | (?:Bearer|Basic)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)
+        | [^\s,;}\]]+
+    )
+    '''
+)
+_CLI_SECRET = re.compile(
+    r'''(?ix)
+    (?P<prefix>(?<![\w-])--?(?:''' + _SECRET_KEYS + r''')\s*(?:=|\s+))
+    (?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)
+    '''
+)
+_BEARER_OR_BASIC = re.compile(
+    r'''(?i)\b(?P<scheme>Bearer|Basic)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)'''
+)
+_JWT = re.compile(
+    r'''(?<![A-Za-z0-9_-])(eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,})(?![A-Za-z0-9_-])'''
+)
+_URL_CREDENTIALS = re.compile(r"(?i)(://[^\s/@:]+:)[^\s/@]+(@)")
+_COOKIE_HEADER = re.compile(r'''(?im)(?<![\w-])["']?(cookie|set-cookie)["']?\s*[:=]\s*([^\r\n]+)''')
+
 
 def _safe_text(value, limit):
-    text = str(value)[:4096]
-    text = re.sub(r"(?i)(authorization\s*[:=]\s*bearer\s+)\S+", r"\1[REDACTED]", text)
-    text = re.sub(r"(?i)(bearer\s+)\S+", r"\1[REDACTED]", text)
-    text = _SECRET.sub(lambda m: m.group(1) + "=[REDACTED]", text)
-    text = re.sub(r"(?i)(bearer\s+)\S+", r"\1[REDACTED]", text)
-    text = re.sub(r"(?i)(://[^\s/@:]+:)[^\s/@]+(@)", r"\1[REDACTED]\2", text)
-    text = re.sub(r"(?i)(://[^\s/@:]+:)[^\s/@]+(@)", r"\1[REDACTED]\2", text)
-    text = "".join(c if c.isprintable() else " " for c in text)
+    """Normalize plain scalars and redact common secret formats without stringifying arbitrary objects."""
+    if type(value) is str:
+        text = value[:4096]
+    elif type(value) in (int, float, bool):
+        text = str(value)
+    else:
+        # External adapter objects may have a hostile or sensitive __str__.
+        text = ""
+    text = _URL_CREDENTIALS.sub(r"\1[REDACTED]\2", text)
+    text = _SECRET_ASSIGNMENT.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
+    text = _CLI_SECRET.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
+    text = _BEARER_OR_BASIC.sub(lambda match: match.group("scheme") + " [REDACTED]", text)
+    text = _JWT.sub("[REDACTED_JWT]", text)
+    # Cookie headers may contain multiple key/value pairs; redact the remainder
+    # of that header line so a second cookie is not left behind after a semicolon.
+    text = _COOKIE_HEADER.sub(lambda match: match.group(1) + "=[REDACTED]", text)
+    text = "".join(character if character.isprintable() else " " for character in text)
     return text[:limit]
-
 
 def incident_index(rows, query='', only_errors=True):
     """Build navigable cards without trusting PID alone as session identity."""
