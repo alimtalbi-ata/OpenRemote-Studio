@@ -384,10 +384,12 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
     def test_windows_acl_policy_accepts_only_private_explicit_or_inherited_file_dacl(self):
         user_sid = "S-1-5-21-101-202-303-1001"
         inherited = f"D:(A;ID;FA;;;{user_sid})(A;ID;FA;;;SY)"
+        inherited_nested = f"D:(A;OICIID;FA;;;{user_sid})(A;OICIID;FA;;;SY)"
         explicit_protected = f"D:P(A;;FA;;;{user_sid})(A;;FA;;;SY)"
         explicit_unprotected = f"D:(A;;FA;;;{user_sid})(A;;FA;;;SY)"
         everyone_added = f"D:P(A;;FA;;;{user_sid})(A;;FA;;;SY)(A;;FA;;;WD)"
         self.assertTrue(_sddl_is_private(inherited, user_sid, directory=False))
+        self.assertTrue(_sddl_is_private(inherited_nested, user_sid, directory=False))
         self.assertFalse(_sddl_is_private(explicit_protected, user_sid, directory=False))
         self.assertTrue(_sddl_is_private(
             explicit_protected, user_sid, directory=False, allow_explicit_file=True
