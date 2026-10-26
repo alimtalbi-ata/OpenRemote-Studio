@@ -13,6 +13,7 @@ try:
 except ImportError:
     SftpJob = None
 else:
+    from PySide6.QtCore import Qt
     from qt_workers import SftpJob
 
 
@@ -90,9 +91,12 @@ class SftpClientCloseOnceR125Tests(unittest.TestCase):
         client = FakeClient(sftp, block_first_close=True)
         outcomes = []
         job = SftpJob(lambda _connection: client, {}, "list", "/")
-        job.signals.cancelled.connect(lambda: outcomes.append(("cancelled", sftp.closed)))
-        job.signals.finished.connect(lambda _value: outcomes.append(("finished",)))
-        job.signals.failed.connect(lambda _value: outcomes.append(("failed",)))
+        # The worker runs on a Python thread in this deterministic race test.
+        # Force direct delivery so assertions do not depend on a Qt event loop.
+        direct = Qt.ConnectionType.DirectConnection
+        job.signals.cancelled.connect(lambda: outcomes.append(("cancelled", sftp.closed)), direct)
+        job.signals.finished.connect(lambda _value: outcomes.append(("finished",)), direct)
+        job.signals.failed.connect(lambda _value: outcomes.append(("failed",)), direct)
 
         worker = threading.Thread(target=job.run, daemon=True)
         worker.start()
@@ -121,9 +125,10 @@ class SftpClientCloseOnceR125Tests(unittest.TestCase):
         client = FakeClient(sftp, fail_first_close=True)
         outcomes = []
         job = SftpJob(lambda _connection: client, {}, "list", "/")
-        job.signals.cancelled.connect(lambda: outcomes.append(("cancelled", sftp.closed, client.close_count)))
-        job.signals.failed.connect(lambda _value: outcomes.append(("failed",)))
-        job.signals.finished.connect(lambda _value: outcomes.append(("finished",)))
+        direct = Qt.ConnectionType.DirectConnection
+        job.signals.cancelled.connect(lambda: outcomes.append(("cancelled", sftp.closed, client.close_count)), direct)
+        job.signals.failed.connect(lambda _value: outcomes.append(("failed",)), direct)
+        job.signals.finished.connect(lambda _value: outcomes.append(("finished",)), direct)
 
         worker = threading.Thread(target=job.run, daemon=True)
         worker.start()
