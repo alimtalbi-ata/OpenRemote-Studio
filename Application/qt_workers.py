@@ -6,10 +6,16 @@ from transfer_safety import download_atomic,upload_exclusive,download_resume_ver
 class SftpSignals(QObject):
     finished = Signal(object)
     failed = Signal(str)
+    cancelled = Signal()
     progress = Signal(int)
 
 class SftpJob(QRunnable):
-    """Run blocking Paramiko I/O away from the Qt GUI thread."""
+    """Run blocking Paramiko I/O away from the Qt GUI thread.
+
+    Terminal signals are emitted only after the SFTP client close attempt so
+    the per-tab queue cannot start another transfer while this job still owns
+    its client. Cancellation is a separate outcome, not a generic failure.
+    """
     def __init__(self, connect_fn, connection, operation, remote_path, local_path=None):
         super().__init__()
         self.connect_fn=connect_fn; self.connection=dict(connection); self.operation=operation
@@ -21,16 +27,26 @@ class SftpJob(QRunnable):
     def run(self):
         import stat
         client=None
+        outcome='failed'
+        result=None
+        failure=None
         try:
-            if self.cancel_event.is_set():raise InterruptedError('Opération annulée')
+            if self.cancel_event.is_set():
+                raise InterruptedError('Opération annulée')
             client=self.connect_fn(self.connection)
             with client.open_sftp() as sftp:
-                if self.cancel_event.is_set():raise InterruptedError('Opération annulée')
+                if self.cancel_event.is_set():
+                    raise InterruptedError('Opération annulée')
                 if self.operation=='list':
                     result=[(x.filename, stat.S_ISDIR(x.st_mode), x.st_size) for x in sftp.listdir_attr(self.remote_path)]
+                    # listdir_attr is blocking: discard a stale result if a
+                    # cancellation arrived while the request was in flight.
+                    if self.cancel_event.is_set():
+                        raise InterruptedError('Opération annulée')
                 else:
                     def callback(done,total):
-                        if self.cancel_event.is_set():raise InterruptedError('Opération annulée')
+                        if self.cancel_event.is_set():
+                            raise InterruptedError('Opération annulée')
                         self.signals.progress.emit(int(done*100/total) if total else 100)
                     if self.operation=='upload':
                         upload_exclusive(sftp,self.local_path,self.remote_path,callback=callback,
@@ -42,13 +58,33 @@ class SftpJob(QRunnable):
                         download_resume_verified(sftp,self.remote_path,self.local_path,
                             self.connection['id'],callback=callback,
                                 cancelled=self.cancel_event.is_set)
-                    else:raise ValueError('Unknown SFTP operation')
+                    else:
+                        raise ValueError('Unknown SFTP operation')
                     result=True
-            self.signals.finished.emit(result)
+            outcome='finished'
+        except InterruptedError as exc:
+            if self.cancel_event.is_set():
+                outcome='cancelled'
+            else:
+                outcome='failed'
+                failure=f'{type(exc).__name__}: {exc}'
         except Exception as exc:
-            self.signals.failed.emit(f'{type(exc).__name__}: {exc}')
+            outcome='failed'
+            failure=f'{type(exc).__name__}: {exc}'
         finally:
-            if client:client.close()
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    # Do not let a transport close error suppress the terminal
+                    # notification and strand the UI queue.
+                    pass
+        if outcome=='cancelled':
+            self.signals.cancelled.emit()
+        elif outcome=='finished':
+            self.signals.finished.emit(result)
+        else:
+            self.signals.failed.emit(failure or 'Erreur SFTP')
 
 class TcpJob(QRunnable):
     def __init__(self,host,port):
