@@ -40,8 +40,12 @@ class AnsiblePreflightQtR116Tests(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication([])
 
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="ors-r116-qt-")
-        self.root = Path(self.temp.name)
+        # The selected private key fixture must satisfy the same verified DACL
+        # contract used by the real Ansible runner on Windows.
+        from winrm_readonly import private_temporary_directory
+        self._temp_context = private_temporary_directory()
+        temporary, self._fixture_user_sid = self._temp_context.__enter__()
+        self.root = Path(temporary)
         self.playbook = self.root / "safe.yml"
         self.inventory = self.root / "hosts.ini"
         self.hosts = self.root / "known_hosts"
@@ -56,7 +60,7 @@ class AnsiblePreflightQtR116Tests(unittest.TestCase):
 
     def tearDown(self):
         self.pool.waitForDone(3000)
-        self.temp.cleanup()
+        self._temp_context.__exit__(None, None, None)
 
     def make_panel(self, *, runner=None, analyzer=None, lookup=None):
         pane = AnsiblePreflightPanel(
