@@ -1,6 +1,6 @@
 """Qt background jobs, separated from UI. Author: Abdelhalim Talbi."""
 from PySide6.QtCore import QObject, Signal, QRunnable
-from threading import Event
+from threading import Event, Lock
 from transfer_safety import download_atomic,upload_exclusive,download_resume_verified
 
 class SftpSignals(QObject):
@@ -20,9 +20,26 @@ class SftpJob(QRunnable):
         super().__init__()
         self.connect_fn=connect_fn; self.connection=dict(connection); self.operation=operation
         self.remote_path=remote_path; self.local_path=local_path
-        self.signals=SftpSignals();self.cancel_event=Event()
+        self.signals=SftpSignals()
+        self.cancel_event=Event()
+        # Paramiko calls are blocking. Keep the currently connected SSH client
+        # so cancellation can close its socket/channel and wake an in-flight
+        # SFTP read/write instead of waiting only for its next callback.
+        self._client_lock=Lock()
+        self._active_client=None
+
     def cancel(self):
         self.cancel_event.set()
+        with self._client_lock:
+            client=self._active_client
+        if client is not None:
+            # Closing a client is a best-effort interrupt, not a thread kill.
+            # Suppress close errors here; run() still performs final cleanup
+            # and emits exactly one terminal outcome.
+            try:
+                client.close()
+            except Exception:
+                pass
 
     def run(self):
         import stat
@@ -34,6 +51,18 @@ class SftpJob(QRunnable):
             if self.cancel_event.is_set():
                 raise InterruptedError('Opération annulée')
             client=self.connect_fn(self.connection)
+            # A cancel can race with connect_fn(). Do not open a new SFTP
+            # channel after cancellation was requested while connecting.
+            with self._client_lock:
+                if self.cancel_event.is_set():
+                    registered=False
+                else:
+                    self._active_client=client
+                    registered=True
+            if not registered:
+                raise InterruptedError('Opération annulée')
+            if self.cancel_event.is_set():
+                raise InterruptedError('Opération annulée')
             with client.open_sftp() as sftp:
                 if self.cancel_event.is_set():
                     raise InterruptedError('Opération annulée')
@@ -69,10 +98,19 @@ class SftpJob(QRunnable):
                 outcome='failed'
                 failure=f'{type(exc).__name__}: {exc}'
         except Exception as exc:
-            outcome='failed'
-            failure=f'{type(exc).__name__}: {exc}'
+            # Closing the active client intentionally turns in-flight socket
+            # errors into cancellation. Keep unsolicited transport failures
+            # as failures when no cancel was requested.
+            if self.cancel_event.is_set():
+                outcome='cancelled'
+            else:
+                outcome='failed'
+                failure=f'{type(exc).__name__}: {exc}'
         finally:
             if client is not None:
+                with self._client_lock:
+                    if self._active_client is client:
+                        self._active_client=None
                 try:
                     client.close()
                 except Exception:
