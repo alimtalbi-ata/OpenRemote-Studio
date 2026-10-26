@@ -40,6 +40,15 @@ class KnownHostsR119Tests(unittest.TestCase):
             f"@cert-authority server.example.test ssh-ed25519 {PLACEHOLDER_KEY}\n".encode()
         )
 
+    def test_rejects_invalid_key_type_and_unknown_marker(self):
+        for line in (
+            f"server.example.test unsupported/keytype {PLACEHOLDER_KEY}\\n",
+            f"@unknown server.example.test ssh-ed25519 {PLACEHOLDER_KEY}\\n",
+        ):
+            with self.subTest(line=line):
+                with self.assertRaises(AnsiblePreflightError):
+                    _validate_known_hosts(line.encode("utf-8"))
+
     def test_accepts_canonical_openssh_hashed_host_and_mixed_host_list(self):
         hashed = _hashed_host("server.example.test")
         _validate_host_field(hashed)

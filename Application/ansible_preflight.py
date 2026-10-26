@@ -446,15 +446,26 @@ def _validate_known_hosts(data: bytes):
         if _CONTROL.search(line):
             _fail("ansible_known_hosts_invalid")
         parts = line.split()
-        if parts and parts[0] in {"@cert-authority", "@revoked"}:
-            parts = parts[1:]
-        if len(parts) < 3 or not _valid_known_hosts_host_field(parts[1]):
+        offset = 0
+        if parts[0].startswith("@"):
+            if parts[0] not in {"@cert-authority", "@revoked"}:
+                _fail("ansible_known_hosts_invalid")
+            offset = 1
+        # OpenSSH format is: [marker] hosts key-type base64-key [comment].
+        # Validate the actual host field, not the algorithm token.
+        if len(parts) < offset + 3:
+            _fail("ansible_known_hosts_invalid")
+        host_field, key_type, encoded_key = parts[offset:offset + 3]
+        if (
+            not _valid_known_hosts_host_field(host_field)
+            or not re.fullmatch(r"[A-Za-z0-9@._+-]{1,80}", key_type)
+        ):
             _fail("ansible_known_hosts_invalid")
         try:
-            key = base64.b64decode(parts[2].encode("ascii"), validate=True)
+            key = base64.b64decode(encoded_key.encode("ascii"), validate=True)
         except (ValueError, UnicodeError):
             _fail("ansible_known_hosts_invalid")
-        if len(key) < 16 or len(parts[0]) > 4096:
+        if len(key) < 16:
             _fail("ansible_known_hosts_invalid")
         entries += 1
         if entries > 10000:
