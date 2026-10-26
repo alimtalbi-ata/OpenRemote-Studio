@@ -386,6 +386,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         inherited = f"D:(A;ID;FA;;;{user_sid})(A;ID;FA;;;SY)"
         inherited_nested = f"D:(A;OICIID;FA;;;{user_sid})(A;OICIID;FA;;;SY)"
         explicit_protected = f"D:P(A;;FA;;;{user_sid})(A;;FA;;;SY)"
+        explicit_protected_propagating = f"D:P(A;OICI;FA;;;{user_sid})(A;OICI;FA;;;SY)"
         explicit_unprotected = f"D:(A;;FA;;;{user_sid})(A;;FA;;;SY)"
         everyone_added = f"D:P(A;;FA;;;{user_sid})(A;;FA;;;SY)(A;;FA;;;WD)"
         self.assertTrue(_sddl_is_private(inherited, user_sid, directory=False))
@@ -393,6 +394,10 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         self.assertFalse(_sddl_is_private(explicit_protected, user_sid, directory=False))
         self.assertTrue(_sddl_is_private(
             explicit_protected, user_sid, directory=False, allow_explicit_file=True
+        ))
+        self.assertTrue(_sddl_is_private(
+            explicit_protected_propagating, user_sid, directory=False,
+            allow_explicit_file=True,
         ))
         self.assertFalse(_sddl_is_private(
             explicit_unprotected, user_sid, directory=False, allow_explicit_file=True
