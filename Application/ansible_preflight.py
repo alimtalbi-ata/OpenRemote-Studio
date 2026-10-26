@@ -467,7 +467,10 @@ def _require_staged_key_acl(key_path, user_sid):
         return
     try:
         from winrm_readonly import private_file_acl_is_safe
-        if not private_file_acl_is_safe(key_path):
+        # File creation can yield a protected explicit DACL instead of inherited
+        # ACEs on some Windows filesystems. Accept it only when the shared
+        # validator proves the same user+SYSTEM-only full-control contract.
+        if not private_file_acl_is_safe(key_path, allow_explicit=True):
             _fail("ansible_staging_acl_unverified")
     except AnsiblePreflightError:
         raise
