@@ -100,7 +100,8 @@ class SftpJobOutcomeR123Tests(unittest.TestCase):
         job.run()
 
         self.assertEqual(len(events), 1)
-        self.assertTrue(events[0].startswith("InterruptedError:"))
+        # R126 preserves the failure outcome but deliberately hides exception text.
+        self.assertEqual(events[0], "Échec de l’opération SFTP. Détails techniques masqués.")
         self.assertNotIn("cancelled", events)
 
     def test_failure_signal_waits_for_client_close_attempt(self):
@@ -113,7 +114,8 @@ class SftpJobOutcomeR123Tests(unittest.TestCase):
         job.run()
 
         self.assertEqual(len(events), 1)
-        self.assertTrue(events[0][0].startswith("OSError:"))
+        self.assertEqual(events[0][0], "Échec de l’opération SFTP. Détails techniques masqués.")
+        self.assertNotIn("offline", events[0][0])
         self.assertEqual(events[0][1:], (True, True))
 
 

@@ -114,7 +114,12 @@ class SftpCancelInterruptR124Tests(unittest.TestCase):
         self.assertTrue(client.close_attempted.is_set())
         self.assertEqual(len(outcomes), 1)
         self.assertEqual(outcomes[0][0], "failed")
-        self.assertTrue(outcomes[0][1].startswith("OSError:"))
+        # R126 intentionally removes third-party exception text from the UI signal.
+        self.assertEqual(
+            outcomes[0][1],
+            "Échec de l’opération SFTP. Détails techniques masqués.",
+        )
+        self.assertNotIn("simulated socket close", outcomes[0][1])
 
     def test_cancel_during_connect_does_not_open_sftp_channel(self):
         sftp = BlockingSftp()

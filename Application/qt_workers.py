@@ -2,6 +2,7 @@
 from PySide6.QtCore import QObject, Signal, QRunnable
 from threading import Event, Lock
 from transfer_safety import download_atomic,upload_exclusive,download_resume_verified
+from sftp_error_reporting import safe_sftp_error_message
 
 class SftpSignals(QObject):
     finished = Signal(object)
@@ -109,7 +110,7 @@ class SftpJob(QRunnable):
                 outcome='cancelled'
             else:
                 outcome='failed'
-                failure=f'{type(exc).__name__}: {exc}'
+                failure=safe_sftp_error_message(exc)
         except Exception as exc:
             # Closing the active client intentionally turns in-flight socket
             # errors into cancellation. Keep unsolicited transport failures
@@ -118,7 +119,7 @@ class SftpJob(QRunnable):
                 outcome='cancelled'
             else:
                 outcome='failed'
-                failure=f'{type(exc).__name__}: {exc}'
+                failure=safe_sftp_error_message(exc)
         finally:
             if client is not None:
                 with self._client_lock:

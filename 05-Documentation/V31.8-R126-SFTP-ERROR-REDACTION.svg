@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="360" viewBox="0 0 1000 360" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRemote Studio R126 — barrière de diagnostic SFTP</title>
+  <desc id="desc">Diagramme conceptuel du filtrage des exceptions SFTP avant émission du signal Qt.</desc>
+  <defs><style>
+    .box{fill:#f4f7fb;stroke:#244766;stroke-width:2}.safe{fill:#edf8f0;stroke:#237347;stroke-width:2}.blocked{fill:#fff1f0;stroke:#a52a2a;stroke-width:2}
+    .label{font:600 17px sans-serif;fill:#1d2a35}.small{font:14px sans-serif;fill:#304252}.arrow{stroke:#465d70;stroke-width:2.5;fill:none}.cross{stroke:#a52a2a;stroke-width:3}
+  </style></defs>
+  <rect x="24" y="56" width="230" height="100" rx="12" class="box"/>
+  <text x="139" y="89" text-anchor="middle" class="label">Exception SSH/SFTP</text>
+  <text x="139" y="116" text-anchor="middle" class="small">Paramiko / transfert</text>
+  <text x="139" y="137" text-anchor="middle" class="small">texte potentiellement sensible</text>
+  <path d="M254 106 H322" class="arrow"/><path d="M314 99 L324 106 L314 113" class="arrow"/>
+  <rect x="324" y="42" width="300" height="128" rx="12" class="safe"/>
+  <text x="474" y="76" text-anchor="middle" class="label">safe_sftp_error_message()</text>
+  <text x="474" y="103" text-anchor="middle" class="small">classe d'erreur → texte constant</text>
+  <text x="474" y="126" text-anchor="middle" class="small">aucun str(exc) / repr(exc)</text>
+  <text x="474" y="148" text-anchor="middle" class="small">aucun chemin ou secret interpolé</text>
+  <path d="M624 106 H692" class="arrow"/><path d="M684 99 L694 106 L684 113" class="arrow"/>
+  <rect x="694" y="56" width="280" height="100" rx="12" class="box"/>
+  <text x="834" y="88" text-anchor="middle" class="label">Signal Qt failed</text>
+  <text x="834" y="115" text-anchor="middle" class="small">message expurgé</text>
+  <text x="834" y="137" text-anchor="middle" class="small">affichage / audit sûr</text>
+  <path d="M139 156 V220 H474 V170" class="arrow" stroke-dasharray="7 6"/>
+  <rect x="170" y="238" width="610" height="72" rx="10" class="blocked"/>
+  <text x="475" y="267" text-anchor="middle" class="label">Bloqué à la frontière du diagnostic</text>
+  <text x="475" y="290" text-anchor="middle" class="small">ex. password=… · /private/key.pem · texte d'exception brut</text>
+  <path d="M326 222 L344 240 M344 222 L326 240" class="cross"/>
+  <text x="500" y="340" text-anchor="middle" class="small">R126 — schéma conceptuel, pas une capture d'exécution</text>
+</svg>
