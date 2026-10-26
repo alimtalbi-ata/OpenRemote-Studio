@@ -10,6 +10,7 @@ from unittest.mock import patch
 from ansible_preflight import (
     AnsiblePreflightError, analyze_playbook, run_check_mode, connection_fingerprints,
 )
+from winrm_readonly import private_temporary_directory, _sddl_is_private
 
 PLAYBOOK = """- name: Read-only diagnostic
   hosts: servers
@@ -81,8 +82,11 @@ class FakeProcess:
 
 class AnsiblePreflightR116Tests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="ors-r116-tests-")
-        self.root = Path(self.temp.name)
+        # Windows CI fixtures inherit a DACL created by the same verified
+        # user+SYSTEM-only directory policy required by the production runner.
+        self._temp_context = private_temporary_directory()
+        temporary, self._fixture_user_sid = self._temp_context.__enter__()
+        self.root = Path(temporary)
         self.playbook = self.root / "safe.yml"
         self.inventory = self.root / "hosts.ini"
         self.known_hosts = self.root / "known_hosts"
@@ -90,7 +94,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         self.write_inputs()
 
     def tearDown(self):
-        self.temp.cleanup()
+        self._temp_context.__exit__(None, None, None)
 
     def write_inputs(self, playbook=PLAYBOOK, inventory=INVENTORY):
         self.playbook.write_text(playbook, encoding="utf-8")
@@ -376,6 +380,34 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         self.assertEqual(result["state"], "cancelled")
         self.assertEqual(calls, [])
         popen.assert_not_called()
+
+    def test_windows_acl_policy_accepts_only_private_explicit_or_inherited_file_dacl(self):
+        user_sid = "S-1-5-21-101-202-303-1001"
+        inherited = f"D:(A;ID;FA;;;{user_sid})(A;ID;FA;;;SY)"
+        explicit_protected = f"D:P(A;;FA;;;{user_sid})(A;;FA;;;SY)"
+        explicit_unprotected = f"D:(A;;FA;;;{user_sid})(A;;FA;;;SY)"
+        everyone_added = f"D:P(A;;FA;;;{user_sid})(A;;FA;;;SY)(A;;FA;;;WD)"
+        self.assertTrue(_sddl_is_private(inherited, user_sid, directory=False))
+        self.assertFalse(_sddl_is_private(explicit_protected, user_sid, directory=False))
+        self.assertTrue(_sddl_is_private(
+            explicit_protected, user_sid, directory=False, allow_explicit_file=True
+        ))
+        self.assertFalse(_sddl_is_private(
+            explicit_unprotected, user_sid, directory=False, allow_explicit_file=True
+        ))
+        self.assertFalse(_sddl_is_private(
+            everyone_added, user_sid, directory=False, allow_explicit_file=True
+        ))
+
+    @unittest.skipUnless(os.name == "nt", "native DACL inspection requires Windows")
+    def test_windows_acl_inspection_failure_blocks_before_private_key_read(self):
+        with patch("winrm_readonly.private_file_acl_is_safe", return_value=False):
+            with patch("ansible_preflight._read_regular") as reader:
+                with self.assertRaisesRegex(
+                    AnsiblePreflightError, "ansible_private_key_acl_unverified"
+                ):
+                    connection_fingerprints(self.known_hosts, self.key)
+        reader.assert_not_called()
 
 
 if __name__ == "__main__":
