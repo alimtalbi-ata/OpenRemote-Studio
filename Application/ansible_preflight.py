@@ -8,6 +8,7 @@ Author: Abdelhalim Talbi.
 from __future__ import annotations
 
 import base64
+from contextlib import contextmanager
 import ipaddress
 import os
 import re
@@ -395,20 +396,93 @@ def _validate_known_hosts(data: bytes):
 
 
 def _validate_private_key_permissions(key_path):
-    if os.name != "nt":
+    if os.name == "nt":
         try:
-            if stat.S_IMODE(key_path.stat().st_mode) & 0o077:
-                _fail("ansible_private_key_permissions_too_open")
+            from winrm_readonly import private_file_acl_is_safe
+            safe = private_file_acl_is_safe(key_path, allow_explicit=True)
+        except Exception:
+            safe = False
+        if not safe:
+            _fail("ansible_private_key_acl_unverified")
+        return
+    try:
+        if stat.S_IMODE(key_path.stat().st_mode) & 0o077:
+            _fail("ansible_private_key_permissions_too_open")
+    except AnsiblePreflightError:
+        raise
+    except OSError:
+        _fail("ansible_input_unavailable")
+
+
+def _private_key_input_path(path_value):
+    """Inspect the selected key path and ACL before reading private-key bytes."""
+    if not isinstance(path_value, (str, os.PathLike)):
+        _fail("ansible_invalid_path")
+    raw_path = os.fspath(path_value)
+    if not raw_path or len(raw_path) > 4096 or _CONTROL.search(raw_path):
+        _fail("ansible_invalid_path")
+    path = Path(raw_path).expanduser()
+    try:
+        if path.is_symlink():
+            _fail("ansible_symlink_input_rejected")
+        info = path.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size < 1:
+            _fail("ansible_regular_file_required")
+        if info.st_size > MAX_PRIVATE_KEY_BYTES:
+            _fail("ansible_input_too_large")
+        _validate_private_key_permissions(path)
+    except AnsiblePreflightError:
+        raise
+    except (OSError, ValueError):
+        _fail("ansible_input_unavailable")
+    return path
+
+
+@contextmanager
+def _private_runner_directory():
+    """Provide a private staging root, with a verified explicit Windows DACL."""
+    if os.name == "nt":
+        try:
+            from winrm_readonly import private_temporary_directory
+            with private_temporary_directory() as (directory, user_sid):
+                yield Path(directory), user_sid
         except AnsiblePreflightError:
             raise
-        except OSError:
-            _fail("ansible_input_unavailable")
+        except Exception:
+            _fail("ansible_private_temp_unavailable")
+        return
+    try:
+        with tempfile.TemporaryDirectory(prefix="ors-ansible-r117-") as directory:
+            os.chmod(directory, 0o700)
+            yield Path(directory), None
+    except AnsiblePreflightError:
+        raise
+    except Exception:
+        _fail("ansible_private_temp_unavailable")
+
+
+def _require_staged_key_acl(key_path, user_sid):
+    """Recheck the staged key's inherited ACL before each child process is spawned."""
+    if user_sid is None:
+        return
+    try:
+        from winrm_readonly import private_file_acl_is_safe
+        # File creation can yield a protected explicit DACL instead of inherited
+        # ACEs on some Windows filesystems. Accept it only when the shared
+        # validator proves the same user+SYSTEM-only full-control contract.
+        if not private_file_acl_is_safe(key_path, allow_explicit=True):
+            _fail("ansible_staging_acl_unverified")
+    except AnsiblePreflightError:
+        raise
+    except Exception:
+        _fail("ansible_staging_acl_unverified")
 
 
 def connection_fingerprints(known_hosts_path, private_key_path):
     """Validate selected SSH trust/key files and return non-secret SHA-256 digests only."""
+    key_path = _private_key_input_path(private_key_path)
     kh_path, kh_bytes = _read_regular(known_hosts_path, MAX_KNOWN_HOSTS_BYTES)
-    key_path, key_bytes = _read_regular(private_key_path, MAX_PRIVATE_KEY_BYTES)
+    key_path, key_bytes = _read_regular(key_path, MAX_PRIVATE_KEY_BYTES)
     _validate_private_key_permissions(key_path)
     _validate_known_hosts(kh_bytes)
     import hashlib
@@ -526,7 +600,8 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
     pb_path, pb_bytes = _read_regular(playbook_path, MAX_PLAYBOOK_BYTES, (".yml", ".yaml"))
     inv_path, inv_bytes = _read_regular(inventory_path, MAX_INVENTORY_BYTES, (".ini",))
     kh_path, kh_bytes = _read_regular(known_hosts_path, MAX_KNOWN_HOSTS_BYTES)
-    key_path, key_bytes = _read_regular(private_key_path, MAX_PRIVATE_KEY_BYTES)
+    key_path = _private_key_input_path(private_key_path)
+    key_path, key_bytes = _read_regular(key_path, MAX_PRIVATE_KEY_BYTES)
     _validate_private_key_permissions(key_path)
     _validate_known_hosts(kh_bytes)
     analysis = _analyze_bytes(pb_path, pb_bytes, inv_path, inv_bytes)
@@ -545,8 +620,7 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
     # snapshots, not mutable paths supplied by the operator.
     deadline = time.monotonic() + timeout_seconds
     try:
-        with tempfile.TemporaryDirectory(prefix="ors-ansible-r116-") as temporary:
-            root = Path(temporary)
+        with _private_runner_directory() as (root, secure_sid):
             home = root / "home"
             ssh_home = home / ".ssh"
             config_home = root / "config"
@@ -560,7 +634,9 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             staged_pb = root / ("playbook" + pb_path.suffix.lower())
             staged_inv = root / "inventory.ini"
             staged_hosts = ssh_home / "known_hosts"
-            staged_key = ssh_home / "id_key"
+            # Keep the secret directly under the verified DACL root. Nested
+            # Windows directory inheritance varies by filesystem/provider.
+            staged_key = root / "id_key"
             empty_hosts = ssh_home / "empty_known_hosts"
             empty_config = ssh_home / "empty_config"
             staged_pb.write_bytes(pb_bytes)
@@ -572,6 +648,7 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             if os.name != "nt":
                 for file_path in (staged_pb, staged_inv, staged_hosts, staged_key, empty_hosts, empty_config):
                     os.chmod(file_path, 0o600)
+            _require_staged_key_acl(staged_key, secure_sid)
             if _cancelled(cancelled):
                 return {"state": "cancelled", "read_only": True, "output_retained": False}
 
@@ -638,6 +715,7 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             if username:
                 command_common.extend(["--user", username])
             syntax_args = [*command_common, "--syntax-check", str(staged_pb)]
+            _require_staged_key_acl(staged_key, secure_sid)
             stage, code = _run_one(executable, syntax_args, env, root, deadline, cancelled)
             if stage != "ok":
                 return {
@@ -650,6 +728,7 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             check_args = [
                 *command_common, "--check", "--diff", str(staged_pb),
             ]
+            _require_staged_key_acl(staged_key, secure_sid)
             stage, code = _run_one(executable, check_args, env, root, deadline, cancelled)
             mapped_state = {
                 "ok": "check_succeeded", "failed": "check_failed",

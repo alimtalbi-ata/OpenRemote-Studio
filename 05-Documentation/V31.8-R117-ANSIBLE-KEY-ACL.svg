@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="690" viewBox="0 0 1180 690" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRemote Studio R117 — garde ACL Ansible</title>
+  <desc id="desc">Flux fail-closed de validation ACL de clé SSH, staging temporaire privé, exécution Ansible optionnelle et nettoyage.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#475569"/>
+    </marker>
+    <style>
+      .title { font: 700 25px 'Segoe UI', Arial, sans-serif; fill:#0f172a }
+      .subtitle { font: 14px 'Segoe UI', Arial, sans-serif; fill:#475569 }
+      .box { fill:#f8fafc; stroke:#64748b; stroke-width:1.5; rx:12 }
+      .secure { fill:#ecfdf5; stroke:#047857; stroke-width:2; rx:12 }
+      .deny { fill:#fff1f2; stroke:#be123c; stroke-width:1.5; rx:12 }
+      .heading { font: 700 15px 'Segoe UI', Arial, sans-serif; fill:#0f172a }
+      .body { font: 13px 'Segoe UI', Arial, sans-serif; fill:#334155 }
+      .small { font: 12px 'Segoe UI', Arial, sans-serif; fill:#475569 }
+      .line { fill:none; stroke:#475569; stroke-width:2; marker-end:url(#arrow) }
+      .fail { fill:none; stroke:#be123c; stroke-width:1.5; stroke-dasharray:5 4; marker-end:url(#arrow) }
+    </style>
+  </defs>
+  <rect width="1180" height="690" fill="#ffffff"/>
+  <text x="40" y="44" class="title">OpenRemote Studio V31.8 — R117</text>
+  <text x="40" y="70" class="subtitle">Vérification ACL de clé SSH Ansible • moindre privilège • aucune sortie distante conservée</text>
+
+  <rect x="40" y="105" width="240" height="90" class="box"/>
+  <text x="60" y="133" class="heading">1. Fichiers sélectionnés</text>
+  <text x="60" y="156" class="body">Playbook / inventaire</text>
+  <text x="60" y="176" class="body">known_hosts / clé privée</text>
+
+  <rect x="340" y="105" width="260" height="90" class="secure"/>
+  <text x="360" y="133" class="heading">2. Contrôle ACL avant lecture</text>
+  <text x="360" y="156" class="body">Windows : SID courant + SYSTEM</text>
+  <text x="360" y="176" class="body">POSIX : mode strict de la clé</text>
+
+  <rect x="660" y="105" width="220" height="90" class="secure"/>
+  <text x="680" y="133" class="heading">3. Empreintes SHA-256</text>
+  <text x="680" y="156" class="body">Comparer avec l'approbation</text>
+  <text x="680" y="176" class="body">Aucun octet de clé affiché</text>
+
+  <rect x="930" y="105" width="210" height="90" class="secure"/>
+  <text x="950" y="133" class="heading">4. Racine temporaire</text>
+  <text x="950" y="156" class="body">DACL protégé sur Windows</text>
+  <text x="950" y="176" class="body">0700 sur POSIX</text>
+
+  <path d="M280 150 H340" class="line"/>
+  <path d="M600 150 H660" class="line"/>
+  <path d="M880 150 H930" class="line"/>
+
+  <rect x="930" y="255" width="210" height="110" class="secure"/>
+  <text x="950" y="282" class="heading">5. Clé de staging</text>
+  <text x="950" y="305" class="body">Copie bornée</text>
+  <text x="950" y="325" class="body">DACL revérifié</text>
+  <text x="950" y="345" class="body">Avant chaque lancement</text>
+
+  <rect x="640" y="255" width="230" height="110" class="box"/>
+  <text x="660" y="282" class="heading">6. Consentement ponctuel</text>
+  <text x="660" y="305" class="body">Entrées inchangées</text>
+  <text x="660" y="325" class="body">CLI Ansible disponible</text>
+  <text x="660" y="345" class="body">Pas de réseau hors ligne</text>
+
+  <rect x="340" y="255" width="250" height="110" class="secure"/>
+  <text x="360" y="282" class="heading">7. Exécution bornée</text>
+  <text x="360" y="305" class="body">--syntax-check</text>
+  <text x="360" y="325" class="body">Puis --check --diff</text>
+  <text x="360" y="345" class="body">SSH key-only / host-key strict</text>
+
+  <rect x="40" y="255" width="250" height="110" class="secure"/>
+  <text x="60" y="282" class="heading">8. Résultat neutre</text>
+  <text x="60" y="305" class="body">État et code retour seulement</text>
+  <text x="60" y="325" class="body">stdout/stderr vers DEVNULL</text>
+  <text x="60" y="345" class="body">Aucune sortie exportée</text>
+
+  <path d="M1035 195 V255" class="line"/>
+  <path d="M930 310 H870" class="line"/>
+  <path d="M640 310 H590" class="line"/>
+  <path d="M340 310 H290" class="line"/>
+
+  <rect x="340" y="435" width="530" height="82" class="box"/>
+  <text x="360" y="462" class="heading">9. Nettoyage à durée de vie limitée</text>
+  <text x="360" y="485" class="body">Suppression du staging en sortie, y compris sur erreur ou annulation</text>
+  <text x="360" y="505" class="small">Le nettoyage n'est pas un effacement cryptographique garanti.</text>
+  <path d="M165 365 V400 H340 V470" class="line"/>
+
+  <rect x="40" y="550" width="530" height="95" class="deny"/>
+  <text x="60" y="579" class="heading">Refus fail-closed</text>
+  <text x="60" y="602" class="body">ACL absente / trop large / illisible, empreinte différente,</text>
+  <text x="60" y="622" class="body">fichier invalide : aucun processus Ansible n'est lancé.</text>
+  <path d="M470 195 V220 H170 V550" class="fail"/>
+
+  <rect x="610" y="550" width="530" height="95" class="box"/>
+  <text x="630" y="579" class="heading">Limites de qualification</text>
+  <text x="630" y="602" class="body">--check n'est pas un sandbox ; Ansible réel reste UNVERIFIED</text>
+  <text x="630" y="622" class="body">jusqu'à une recette sur cibles de laboratoire autorisées.</text>
+  <path d="M605 470 H875 V550" class="line"/>
+  <text x="40" y="674" class="small">Auteur : Abdelhalim Talbi • schéma d'architecture, pas une preuve d'exécution distante</text>
+</svg>
