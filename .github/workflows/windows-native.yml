@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version, feature/v31.8-r123-sftp-cancel-outcomes, feature/v31.8-r124-sftp-cancel-interrupt, feature/v31.8-r125-sftp-client-close-once]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version, feature/v31.8-r123-sftp-cancel-outcomes, feature/v31.8-r124-sftp-cancel-interrupt, feature/v31.8-r125-sftp-client-close-once, feature/v31.8-r126-sftp-error-redaction]
   pull_request:
     paths:
       - 'Application/**'
@@ -424,6 +424,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R125 SFTP client-close race tests failed' }
           & Application/.venv-build/Scripts/python.exe -m py_compile Application/qt_workers.py Application/tests/test_sftp_client_close_once_r125.py
           if ($LASTEXITCODE -ne 0) { throw 'R125 SFTP source compilation failed' }
+      - name: R126 redact SFTP errors before they reach Qt consumers
+        run: |
+          $python = 'Application/.venv-build/Scripts/python.exe'
+          if (!(Test-Path $python)) { throw 'Missing built Python runtime for R126 diagnostics tests' }
+          & $python -c "import PySide6"
+          if ($LASTEXITCODE -ne 0) { throw 'PySide6 is required for the R126 worker integration gate' }
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & $python -m unittest discover -s Application/tests -p 'test_sftp_error_reporting_r126.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R126 safe SFTP diagnostic unit tests failed' }
+          & $python -m unittest discover -s Application/tests -p 'test_sftp_error_redaction_worker_r126.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R126 SFTP worker redaction tests failed' }
+          & $python -m py_compile Application/sftp_error_reporting.py Application/qt_workers.py Application/tests/test_sftp_error_reporting_r126.py Application/tests/test_sftp_error_redaction_worker_r126.py
+          if ($LASTEXITCODE -ne 0) { throw 'R126 SFTP diagnostic sources did not compile' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
