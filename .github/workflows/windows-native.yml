@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version]
   pull_request:
     paths:
       - 'Application/**'
@@ -392,6 +392,12 @@ jobs:
           $env:PYTHONPATH = 'Application'
           & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_packaged_smoke_diagnostics_r115.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R115 packaged GUI smoke evidence contract failed' }
+      - name: R122 build environment report version contract
+        run: |
+          python -m unittest discover -s Application/tests -p 'test_build_environment_report_r122.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R122 build report version tests failed' }
+          python -m py_compile Application/tests/test_build_environment_report_r122.py
+          if ($LASTEXITCODE -ne 0) { throw 'R122 test compilation failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'

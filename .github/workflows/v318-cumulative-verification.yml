@@ -1,7 +1,7 @@
 name: V31.8 cumulative verification
 on:
   push:
-    branches: [develop/v31.8-windows-ci, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r94-winrm-timeout-qt-preview, feature/v31.8-r95-winrm-services-readonly, feature/v31.8-r97-winrm-service-precise-count, feature/v31.8-r98-winrm-service-drift, feature/v31.8-r99-winrm-wincred-reference, feature/v31.8-r100-wincred-native-boundaries, feature/v31.8-r101-winrm-packaged-runtime, feature/v31.8-r102-winrm-strict-response, feature/v31.8-r103-winrm-exception-boundaries, feature/v31.8-r104-winrm-display-trust, feature/v31.8-r105-winrm-enterprise-ca, feature/v31.8-r106-winrm-ca-pinning, feature/v31.8-r107-winrm-ca-snapshot, feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints]
+    branches: [develop/v31.8-windows-ci, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r90-ssh-consent-binding-live-qt, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r94-winrm-timeout-qt-preview, feature/v31.8-r95-winrm-services-readonly, feature/v31.8-r97-winrm-service-precise-count, feature/v31.8-r98-winrm-service-drift, feature/v31.8-r99-winrm-wincred-reference, feature/v31.8-r100-wincred-native-boundaries, feature/v31.8-r101-winrm-packaged-runtime, feature/v31.8-r102-winrm-strict-response, feature/v31.8-r103-winrm-exception-boundaries, feature/v31.8-r104-winrm-display-trust, feature/v31.8-r105-winrm-enterprise-ca, feature/v31.8-r106-winrm-ca-pinning, feature/v31.8-r107-winrm-ca-snapshot, feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version]
   pull_request:
     branches: [main, develop/v31.8-windows-ci, feature/v31.8-r71-resume-lock-ownership, feature/v31.8-r72-tunnel-lifecycle-audit, feature/v31.8-r73-netbox-readonly, feature/v31.8-r74-netbox-qt-preview, feature/v31.8-r75-netbox-local-filter, feature/v31.8-r76-netbox-revocation, feature/v31.8-r77-openssh-hostkey-validation, feature/v31.8-r78-tunnel-active-revocation, feature/v31.8-r79-tunnel-close-barrier, feature/v31.8-r80-tunnel-drain-hostkey-rotation, feature/v31.8-r81-tunnel-ui-shutdown, feature/v31.8-r82-qt-tunnel-panel, feature/v31.8-r83-ssh-link-health, feature/v31.8-r86-qt-ssh-keepalive, feature/v31.8-r87-manual-ssh-retry, feature/v31.8-r88-qt-font-render-gate, feature/v31.8-r89-ssh-failure-guidance-live-retry, feature/v31.8-r91-consent-revocation, feature/v31.8-r92-bounded-ssh-probe, feature/v31.8-r93-winrm-readonly-inventory, feature/v31.8-r95-winrm-services-readonly, feature/v31.8-r96-winrm-services-qt-filter, feature/v31.8-r97-winrm-service-precise-count, feature/v31.8-r98-winrm-service-drift, feature/v31.8-r99-winrm-wincred-reference, feature/v31.8-r100-wincred-native-boundaries, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r105-winrm-enterprise-ca, feature/v31.8-r107-winrm-ca-snapshot, feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints]
   workflow_dispatch:
@@ -271,6 +271,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R120 Ansible local qualification contract tests failed' }
           python -m py_compile Application/ansible_local_qualification.py Application/tests/test_ansible_local_qualification_r120.py
           if ($LASTEXITCODE -ne 0) { throw 'R120 source compilation failed' }
+      - name: R122 build environment report version contract (source Python)
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_build_environment_report_r122.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R122 build report version tests failed' }
+          python -m py_compile Application/tests/test_build_environment_report_r122.py
+          if ($LASTEXITCODE -ne 0) { throw 'R122 test compilation failed' }
       - name: R100 native WinCred read, bounded blobs and cleanup
         shell: pwsh
         run: |
@@ -408,6 +416,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R120 packaged-runtime tests failed' }
           & $python -m py_compile Application/ansible_local_qualification.py Application/tests/test_ansible_local_qualification_r120.py
           if ($LASTEXITCODE -ne 0) { throw 'R120 packaged-runtime compilation failed' }
+      - name: R122 build environment report version contract in packaged Python runtime
+        shell: pwsh
+        run: |
+          $python = 'Application/.venv-build/Scripts/python.exe'
+          if (!(Test-Path $python)) { throw 'Missing built Python runtime for R122 tests' }
+          $env:PYTHONPATH = 'Application'
+          & $python -m unittest discover -s Application/tests -p 'test_build_environment_report_r122.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R122 packaged-runtime tests failed' }
+          & $python -m py_compile Application/tests/test_build_environment_report_r122.py
+          if ($LASTEXITCODE -ne 0) { throw 'R122 packaged-runtime test compilation failed' }
       - name: Assemble and verify cumulative ZIP
         shell: pwsh
         run: |
