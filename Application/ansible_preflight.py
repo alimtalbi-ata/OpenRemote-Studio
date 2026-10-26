@@ -1,4 +1,4 @@
-"""R116: static Ansible preflight and strictly allowlisted SSH check-mode runner.
+"""R116/R118: static Ansible preflight with isolated SSH identity and trust staging.
 
 The analyzer is offline. Remote execution is always opt-in, uses a pinned known_hosts
 file, public-key authentication only, a minimal builtin-module allowlist, bounded
@@ -461,16 +461,14 @@ def _private_runner_directory():
         _fail("ansible_private_temp_unavailable")
 
 
-def _require_staged_key_acl(key_path, user_sid):
-    """Recheck the staged key's inherited ACL before each child process is spawned."""
+def _require_staged_file_acl(file_path, user_sid):
+    """Recheck a staged input, SSH trust anchor or configuration file DACL."""
     if user_sid is None:
         return
     try:
         from winrm_readonly import private_file_acl_is_safe
-        # File creation can yield a protected explicit DACL instead of inherited
-        # ACEs on some Windows filesystems. Accept it only when the shared
-        # validator proves the same user+SYSTEM-only full-control contract.
-        if not private_file_acl_is_safe(key_path, allow_explicit=True):
+        # Every control file is a direct child of the verified staging root.
+        if not private_file_acl_is_safe(file_path, allow_explicit=True):
             _fail("ansible_staging_acl_unverified")
     except AnsiblePreflightError:
         raise
@@ -623,22 +621,21 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
         with _private_runner_directory() as (root, secure_sid):
             home = root / "home"
             ssh_home = home / ".ssh"
-            config_home = root / "config"
             local_tmp = root / "local"
             remote_tmp = root / "remote"
             collections = root / "collections"
             library = root / "library"
             roles = root / "roles"
-            for directory in (home, ssh_home, config_home, local_tmp, remote_tmp, collections, library, roles):
+            for directory in (home, ssh_home, local_tmp, remote_tmp, collections, library, roles):
                 directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             staged_pb = root / ("playbook" + pb_path.suffix.lower())
             staged_inv = root / "inventory.ini"
-            staged_hosts = ssh_home / "known_hosts"
+            staged_hosts = root / "known_hosts"
             # Keep the secret directly under the verified DACL root. Nested
             # Windows directory inheritance varies by filesystem/provider.
             staged_key = root / "id_key"
-            empty_hosts = ssh_home / "empty_known_hosts"
-            empty_config = ssh_home / "empty_config"
+            empty_hosts = root / "empty_known_hosts"
+            empty_config = root / "empty_config"
             staged_pb.write_bytes(pb_bytes)
             staged_inv.write_bytes(inv_bytes)
             staged_hosts.write_bytes(kh_bytes)
@@ -648,7 +645,6 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             if os.name != "nt":
                 for file_path in (staged_pb, staged_inv, staged_hosts, staged_key, empty_hosts, empty_config):
                     os.chmod(file_path, 0o600)
-            _require_staged_key_acl(staged_key, secure_sid)
             if _cancelled(cancelled):
                 return {"state": "cancelled", "read_only": True, "output_retained": False}
 
@@ -658,6 +654,8 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
                 "-F", shlex.quote(empty_config.as_posix()),
                 "-o", "BatchMode=yes",
                 "-o", "PreferredAuthentications=publickey",
+                "-o", "IdentitiesOnly=yes",
+                "-o", "IdentityAgent=none",
                 "-o", "PasswordAuthentication=no",
                 "-o", "KbdInteractiveAuthentication=no",
                 "-o", "StrictHostKeyChecking=yes",
@@ -692,8 +690,23 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
                 f"ssh_args = {' '.join(ssh_options)}\n"
                 "pipelining = False\n"
             )
-            config_file = config_home / "ansible.cfg"
+            config_file = root / "ansible.cfg"
             config_file.write_text(cfg, encoding="utf-8")
+            if os.name != "nt":
+                os.chmod(config_file, 0o600)
+
+            # SSH trust, configuration and execution input are all security
+            # control data. Revalidate their DACL immediately before each spawn.
+            staged_control_files = (
+                staged_pb, staged_inv, staged_hosts, staged_key,
+                empty_hosts, empty_config, config_file,
+            )
+
+            def verify_staged_file_acls():
+                for staged_path in staged_control_files:
+                    _require_staged_file_acl(staged_path, secure_sid)
+
+            verify_staged_file_acls()
             allowed_env_keys = {
                 "PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT",
                 "TEMP", "TMP", "TMPDIR",
@@ -715,7 +728,7 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             if username:
                 command_common.extend(["--user", username])
             syntax_args = [*command_common, "--syntax-check", str(staged_pb)]
-            _require_staged_key_acl(staged_key, secure_sid)
+            verify_staged_file_acls()
             stage, code = _run_one(executable, syntax_args, env, root, deadline, cancelled)
             if stage != "ok":
                 return {
@@ -728,7 +741,7 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             check_args = [
                 *command_common, "--check", "--diff", str(staged_pb),
             ]
-            _require_staged_key_acl(staged_key, secure_sid)
+            verify_staged_file_acls()
             stage, code = _run_one(executable, check_args, env, root, deadline, cancelled)
             mapped_state = {
                 "ok": "check_succeeded", "failed": "check_failed",

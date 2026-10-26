@@ -1,4 +1,4 @@
-"""R116 Ansible preflight contract tests. No real Ansible controller or network."""
+"""R116/R118 Ansible preflight and trust-staging tests; no real controller."""
 import base64
 import os
 import subprocess
@@ -286,6 +286,10 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
             self.assertIn("UserKnownHostsFile=", cfg)
             self.assertIn("GlobalKnownHostsFile=", cfg)
             self.assertIn("ForwardAgent=no", cfg)
+            self.assertIn("IdentitiesOnly=yes", cfg)
+            self.assertIn("IdentityAgent=none", cfg)
+            self.assertNotIn("SSH_AUTH_SOCK", kwargs["env"])
+            self.assertNotIn("SSH_AGENT_PID", kwargs["env"])
             self.assertNotIn("ANSIBLE_CALLBACK_PLUGINS", kwargs["env"])
             self.assertNotIn("PYTHONPATH", kwargs["env"])
         self.assertNotIn("stdout", result)
@@ -415,6 +419,65 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
                 ):
                     connection_fingerprints(self.known_hosts, self.key)
         reader.assert_not_called()
+
+
+    def test_ssh_trust_and_config_files_stay_in_verified_root_and_are_rechecked(self):
+        import ansible_preflight
+
+        protected_names = [
+            "playbook.yml", "inventory.ini", "known_hosts", "id_key",
+            "empty_known_hosts", "empty_config", "ansible.cfg",
+        ]
+        acl_checked = []
+        observed_configs = []
+        original_acl_check = ansible_preflight._require_staged_file_acl
+
+        def record_acl_check(path, user_sid):
+            acl_checked.append(Path(path).name)
+            return original_acl_check(path, user_sid)
+
+        def fake_popen(args, **kwargs):
+            config_path = Path(kwargs["env"]["ANSIBLE_CONFIG"])
+            root = config_path.parent
+            self.assertEqual(config_path.name, "ansible.cfg")
+            cfg = config_path.read_text(encoding="utf-8")
+            for name in protected_names:
+                candidate = root / name
+                self.assertEqual(candidate.parent, root)
+                self.assertTrue(candidate.is_file(), name)
+            self.assertEqual((root / "known_hosts").read_bytes(), KNOWN_HOSTS.encode("utf-8"))
+            self.assertEqual((root / "empty_known_hosts").read_bytes(), b"")
+            self.assertEqual((root / "empty_config").read_bytes(), b"")
+            self.assertIn((root / "known_hosts").as_posix(), cfg)
+            self.assertIn((root / "empty_known_hosts").as_posix(), cfg)
+            self.assertIn((root / "empty_config").as_posix(), cfg)
+            self.assertIn((root / "id_key").as_posix(), cfg)
+            self.assertNotIn(".ssh/known_hosts", cfg)
+            self.assertIn("IdentitiesOnly=yes", cfg)
+            self.assertIn("IdentityAgent=none", cfg)
+            observed_configs.append(cfg)
+            return FakeProcess(args, **kwargs)
+
+        FakeProcess.next_codes = [0, 0]
+        with patch("ansible_preflight.subprocess.Popen", side_effect=fake_popen):
+            with patch("ansible_preflight._require_staged_file_acl", side_effect=record_acl_check):
+                result = run_check_mode(
+                    self.playbook, self.inventory, self.known_hosts, self.key,
+                    consent=True, timeout_seconds=30,
+                    executable_lookup=lambda _name: "/fake/ansible-playbook",
+                )
+
+        self.assertEqual(result["state"], "check_succeeded")
+        self.assertEqual(len(observed_configs), 2)
+        self.assertEqual(acl_checked, protected_names * 3)
+        for cfg in observed_configs:
+            self.assertIn("StrictHostKeyChecking=yes", cfg)
+            self.assertIn("PasswordAuthentication=no", cfg)
+            self.assertIn("ProxyCommand=none", cfg)
+            self.assertIn("ControlMaster=no", cfg)
+        self.assertFalse(result["output_retained"])
+        self.assertNotIn("stdout", result)
+        self.assertNotIn("stderr", result)
 
 
 if __name__ == "__main__":
