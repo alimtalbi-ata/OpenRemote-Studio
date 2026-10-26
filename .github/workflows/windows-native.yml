@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints]
   pull_request:
     paths:
       - 'Application/**'
