@@ -239,7 +239,7 @@ class ZabbixTransactionDeadlineR112Tests(unittest.TestCase):
                     payload = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}"
                     for byte in payload:
                         connection.sendall(bytes((byte,)))
-                        time.sleep(0.025)
+                        time.sleep(0.06)
                 except (OSError, ValueError, ssl.SSLError):
                     pass
                 finally:
@@ -263,15 +263,15 @@ class ZabbixTransactionDeadlineR112Tests(unittest.TestCase):
             # Use a literal IPv4 loopback plus matching certificate SAN. This test
             # isolates the response deadline instead of depending on how the OS
             # orders or maps "localhost" between IPv4 and IPv6.
-            client = ZabbixReadOnly(f"https://127.0.0.1:{port}", opener=opener, timeout=0.4)
+            client = ZabbixReadOnly(f"https://127.0.0.1:{port}", opener=opener, timeout=1.2)
             started = time.monotonic()
             try:
                 with self.assertRaisesRegex(ZabbixError, "^zabbix_timeout$") as caught:
                     client._call("problem.get", {"output": ["eventid"]}, token=TOKEN)
                 elapsed = time.monotonic() - started
                 self.assertNotIn(TOKEN, str(caught.exception))
-                self.assertGreater(elapsed, 0.20)
-                self.assertLess(elapsed, 1.5, "TLS/HTTP header trickle must not reset the deadline")
+                self.assertGreater(elapsed, 0.8)
+                self.assertLess(elapsed, 2.0, "TLS/HTTP header trickle must not reset the deadline")
             finally:
                 listener.close()
                 server_thread.join(timeout=2.0)

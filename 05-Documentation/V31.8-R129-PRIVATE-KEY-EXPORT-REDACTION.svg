@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="320" viewBox="0 0 1040 320" role="img" aria-labelledby="title desc">
+  <title id="title">R129 — frontière de confidentialité de l’export incident</title>
+  <desc id="desc">Le résumé non fiable est borné, les blocs de clé privée PEM ou PGP sont expurgés, puis les règles R128 s’appliquent avant la projection vers le schéma d’export.</desc>
+  <rect width="1040" height="320" rx="18" fill="#f7f9fc"/>
+  <text x="32" y="42" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" fill="#20304a">R129 — export support : matériel de clé privée</text>
+  <text x="32" y="68" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#52637a">Diagramme conceptuel — pas une capture de l’application</text>
+  <g font-family="Segoe UI,Arial,sans-serif" fill="#20304a">
+    <rect x="30" y="112" width="210" height="96" rx="12" fill="#ffffff" stroke="#8ca0b8" stroke-width="1.5"/>
+    <text x="135" y="140" text-anchor="middle" font-size="15" font-weight="700">Résumé entrant</text>
+    <text x="135" y="164" text-anchor="middle" font-size="12">Donnée non fiable</text>
+    <text x="135" y="183" text-anchor="middle" font-size="12">Plafond 4 096 caractères</text>
+    <path d="M242 160 H278" stroke="#52637a" stroke-width="2" fill="none"/>
+    <path d="M270 153 L278 160 L270 167" stroke="#52637a" stroke-width="2" fill="none"/>
+    <rect x="282" y="100" width="250" height="120" rx="12" fill="#fff4e5" stroke="#d89b36" stroke-width="1.5"/>
+    <text x="407" y="129" text-anchor="middle" font-size="15" font-weight="700">R129 — clé privée</text>
+    <text x="407" y="153" text-anchor="middle" font-size="12">PEM : RSA / EC / OpenSSH</text>
+    <text x="407" y="172" text-anchor="middle" font-size="12">ENCRYPTED / DSA / PGP</text>
+    <text x="407" y="194" text-anchor="middle" font-size="12" font-weight="700">Bloc ouvert : expurger jusqu’à fin</text>
+    <path d="M534 160 H570" stroke="#52637a" stroke-width="2" fill="none"/>
+    <path d="M562 153 L570 160 L562 167" stroke="#52637a" stroke-width="2" fill="none"/>
+    <rect x="574" y="112" width="200" height="96" rx="12" fill="#e8f2ff" stroke="#5b8dc9" stroke-width="1.5"/>
+    <text x="674" y="140" text-anchor="middle" font-size="15" font-weight="700">Règles R128</text>
+    <text x="674" y="163" text-anchor="middle" font-size="12">Jetons / mots de passe</text>
+    <text x="674" y="182" text-anchor="middle" font-size="12">Cookies / URL / JWT</text>
+    <path d="M776 160 H812" stroke="#52637a" stroke-width="2" fill="none"/>
+    <path d="M804 153 L812 160 L804 167" stroke="#52637a" stroke-width="2" fill="none"/>
+    <rect x="816" y="112" width="194" height="96" rx="12" fill="#e5f6ed" stroke="#42a276" stroke-width="1.5"/>
+    <text x="913" y="140" text-anchor="middle" font-size="15" font-weight="700">Export borné</text>
+    <text x="913" y="163" text-anchor="middle" font-size="12">Schéma v1 conservé</text>
+    <text x="913" y="182" text-anchor="middle" font-size="12">Aucune clé brute</text>
+    <text x="32" y="265" font-size="13" font-weight="700" fill="#8a3d30">Limite :</text>
+    <text x="87" y="265" font-size="13" fill="#52637a">défense en profondeur — un secret sans marqueur ou dans un format propriétaire peut nécessiter une règle dédiée.</text>
+  </g>
+</svg>

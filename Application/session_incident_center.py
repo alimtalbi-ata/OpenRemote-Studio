@@ -34,6 +34,11 @@ _JWT = re.compile(
 )
 _URL_CREDENTIALS = re.compile(r"(?i)(://[^\s/@:]+:)[^\s/@]+(@)")
 _COOKIE_HEADER = re.compile(r'''(?im)(?<![\w-])["']?(cookie|set-cookie)["']?\s*[:=]\s*([^\r\n]+)''')
+_PRIVATE_KEY_BLOCK = re.compile(
+    r"-----BEGIN (?P<label>(?:[A-Z0-9-]+ )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----"
+    r".*?(?:-----END (?P=label)-----|\Z)",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _safe_text(value, limit):
@@ -45,6 +50,7 @@ def _safe_text(value, limit):
     else:
         # External adapter objects may have a hostile or sensitive __str__.
         text = ""
+    text = _PRIVATE_KEY_BLOCK.sub("[REDACTED_PRIVATE_KEY_BLOCK]", text)
     text = _URL_CREDENTIALS.sub(r"\1[REDACTED]\2", text)
     text = _SECRET_ASSIGNMENT.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
     text = _CLI_SECRET.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
