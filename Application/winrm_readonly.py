@@ -432,7 +432,11 @@ def _sddl_is_private(sddl, user_sid, *, directory, allow_explicit_file=False):
             # DACL. These flags affect descendants, not the current file's access.
             # IO/NP and every unknown flag remain rejected.
             pass
-        elif allow_explicit_file and not flags and "P" in control_flags:
+        elif (allow_explicit_file and "P" in control_flags
+              and flags.issubset({"OI", "CI"})):
+            # Some Windows filesystems preserve safe propagation flags on an
+            # explicit protected file DACL. Do not allow inherit-only, no-propagate,
+            # audit or unknown flags; principal/access checks above still apply.
             found_explicit_file_ace = True
         else:
             return False
