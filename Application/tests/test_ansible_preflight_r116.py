@@ -452,7 +452,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
                     check(candidate.parent == root, "control_file_not_direct_child:" + name)
                     check(candidate.is_file(), "control_file_missing:" + name)
                 check(
-                    (root / "known_hosts").read_bytes() == KNOWN_HOSTS.encode("utf-8"),
+                    (root / "known_hosts").read_bytes() == self.known_hosts.read_bytes(),
                     "known_hosts_snapshot_changed",
                 )
                 check((root / "empty_known_hosts").read_bytes() == b"", "global_known_hosts_not_empty")
