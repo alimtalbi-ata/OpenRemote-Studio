@@ -155,7 +155,9 @@ class SftpClientCloseOnceR125Tests(unittest.TestCase):
 
         self.assertEqual(client.close_count, 1)
         self.assertEqual(len(outcomes), 1)
-        self.assertTrue(outcomes[0][0].startswith("OSError:"))
+        # The worker's error message is sanitized at the Qt boundary (R126).
+        self.assertEqual(outcomes[0][0], "Échec de l’opération SFTP. Détails techniques masqués.")
+        self.assertNotIn("synthetic transport failure", outcomes[0][0])
         self.assertEqual(outcomes[0][1:], (True, 1))
 
 
