@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version, feature/v31.8-r123-sftp-cancel-outcomes]
   pull_request:
     paths:
       - 'Application/**'
@@ -398,6 +398,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R122 build report version tests failed' }
           python -m py_compile Application/tests/test_build_environment_report_r122.py
           if ($LASTEXITCODE -ne 0) { throw 'R122 test compilation failed' }
+      - name: R123 SFTP cancellation outcome and resource cleanup
+        run: |
+          $env:PYTHONPATH = 'Application'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_sftp_job_outcome_r123.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R123 SFTP worker outcome tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m unittest discover -s Application/tests -p 'test_transfer_queue.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R123 transfer queue cancellation tests failed' }
+          & Application/.venv-build/Scripts/python.exe -m py_compile Application/qt_workers.py Application/transfer_queue.py Application/qt_app.py Application/tests/test_sftp_job_outcome_r123.py
+          if ($LASTEXITCODE -ne 0) { throw 'R123 SFTP source compilation failed' }
       - name: R100 native WinCred session-only round trip and bounded secret checks
         run: |
           $env:PYTHONPATH = 'Application'
