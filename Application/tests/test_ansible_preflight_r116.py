@@ -104,6 +104,17 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         if os.name != "nt":
             os.chmod(self.key, 0o600)
 
+    def approved_hashes(self):
+        """Return the four exact input digests the operator reviewed."""
+        report = analyze_playbook(self.playbook, self.inventory)
+        trust = connection_fingerprints(self.known_hosts, self.key)
+        return {
+            "expected_playbook_sha256": report["playbook_sha256"],
+            "expected_inventory_sha256": report["inventory_sha256"],
+            "expected_known_hosts_sha256": trust["known_hosts_sha256"],
+            "expected_private_key_sha256": trust["private_key_sha256"],
+        }
+
     def test_valid_preflight_is_offline_bounded_and_does_not_return_task_text(self):
         result = analyze_playbook(self.playbook, self.inventory)
         self.assertEqual(result["state"], "ok")
@@ -230,6 +241,37 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
                         )
                 popen.assert_not_called()
 
+    def test_runner_requires_all_four_canonical_approval_fingerprints(self):
+        approved = self.approved_hashes()
+        cases = []
+        for missing in approved:
+            incomplete = dict(approved)
+            del incomplete[missing]
+            cases.append((f"missing:{missing}", incomplete))
+        for name, bad_value in (
+            ("uppercase", "A" * 64),
+            ("short", "a" * 63),
+            ("non_hex", "g" * 64),
+        ):
+            malformed = dict(approved)
+            malformed["expected_private_key_sha256"] = bad_value
+            cases.append((name, malformed))
+
+        for name, kwargs in cases:
+            with self.subTest(case=name):
+                with patch("ansible_preflight.subprocess.Popen") as popen:
+                    with patch("ansible_preflight._private_runner_directory") as staging:
+                        with self.assertRaisesRegex(
+                            AnsiblePreflightError, "ansible_approval_fingerprints_required"
+                        ):
+                            run_check_mode(
+                                self.playbook, self.inventory, self.known_hosts, self.key,
+                                consent=True, executable_lookup=lambda _name: "/fake/ansible-playbook",
+                                **kwargs,
+                            )
+                popen.assert_not_called()
+                staging.assert_not_called()
+
     def test_consent_is_required_before_cli_discovery_or_process_creation(self):
         lookup_calls = []
         with patch("ansible_preflight.subprocess.Popen") as popen:
@@ -258,13 +300,12 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
             captured.append((list(args), kwargs, Path(kwargs["env"]["ANSIBLE_CONFIG"]).read_text("utf-8")))
             return FakeProcess(args, **kwargs)
         FakeProcess.next_codes = [0, 0]
-        report = analyze_playbook(self.playbook, self.inventory)
+        approval = self.approved_hashes()
         with patch("ansible_preflight.subprocess.Popen", side_effect=fake_popen):
             result = run_check_mode(
                 self.playbook, self.inventory, self.known_hosts, self.key,
                 consent=True, timeout_seconds=30, username="ops_readonly",
-                expected_playbook_sha256=report["playbook_sha256"],
-                expected_inventory_sha256=report["inventory_sha256"],
+                **approval,
                 executable_lookup=lambda _name: "/fake/ansible-playbook",
             )
         self.assertEqual(result["state"], "check_succeeded")
@@ -297,14 +338,13 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         self.assertFalse(result["output_retained"])
 
     def test_changed_bytes_between_review_and_execution_require_reanalysis(self):
-        report = analyze_playbook(self.playbook, self.inventory)
+        approval = self.approved_hashes()
         self.playbook.write_text(PLAYBOOK.replace("Read-only diagnostic", "Different playbook"), encoding="utf-8")
         with patch("ansible_preflight.subprocess.Popen") as popen:
             with self.assertRaisesRegex(AnsiblePreflightError, "ansible_preflight_changed_reanalyze"):
                 run_check_mode(
                     self.playbook, self.inventory, self.known_hosts, self.key,
-                    consent=True, expected_playbook_sha256=report["playbook_sha256"],
-                    expected_inventory_sha256=report["inventory_sha256"],
+                    consent=True, **approval,
                     executable_lookup=lambda _name: "/fake/ansible-playbook",
                 )
         popen.assert_not_called()
@@ -330,7 +370,8 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
         with patch("ansible_preflight.subprocess.Popen", side_effect=fake_popen):
             result = run_check_mode(
                 self.playbook, self.inventory, self.known_hosts, self.key,
-                consent=True, executable_lookup=lambda _name: "/fake/ansible-playbook",
+                consent=True, **self.approved_hashes(),
+                executable_lookup=lambda _name: "/fake/ansible-playbook",
             )
         self.assertEqual(result["state"], "check_failed")
         self.assertEqual(result["exit_code"], 4)
@@ -347,7 +388,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
                 with patch("ansible_preflight._stop_process") as stop:
                     result = run_check_mode(
                         self.playbook, self.inventory, self.known_hosts, self.key,
-                        consent=True, timeout_seconds=10,
+                        consent=True, timeout_seconds=10, **self.approved_hashes(),
                         executable_lookup=lambda _name: "/fake/ansible-playbook",
                     )
         self.assertEqual(result["state"], "timeout")
@@ -366,7 +407,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
             with patch("ansible_preflight._stop_process") as stop:
                 result = run_check_mode(
                     self.playbook, self.inventory, self.known_hosts, self.key,
-                    consent=True, cancelled=cancelled,
+                    consent=True, cancelled=cancelled, **self.approved_hashes(),
                     executable_lookup=lambda _name: "/fake/ansible-playbook",
                 )
         self.assertEqual(result["state"], "cancelled")
@@ -477,7 +518,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
             with patch("ansible_preflight._require_staged_file_acl", side_effect=record_acl_check):
                 result = run_check_mode(
                     self.playbook, self.inventory, self.known_hosts, self.key,
-                    consent=True, timeout_seconds=30,
+                    consent=True, timeout_seconds=30, **self.approved_hashes(),
                     executable_lookup=lambda _name: "/fake/ansible-playbook",
                 )
 
@@ -518,7 +559,7 @@ class AnsiblePreflightR116Tests(unittest.TestCase):
                 ):
                     run_check_mode(
                         self.playbook, self.inventory, self.known_hosts, self.key,
-                        consent=True, timeout_seconds=30,
+                        consent=True, timeout_seconds=30, **self.approved_hashes(),
                         executable_lookup=lambda _name: "/fake/ansible-playbook",
                     )
 
