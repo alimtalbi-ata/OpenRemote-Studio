@@ -390,8 +390,13 @@ def _read_windows_dacl_sddl(path):
             kernel.LocalFree(descriptor)
 
 
-def _sddl_is_private(sddl, user_sid, *, directory):
-    """Pure fail-closed check of the required two-principal snapshot DACL."""
+def _sddl_is_private(sddl, user_sid, *, directory, allow_explicit_file=False):
+    """Fail closed unless only the current user and SYSTEM have full control.
+
+    Staging files must inherit the private directory ACL (the default). For a
+    source SSH key, an explicitly protected DACL is also acceptable, but only
+    when it contains exactly the same two principals and no inherited ACEs.
+    """
     match = re.fullmatch(r"D:([A-Z]*)(.*)", sddl)
     if not match:
         return False
@@ -404,6 +409,7 @@ def _sddl_is_private(sddl, user_sid, *, directory):
         return False
     expected_sids = {user_sid.upper(), "SY", "S-1-5-18"}
     found_sids = set()
+    found_explicit_file_ace = False
     for ace in aces:
         parts = ace.split(";")
         if len(parts) != 6 or parts[0] != "A":
@@ -421,19 +427,26 @@ def _sddl_is_private(sddl, user_sid, *, directory):
         if directory:
             if flags != {"OI", "CI"}:
                 return False
-        elif flags != {"ID"}:
+        elif flags == {"ID"}:
+            pass
+        elif allow_explicit_file and not flags and "P" in control_flags:
+            found_explicit_file_ace = True
+        else:
             return False
         found_sids.add(principal)
+    if found_explicit_file_ace and not allow_explicit_file:
+        return False
     return found_sids == {user_sid.upper(), "SY"} or found_sids == {
         user_sid.upper(), "S-1-5-18"
     }
 
 
-def _windows_dacl_is_private(path, user_sid, *, directory):
+def _windows_dacl_is_private(path, user_sid, *, directory, allow_explicit_file=False):
     """Read and validate a Windows DACL; inspection errors are never permissive."""
     try:
         return _sddl_is_private(
-            _read_windows_dacl_sddl(path), user_sid, directory=directory
+            _read_windows_dacl_sddl(path), user_sid, directory=directory,
+            allow_explicit_file=allow_explicit_file,
         )
     except Exception:
         # Native ACL inspection is a security boundary: any unexpected
@@ -527,6 +540,35 @@ def _private_snapshot_directory():
                 raise WinRMError("winrm_snapshot_cleanup_failed") from None
         except OSError:
             raise WinRMError("winrm_snapshot_cleanup_failed") from None
+
+
+def private_file_acl_is_safe(path, *, allow_explicit=False):
+    """Verify that a Windows file DACL grants full control only to the user and SYSTEM.
+
+    Returns False on every inspection or parsing error. Non-Windows callers get
+    True because this helper is specifically for the native Windows ACL gate.
+    """
+    if os.name != "nt":
+        return True
+    try:
+        sid = _windows_current_user_sid()
+        return _windows_dacl_is_private(
+            os.fspath(path), sid, directory=False,
+            allow_explicit_file=(allow_explicit is True),
+        )
+    except Exception:
+        return False
+
+
+@contextmanager
+def private_temporary_directory():
+    """Yield (path, user SID) for a temporary directory with a verified private DACL.
+
+    On Windows, directory creation is fail-closed and the DACL is verified before
+    yielding. On POSIX, TemporaryDirectory supplies a private 0700 directory.
+    """
+    with _private_snapshot_directory() as result:
+        yield result
 
 
 @contextmanager
