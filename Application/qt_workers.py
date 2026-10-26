@@ -27,6 +27,11 @@ class SftpJob(QRunnable):
         # SFTP read/write instead of waiting only for its next callback.
         self._client_lock=Lock()
         self._active_client=None
+        # cancel() and run()'s finalizer can race to close the same Paramiko
+        # client. Serialize the close operation and mark it closed only after
+        # a successful return, so a failed cancellation attempt can be retried.
+        self._client_close_lock=Lock()
+        self._client_closed=False
 
     def cancel(self):
         self.cancel_event.set()
@@ -37,9 +42,17 @@ class SftpJob(QRunnable):
             # Suppress close errors here; run() still performs final cleanup
             # and emits exactly one terminal outcome.
             try:
-                client.close()
+                self._close_client_once(client)
             except Exception:
                 pass
+
+    def _close_client_once(self, client):
+        """Serialize close attempts; leave failed attempts retryable."""
+        with self._client_close_lock:
+            if self._client_closed:
+                return
+            client.close()
+            self._client_closed=True
 
     def run(self):
         import stat
@@ -112,10 +125,11 @@ class SftpJob(QRunnable):
                     if self._active_client is client:
                         self._active_client=None
                 try:
-                    client.close()
+                    self._close_client_once(client)
                 except Exception:
                     # Do not let a transport close error suppress the terminal
-                    # notification and strand the UI queue.
+                    # notification and strand the UI queue. A failed earlier
+                    # cancellation close remains retryable here.
                     pass
         if outcome=='cancelled':
             self.signals.cancelled.emit()
