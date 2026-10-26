@@ -5,6 +5,7 @@ real credential is used. TLS verification remains enabled in the production
 HTTPS handler. Author: Abdelhalim Talbi.
 """
 import http.client
+import ipaddress
 import socket
 import ssl
 import tempfile
@@ -185,7 +186,10 @@ class ZabbixTransactionDeadlineR112Tests(unittest.TestCase):
             .not_valid_before(now - timedelta(minutes=1))
             .not_valid_after(now + timedelta(minutes=10))
             .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-            .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False)
+            .add_extension(x509.SubjectAlternativeName([
+                x509.DNSName("localhost"),
+                x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+            ]), critical=False)
             .sign(private_key, hashes.SHA256())
         )
         with tempfile.TemporaryDirectory(prefix="openremote-r112-") as temp_dir:
@@ -210,6 +214,7 @@ class ZabbixTransactionDeadlineR112Tests(unittest.TestCase):
             listener.settimeout(2.0)
             port = listener.getsockname()[1]
             server_done = threading.Event()
+            request_received = threading.Event()
 
             def slow_headers():
                 connection = None
@@ -228,6 +233,9 @@ class ZabbixTransactionDeadlineR112Tests(unittest.TestCase):
                         if line.lower().startswith(b"content-length:"):
                             content_length = int(line.split(b":", 1)[1].strip())
                     request_file.read(content_length)
+                    # Prove this is a slow-response test, not a failed connection
+                    # caused by name resolution or an address-family mismatch.
+                    request_received.set()
                     payload = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}"
                     for byte in payload:
                         connection.sendall(bytes((byte,)))
@@ -252,7 +260,10 @@ class ZabbixTransactionDeadlineR112Tests(unittest.TestCase):
             opener = build_opener(
                 _RejectRedirects(), _DeadlineHTTPSHandler(context=client_context)
             ).open
-            client = ZabbixReadOnly(f"https://localhost:{port}", opener=opener, timeout=0.4)
+            # Use a literal IPv4 loopback plus matching certificate SAN. This test
+            # isolates the response deadline instead of depending on how the OS
+            # orders or maps "localhost" between IPv4 and IPv6.
+            client = ZabbixReadOnly(f"https://127.0.0.1:{port}", opener=opener, timeout=0.4)
             started = time.monotonic()
             try:
                 with self.assertRaisesRegex(ZabbixError, "^zabbix_timeout$") as caught:
@@ -264,6 +275,7 @@ class ZabbixTransactionDeadlineR112Tests(unittest.TestCase):
             finally:
                 listener.close()
                 server_thread.join(timeout=2.0)
+            self.assertTrue(request_received.is_set(), "TLS/HTTP request did not reach the slow-header fixture")
             self.assertTrue(server_done.wait(0.2))
 
     def test_default_opener_keeps_strict_tls_and_redirect_rejection(self):

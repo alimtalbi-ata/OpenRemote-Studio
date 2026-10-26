@@ -50,6 +50,7 @@ _USERNAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,63}$")
 _MODULE_NAME = re.compile(r"^ansible\.builtin\.[a-z_]+$")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _TEMPLATE = re.compile(r"({{|}}|{%|%}|{#|#}|lookup\s*\(|query\s*\()", re.I)
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
 
 class AnsiblePreflightError(ValueError):
@@ -687,11 +688,26 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
         "known_hosts_sha256": hashlib.sha256(kh_bytes).hexdigest(),
         "private_key_sha256": hashlib.sha256(key_bytes).hexdigest(),
     }
-    if ((expected_playbook_sha256 and expected_playbook_sha256 != analysis["playbook_sha256"])
-            or (expected_inventory_sha256 and expected_inventory_sha256 != analysis["inventory_sha256"])):
+    # A truthy consent flag is not sufficient by itself: every caller must bind
+    # execution to the four exact files reviewed by the operator. Reject missing,
+    # malformed, uppercase, or otherwise non-canonical digests before staging or
+    # spawning Ansible. The Qt path supplies these values from its reviewed state.
+    approval_fingerprints = (
+        expected_playbook_sha256,
+        expected_inventory_sha256,
+        expected_known_hosts_sha256,
+        expected_private_key_sha256,
+    )
+    if any(
+        not isinstance(value, str) or _SHA256_HEX.fullmatch(value) is None
+        for value in approval_fingerprints
+    ):
+        _fail("ansible_approval_fingerprints_required")
+    if (expected_playbook_sha256 != analysis["playbook_sha256"]
+            or expected_inventory_sha256 != analysis["inventory_sha256"]):
         _fail("ansible_preflight_changed_reanalyze")
-    if ((expected_known_hosts_sha256 and expected_known_hosts_sha256 != selected_fingerprints["known_hosts_sha256"])
-            or (expected_private_key_sha256 and expected_private_key_sha256 != selected_fingerprints["private_key_sha256"])):
+    if (expected_known_hosts_sha256 != selected_fingerprints["known_hosts_sha256"]
+            or expected_private_key_sha256 != selected_fingerprints["private_key_sha256"]):
         _fail("ansible_connection_input_changed_reapprove")
     # Re-parse immediately before staging; the subprocess sees only these bounded
     # snapshots, not mutable paths supplied by the operator.
