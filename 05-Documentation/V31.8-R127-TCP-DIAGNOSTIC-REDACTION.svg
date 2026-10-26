@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="390" viewBox="0 0 1120 390" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRemote Studio R127 — barrière des erreurs du diagnostic TCP</title>
+  <desc id="desc">Diagramme conceptuel du filtrage des exceptions et de la validation de cible avant émission d'un signal Qt.</desc>
+  <defs><style>
+    .box{fill:#f1f5f9;stroke:#35536c;stroke-width:2}.safe{fill:#eaf7ee;stroke:#237347;stroke-width:2}.blocked{fill:#fff0ef;stroke:#a52a2a;stroke-width:2}
+    .label{font:600 17px sans-serif;fill:#1e293b}.small{font:14px sans-serif;fill:#334155}.arrow{stroke:#526b80;stroke-width:2.5;fill:none}.cross{stroke:#a52a2a;stroke-width:3}
+  </style></defs>
+  <rect x="28" y="44" width="225" height="112" rx="12" class="box"/>
+  <text x="140" y="76" text-anchor="middle" class="label">Sonde TCP locale</text>
+  <text x="140" y="103" text-anchor="middle" class="small">socket / adaptateur</text>
+  <text x="140" y="126" text-anchor="middle" class="small">échec réseau</text>
+  <path d="M253 100 H320" class="arrow"/><path d="M311 93 L322 100 L311 107" class="arrow"/>
+  <rect x="322" y="30" width="300" height="140" rx="12" class="safe"/>
+  <text x="472" y="63" text-anchor="middle" class="label">safe_tcp_error_message()</text>
+  <text x="472" y="91" text-anchor="middle" class="small">DNS · délai · refus · route</text>
+  <text x="472" y="115" text-anchor="middle" class="small">catégorie → texte constant</text>
+  <text x="472" y="140" text-anchor="middle" class="small">aucun str(exc) / repr(exc)</text>
+  <path d="M622 100 H692" class="arrow"/><path d="M683 93 L694 100 L683 107" class="arrow"/>
+  <rect x="694" y="44" width="396" height="112" rx="12" class="box"/>
+  <text x="892" y="76" text-anchor="middle" class="label">Signal Qt / sortie du probe</text>
+  <text x="892" y="103" text-anchor="middle" class="small">état exploitable pour l'opérateur</text>
+  <text x="892" y="126" text-anchor="middle" class="small">message fixe, sans charge d'exception</text>
+  <rect x="48" y="231" width="430" height="91" rx="12" class="blocked"/>
+  <text x="263" y="263" text-anchor="middle" class="label">Hôte ou port invalide</text>
+  <text x="263" y="290" text-anchor="middle" class="small">refus avant create_connection()</text>
+  <path d="M140 156 V204 H263 V231" class="arrow"/>
+  <rect x="548" y="231" width="542" height="91" rx="12" class="blocked"/>
+  <text x="819" y="263" text-anchor="middle" class="label">Charge d'exception bloquée</text>
+  <text x="819" y="290" text-anchor="middle" class="small">jeton · chemin privé · nom d'exception brut</text>
+  <path d="M472 170 V203 H819 V231" class="arrow" stroke-dasharray="7 6"/>
+  <path d="M604 217 L622 235 M622 217 L604 235" class="cross"/>
+  <text x="560" y="365" text-anchor="middle" class="small">R127 — schéma conceptuel, pas une capture de l'application</text>
+</svg>

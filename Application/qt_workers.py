@@ -3,6 +3,7 @@ from PySide6.QtCore import QObject, Signal, QRunnable
 from threading import Event, Lock
 from transfer_safety import download_atomic,upload_exclusive,download_resume_verified
 from sftp_error_reporting import safe_sftp_error_message
+from network_error_reporting import safe_tcp_error_message
 
 class SftpSignals(QObject):
     finished = Signal(object)
@@ -144,11 +145,28 @@ class TcpJob(QRunnable):
         super().__init__();self.host=host;self.port=port;self.signals=TcpSignals()
     def run(self):
         import socket
+        from diagnostics import safe_host
         try:
-            with socket.create_connection((self.host,self.port),timeout=2):
+            host=safe_host(self.host)
+            if type(self.port) is int:
+                port=self.port
+            elif type(self.port) is str and self.port.isdecimal():
+                port=int(self.port)
+            else:
+                raise ValueError('Port invalide')
+            if not 1 <= port <= 65535:
+                raise ValueError('Port invalide')
+        except (TypeError,ValueError):
+            self.signals.finished.emit('TCP [cible masquée] — Indisponible : hôte ou port invalide.')
+            return
+        # Bracket IPv6 literals so the target remains unambiguous in the UI.
+        label_host=f'[{host}]' if ':' in host else host
+        try:
+            with socket.create_connection((host,port),timeout=2):
                 result='Accessible'
-        except OSError as exc:result=f'Indisponible : {exc}'
-        self.signals.finished.emit(f'TCP {self.host}:{self.port} — {result}')
+        except OSError as exc:
+            result=f'Indisponible : {safe_tcp_error_message(exc)}'
+        self.signals.finished.emit(f'TCP {label_host}:{port} — {result}')
 
 class TcpSignals(QObject):
     finished=Signal(str)

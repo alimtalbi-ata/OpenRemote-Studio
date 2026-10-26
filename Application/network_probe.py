@@ -1,6 +1,7 @@
 """Opt-in TCP reachability check, never authenticates. Author: Abdelhalim Talbi."""
 import socket
 from urllib.parse import urlsplit
+from network_error_reporting import safe_tcp_error_message
 
 def endpoint(connection):
     protocol=str(connection.get('protocol','')).upper()
@@ -29,7 +30,8 @@ def probe(connection,timeout=2.0,connector=None):
         sock.close()
         return {'reachable':True,'host':host,'port':port,'message':'Port TCP accessible ; authentification non vérifiée.'}
     except (OSError,TimeoutError) as exc:
-        return {'reachable':False,'host':host,'port':port,'message':f'Connexion TCP impossible ({type(exc).__name__}).'}
+        return {'reachable':False,'host':host,'port':port,
+                'message':f'Connexion TCP impossible : {safe_tcp_error_message(exc)}'}
 
 
 def route_probe_notice(route):
