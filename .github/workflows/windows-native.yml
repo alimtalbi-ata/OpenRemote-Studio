@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification]
   pull_request:
     paths:
       - 'Application/**'
@@ -128,6 +128,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R119 OpenSSH known_hosts tests failed' }
           python -m py_compile Application/ansible_preflight.py Application/tests/test_ansible_known_hosts_r119.py
           if ($LASTEXITCODE -ne 0) { throw 'R119 source compilation failed' }
+      - name: R120 Ansible CLI harness contracts (offline, no Windows CLI install)
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'Application'
+          python -m unittest discover -s Application/tests -p 'test_ansible_local_qualification_r120.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R120 Ansible local qualification contract tests failed' }
+          python -m py_compile Application/ansible_local_qualification.py Application/tests/test_ansible_local_qualification_r120.py
+          if ($LASTEXITCODE -ne 0) { throw 'R120 source compilation failed' }
       - name: Generate versioned release documentation
         run: |
           python -m pip install python-docx reportlab
