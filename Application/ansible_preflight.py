@@ -634,7 +634,9 @@ def run_check_mode(playbook_path, inventory_path, known_hosts_path, private_key_
             staged_pb = root / ("playbook" + pb_path.suffix.lower())
             staged_inv = root / "inventory.ini"
             staged_hosts = ssh_home / "known_hosts"
-            staged_key = ssh_home / "id_key"
+            # Keep the secret directly under the verified DACL root. Nested
+            # Windows directory inheritance varies by filesystem/provider.
+            staged_key = root / "id_key"
             empty_hosts = ssh_home / "empty_known_hosts"
             empty_config = ssh_home / "empty_config"
             staged_pb.write_bytes(pb_bytes)
