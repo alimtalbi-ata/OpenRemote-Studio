@@ -30,6 +30,15 @@ if (dest / "V31.8-R116-ANSIBLE-CHECK-PREFLIGHT.md").is_file():
         ("R116 - Ansible qualification limits", "CI tests static validation, the runner with a fake local executable, Qt consent and stale-result invalidation. No real Ansible CLI/controller/target was qualified in this release candidate. The generated Qt screenshot is offline only."),
     ])
 
+# R117 adds a native Windows DACL check for the selected Ansible SSH key and a
+# privately ACL'd staging root; this section is conditional on the tracked note.
+if (dest / "V31.8-R117-ANSIBLE-KEY-ACL.md").is_file():
+    sections.extend([
+        ("R117 - selected SSH key ACL", "On Windows, the Ansible runner verifies a fail-closed DACL allowing full control only to the current user SID and SYSTEM before reading private-key bytes; it rechecks the ACL after fingerprinting. POSIX retains strict group/other permission rejection."),
+        ("R117 - private staging root", "The runner uses the verified native Windows private temporary directory shared with the WinRM CA-snapshot security helper, checks the staged key DACL after creation and again before each child process, and cleans the temporary tree on exit. Child stdout/stderr remains discarded."),
+        ("R117 - qualification boundary", "The SDDL policy tests include inherited and protected explicit ACL cases and reject extra trustees. Windows ACL ordering and packaged startup must pass on the exact HEAD; same-SID processes and administrators remain inside the local trust boundary. No real Ansible controller or target is implied."),
+    ])
+
 # Version-specific addendum, sourced from the tracked R96 design note.
 # This is architecture documentation, NOT an assertion that live WinRM passed.
 if (dest / "V31.8-R96-WINRM-SERVICES-QT.md").is_file():
