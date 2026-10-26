@@ -58,7 +58,8 @@ jobs:
         run: |
           python -m unittest discover -s Application/tests -p 'test_incident_export_redaction_r128.py' -v
           python -m unittest discover -s Application/tests -p 'test_incident_export_redaction_v237.py' -v
-          python -m py_compile Application/session_incident_center.py Application/tests/test_incident_export_redaction_r128.py      - name: Start real OpenSSH SFTP server
+          python -m py_compile Application/session_incident_center.py Application/tests/test_incident_export_redaction_r128.py
+      - name: Start real OpenSSH SFTP server
         run: |
           docker run -d --name openremote-sftp -p 127.0.0.1:2222:22 atmoz/sftp tester:testpassword:::upload
           for i in $(seq 1 40); do
