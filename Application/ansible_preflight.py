@@ -365,6 +365,74 @@ def analyze_playbook(playbook_path, inventory_path):
     return _analyze_bytes(pb_path, pb_bytes, inv_path, inv_bytes)
 
 
+def _valid_known_hosts_host_token(token: str) -> bool:
+    """Accept canonical OpenSSH host tokens without enabling wildcard trust.
+
+    OpenSSH hashed hosts use the version-1 salt/HMAC format. This validates
+    representation and sizes; strict SSH still performs the actual host-key match.
+    """
+    if not isinstance(token, str) or not token or len(token) > 4096:
+        return False
+
+    if token.startswith("|"):
+        match = re.fullmatch(
+            r"\|1\|([A-Za-z0-9+/]+={0,2})\|([A-Za-z0-9+/]+={0,2})",
+            token,
+        )
+        if match is None:
+            return False
+        try:
+            salt = base64.b64decode(match.group(1).encode("ascii"), validate=True)
+            digest = base64.b64decode(match.group(2).encode("ascii"), validate=True)
+        except (ValueError, UnicodeError):
+            return False
+        # OpenSSH hash version 1 uses a 20-byte salt and a 20-byte HMAC-SHA1.
+        return (
+            len(salt) == 20
+            and len(digest) == 20
+            and base64.b64encode(salt).decode("ascii") == match.group(1)
+            and base64.b64encode(digest).decode("ascii") == match.group(2)
+        )
+
+    if token.startswith("["):
+        match = re.fullmatch(r"\[([^\[\]]{1,253})\](?::([0-9]{1,5}))?", token)
+        if match is None:
+            return False
+        host, port = match.groups()
+        if ":" in host:
+            if "%" in host:
+                return False
+            try:
+                ipaddress.IPv6Address(host)
+            except ipaddress.AddressValueError:
+                return False
+        elif not re.fullmatch(r"[A-Za-z0-9@._+-]{1,253}", host):
+            return False
+        if port is not None and not 1 <= int(port) <= 65535:
+            return False
+        return True
+
+    if ":" in token:
+        if "%" in token:
+            return False
+        try:
+            ipaddress.IPv6Address(token)
+            return True
+        except ipaddress.AddressValueError:
+            return False
+
+    # Keep the prior narrow ASCII alphabet; wildcard and negated patterns
+    # remain unsupported to avoid silently broadening trust.
+    return re.fullmatch(r"[A-Za-z0-9@._+-]{1,253}", token) is not None
+
+
+def _valid_known_hosts_host_field(value: str) -> bool:
+    if not isinstance(value, str) or not value or len(value) > 4096:
+        return False
+    tokens = value.split(",")
+    return bool(tokens) and all(_valid_known_hosts_host_token(item) for item in tokens)
+
+
 def _validate_known_hosts(data: bytes):
     try:
         text = data.decode("utf-8", errors="strict")
@@ -378,15 +446,26 @@ def _validate_known_hosts(data: bytes):
         if _CONTROL.search(line):
             _fail("ansible_known_hosts_invalid")
         parts = line.split()
-        if parts and parts[0] in {"@cert-authority", "@revoked"}:
-            parts = parts[1:]
-        if len(parts) < 3 or not re.fullmatch(r"[A-Za-z0-9@._+-]{1,80}", parts[1]):
+        offset = 0
+        if parts[0].startswith("@"):
+            if parts[0] not in {"@cert-authority", "@revoked"}:
+                _fail("ansible_known_hosts_invalid")
+            offset = 1
+        # OpenSSH format is: [marker] hosts key-type base64-key [comment].
+        # Validate the actual host field, not the algorithm token.
+        if len(parts) < offset + 3:
+            _fail("ansible_known_hosts_invalid")
+        host_field, key_type, encoded_key = parts[offset:offset + 3]
+        if (
+            not _valid_known_hosts_host_field(host_field)
+            or not re.fullmatch(r"[A-Za-z0-9@._+-]{1,80}", key_type)
+        ):
             _fail("ansible_known_hosts_invalid")
         try:
-            key = base64.b64decode(parts[2].encode("ascii"), validate=True)
+            key = base64.b64decode(encoded_key.encode("ascii"), validate=True)
         except (ValueError, UnicodeError):
             _fail("ansible_known_hosts_invalid")
-        if len(key) < 16 or len(parts[0]) > 4096:
+        if len(key) < 16:
             _fail("ansible_known_hosts_invalid")
         entries += 1
         if entries > 10000:
