@@ -46,3 +46,18 @@ class QueueTests(unittest.TestCase):
   q=TransferQueue();a=q.submit(FakeJob());q.start_next()
   with self.assertRaises(ValueError):q.complete(a,1)
   self.assertIs(q.active,a)
+
+ def test_confirmed_cancellation_is_terminal_and_releases_slot(self):
+  q=TransferQueue();a=q.submit(FakeJob());b=q.submit(FakeJob());q.start_next()
+  q.cancel_active()
+  self.assertIs(q.active,a)
+  q.complete_cancelled(a)
+  self.assertEqual(a["state"],"cancelled")
+  self.assertIsNone(q.active)
+  self.assertIs(q.history[-1],a)
+  self.assertIs(q.start_next(),b)
+
+ def test_confirmed_cancellation_requires_active_entry(self):
+  q=TransferQueue();a=q.submit(FakeJob())
+  with self.assertRaises(ValueError):q.complete_cancelled(a)
+  self.assertEqual(a["state"],"waiting")
