@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="560" viewBox="0 0 1040 560" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRemote Studio R120 — qualification locale de la CLI Ansible</title>
+  <desc id="desc">Un répertoire temporaire génère un inventaire localhost et un playbook debug fixe. Ansible exécute syntax-check puis check mode en connexion locale, avec délai borné et sorties abandonnées. Aucun hôte distant n'est ciblé.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#365f91"/></marker>
+    <style>
+      .title { font: 700 24px sans-serif; fill: #17324d; }
+      .subtitle { font: 14px sans-serif; fill: #40566d; }
+      .head { font: 700 16px sans-serif; fill: #17324d; }
+      .body { font: 13px sans-serif; fill: #243746; }
+      .small { font: 12px sans-serif; fill: #465d73; }
+      .box { fill: #f5f8fc; stroke: #7591ad; stroke-width: 1.7; rx: 12; }
+      .safe { fill: #edf8f0; stroke: #4d8c63; stroke-width: 1.7; rx: 12; }
+      .stop { fill: #fff2e7; stroke: #bd7b3d; stroke-width: 1.7; rx: 12; }
+      .arrow { fill: none; stroke: #365f91; stroke-width: 2.2; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1040" height="560" fill="#ffffff"/>
+  <text x="40" y="46" class="title">R120 — CLI Ansible locale, contrôlée et sans cible distante</text>
+  <text x="40" y="72" class="subtitle">Qualifie le binaire installé ; ne remplace pas une recette Ansible externe.</text>
+
+  <rect x="42" y="120" width="250" height="128" class="box"/>
+  <text x="62" y="151" class="head">1. Workspace temporaire</text>
+  <text x="62" y="178" class="body">• Inventory : localhost uniquement</text>
+  <text x="62" y="199" class="body">• Playbook fixe : builtin.debug</text>
+  <text x="62" y="220" class="body">• ansible.cfg isolé</text>
+
+  <rect x="360" y="120" width="270" height="128" class="safe"/>
+  <text x="382" y="151" class="head">2. ansible-playbook</text>
+  <text x="382" y="178" class="body">Étape A : --syntax-check</text>
+  <text x="382" y="199" class="body">Étape B : --check --diff</text>
+  <text x="382" y="220" class="body">--connection local · --limit localhost</text>
+
+  <rect x="698" y="120" width="300" height="128" class="box"/>
+  <text x="720" y="151" class="head">3. Rapport minimal</text>
+  <text x="720" y="178" class="body">État et code neutres uniquement</text>
+  <text x="720" y="199" class="body">Pas de stdout / stderr retenu</text>
+  <text x="720" y="220" class="body">Pas de secret ou de cible externe</text>
+
+  <path d="M292 184 H354" class="arrow"/>
+  <path d="M630 184 H692" class="arrow"/>
+
+  <rect x="42" y="300" width="460" height="150" class="safe"/>
+  <text x="62" y="332" class="head">Barrières permanentes</text>
+  <text x="62" y="359" class="body">• Délai global monotone et timeout par étape</text>
+  <text x="62" y="382" class="body">• Pas de shell ; stdin/stdout/stderr vers DEVNULL</text>
+  <text x="62" y="405" class="body">• Variables ANSIBLE_* opérateur et agent SSH non héritées</text>
+  <text x="62" y="428" class="body">• Aucun input, credential ou argument opérateur accepté</text>
+
+  <rect x="548" y="300" width="450" height="150" class="stop"/>
+  <text x="568" y="332" class="head">Hors périmètre (non qualifié)</text>
+  <text x="568" y="359" class="body">Contrôleur Ansible ou hôte distant</text>
+  <text x="568" y="382" class="body">Clé privée, compte d'entreprise ou inventaire réel</text>
+  <text x="568" y="405" class="body">Exécution de tâches mutantes ou déploiement</text>
+  <text x="568" y="428" class="body">Ces parcours restent PARTIAL / UNVERIFIED</text>
+
+  <text x="42" y="506" class="small">Auteur : Abdelhalim Talbi · Diagramme conceptuel, pas une capture d'écran de l'interface.</text>
+  <text x="42" y="528" class="small">Le test local n'est pas un sandbox général : la sécurité revendiquée vaut pour le playbook debug fixe.</text>
+</svg>

@@ -153,6 +153,14 @@ if (dest / "V31.8-R115-GRAFANA-ORIGIN-HARDENING.md").is_file():
         ("R115 - release evidence limits", "The build must be requalified at the final R115 SHA on Windows native, OpenSSH live integration and cumulative verification. Inspect the redacted packaged-GUI evidence if the smoke still fails. A real Grafana instance, token, effective least-privilege API role, reverse-proxy subpath, binary signing and physical operator acceptance remain unverified. Grafana remains PARTIAL."),
     ])
 
+# R120 qualifies the installed Ansible CLI locally only; it does not qualify remote Ansible.
+if (dest / "V31.8-R120-ANSIBLE-LOCAL-CLI-QUALIFICATION.md").is_file():
+    sections.extend([
+        ("R120 - actual Ansible CLI, localhost only", "The Linux/OpenSSH gate installs a bounded ansible-core release family and invokes the real ansible-playbook CLI against a generated localhost-only inventory and a fixed ansible.builtin.debug playbook. It performs syntax-check followed by --check --diff with --connection local and --limit localhost. Child stdin/stdout/stderr are redirected to DEVNULL and each invocation has a monotonic deadline."),
+        ("R120 - environment and output boundary", "The QA harness accepts no operator playbook, inventory, host, credential or CLI argument. It writes an isolated ansible.cfg and temporary workspace, allows only required environment variables, drops inherited ANSIBLE_* overrides and SSH-agent/PYTHONPATH variables, and returns only generic status codes. Unit tests run offline on Windows; the real CLI test is explicitly enabled only in the Linux workflow after installation."),
+        ("R120 - qualification limitation", "The real CLI exercise is a local-only syntax and deterministic debug smoke, not a run against an Ansible controller or managed host. The production runner and external target lifecycle remain PARTIAL / E2E UNVERIFIED. --check is not a general sandbox; no claim is made beyond the fixed local debug task. No R120 UI screenshot is claimed."),
+    ])
+
 doc = Document()
 doc.add_heading("OpenRemote Studio V" + version, 0)
 doc.add_paragraph("Windows release quality dossier | Abdelhalim Talbi")
