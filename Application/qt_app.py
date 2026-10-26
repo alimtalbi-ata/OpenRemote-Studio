@@ -3491,6 +3491,21 @@ class Main(QMainWindow):
                     try:
                         if journal_error is None and not pane._sftp_closing:on_success(result)
                     finally:advance()
+                def cancelled():
+                    journal_error=None
+                    if current.get('journal_id') is not None:
+                        try:self.transfer_journal.update(current['journal_id'],'cancelled')
+                        except Exception as exc:journal_error=exc
+                    queue.complete_cancelled(current)
+                    if item in active_jobs:active_jobs.remove(item)
+                    if item in self.sftp_jobs:self.sftp_jobs.remove(item)
+                    if not pane._sftp_closing:
+                        if journal_error is None:
+                            status.setText('Transfert annulé')
+                        else:
+                            status.setText('Transfert annulé ; journal non confirmé ('+type(journal_error).__name__+')')
+                        render_queue()
+                    advance()
                 def error(message):
                     queue.complete(current,False)
                     if current.get('journal_id') is not None:
@@ -3498,11 +3513,13 @@ class Main(QMainWindow):
                         except Exception as exc:status.setText('Journal indisponible : '+str(exc))
                     if item in active_jobs:active_jobs.remove(item)
                     if item in self.sftp_jobs:self.sftp_jobs.remove(item)
-                    status.setText('Erreur : '+message)
-                    render_queue()
+                    if not pane._sftp_closing:
+                        status.setText('Erreur : '+message)
+                        render_queue()
                     advance()
                 item.signals.progress.connect(on_progress)
                 item.signals.finished.connect(finish)
+                item.signals.cancelled.connect(cancelled)
                 item.signals.failed.connect(error)
                 self.pool.start(item)
                 render_queue()
@@ -3578,11 +3595,16 @@ class Main(QMainWindow):
             status.setText('Terminé');success(result)
             if job in self.sftp_jobs:self.sftp_jobs.remove(job)
             if active_jobs is not None and job in active_jobs:active_jobs.remove(job)
+        def cancelled():
+            status.setText('Opération annulée')
+            if job in self.sftp_jobs:self.sftp_jobs.remove(job)
+            if active_jobs is not None and job in active_jobs:active_jobs.remove(job)
         def error(message):
             status.setText('Erreur : '+message)
             if job in self.sftp_jobs:self.sftp_jobs.remove(job)
             if active_jobs is not None and job in active_jobs:active_jobs.remove(job)
         job.signals.finished.connect(finish)
+        job.signals.cancelled.connect(cancelled)
         job.signals.failed.connect(error)
         self.pool.start(job)
 
