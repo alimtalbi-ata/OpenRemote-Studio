@@ -83,6 +83,9 @@ def _is_sensitive_env_key(name):
 
 
 def _redact_environment_assignment(match):
+    # Preserve the more specific R128 marker when the value is already a JWT.
+    if match.group("key").upper() == "JWT" and "[REDACTED_JWT]" in match.group("value"):
+        return match.group(0)
     if _is_sensitive_env_key(match.group("key")):
         return match.group("prefix") + "[REDACTED]"
     return match.group(0)
@@ -98,12 +101,12 @@ def _safe_text(value, limit):
         # External adapter objects may have a hostile or sensitive __str__.
         text = ""
     text = _PRIVATE_KEY_BLOCK.sub("[REDACTED_PRIVATE_KEY_BLOCK]", text)
-    text = _ENV_SECRET_ASSIGNMENT.sub(_redact_environment_assignment, text)
     text = _URL_CREDENTIALS.sub(r"\1[REDACTED]\2", text)
     text = _SECRET_ASSIGNMENT.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
     text = _CLI_SECRET.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
     text = _BEARER_OR_BASIC.sub(lambda match: match.group("scheme") + " [REDACTED]", text)
     text = _JWT.sub("[REDACTED_JWT]", text)
+    text = _ENV_SECRET_ASSIGNMENT.sub(_redact_environment_assignment, text)
     # Cookie headers may contain multiple key/value pairs; redact the remainder
     # of that header line so a second cookie is not left behind after a semicolon.
     text = _COOKIE_HEADER.sub(lambda match: match.group(1) + "=[REDACTED]", text)
