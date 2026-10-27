@@ -506,9 +506,11 @@ jobs:
           $python = 'Application/.venv-build/Scripts/python.exe'
           if (!(Test-Path $python)) { throw 'Missing built Python runtime for R131 tests' }
           $env:PYTHONPATH = 'Application'
+          & $python -m unittest discover -s Application/tests -p 'test_ssh_transport_v250.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'Legacy SSH transport preflight regression failed' }
           & $python -m unittest discover -s Application/tests -p 'test_ssh_hostkey_preflight_r131.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'R131 SSH host-key preflight regression failed' }
-          & $python -m py_compile Application/ssh_transport.py Application/tests/test_ssh_hostkey_preflight_r131.py
+          & $python -m py_compile Application/ssh_transport.py Application/tests/test_ssh_transport_v250.py Application/tests/test_ssh_hostkey_preflight_r131.py
           if ($LASTEXITCODE -ne 0) { throw 'R131 SSH host-key preflight sources did not compile' }
       - name: R130 prefixed environment secret-key redaction in packaged runtime
         shell: pwsh

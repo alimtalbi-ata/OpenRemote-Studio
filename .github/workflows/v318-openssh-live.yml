@@ -69,8 +69,9 @@ jobs:
         env:
           PYTHONPATH: Application
         run: |
+          python -m unittest discover -s Application/tests -p 'test_ssh_transport_v250.py' -v
           python -m unittest discover -s Application/tests -p 'test_ssh_hostkey_preflight_r131.py' -v
-          python -m py_compile Application/ssh_transport.py Application/tests/test_ssh_hostkey_preflight_r131.py
+          python -m py_compile Application/ssh_transport.py Application/tests/test_ssh_transport_v250.py Application/tests/test_ssh_hostkey_preflight_r131.py
       - name: R130 prefixed environment secret-key redaction (offline)
         env:
           PYTHONPATH: Application
