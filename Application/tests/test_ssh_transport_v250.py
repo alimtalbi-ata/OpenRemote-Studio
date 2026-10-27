@@ -31,8 +31,13 @@ class SSHTransportTests(unittest.TestCase):
         self.assertIs(adapter.connect(),c)
         adapter.close()
         self.assertTrue(c.closed)
-    def test_missing_explicit_hostkeys_fail_closed(self):
-        c=FakeClient()
-        with self.assertRaises(FileNotFoundError): create_ssh_client(SSHSettings('host','user',known_hosts='/missing/ssh/known_hosts'),client_factory=lambda:c,policy_factory=object)
-        self.assertTrue(c.closed)
+    def test_missing_explicit_hostkeys_fail_closed_before_client_creation(self):
+        created=[]
+        def factory():
+            created.append(True)
+            return FakeClient()
+        with self.assertRaises(FileNotFoundError):
+            create_ssh_client(SSHSettings('host','user',known_hosts='/missing/ssh/known_hosts'),
+                              client_factory=factory,policy_factory=object)
+        self.assertEqual(created, [], 'missing trust material must fail before client creation')
 if __name__=='__main__':unittest.main()

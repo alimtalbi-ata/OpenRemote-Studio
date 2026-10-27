@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc">
+<title id="title">R131 — ordre de confiance SSH</title>
+<desc id="desc">Diagramme conceptuel : valider les paramètres, vérifier puis charger known_hosts et installer RejectPolicy, résoudre les identifiants, puis lancer la connexion. Un échec de prévalidation arrête le flux sans demande de secret.</desc>
+<rect width="1000" height="420" rx="18" fill="#f6f8fa"/>
+<text x="40" y="42" font-family="Segoe UI,Arial" font-size="23" font-weight="700" fill="#142b4a">OpenRemote Studio V31.8 · R131</text>
+<text x="40" y="70" font-family="Segoe UI,Arial" font-size="15" fill="#52677f">Ordre de prévalidation de la confiance SSH — schéma conceptuel, pas une capture d’écran</text>
+<g font-family="Segoe UI,Arial" text-anchor="middle">
+<rect x="40" y="115" width="190" height="78" rx="10" fill="#e7eef8" stroke="#557aa8" stroke-width="2"/>
+<text x="135" y="145" font-size="16" font-weight="700" fill="#142b4a">1. Valider</text><text x="135" y="168" font-size="13" fill="#142b4a">identité + limites</text>
+<path d="M230 154 H260" stroke="#52677f" stroke-width="2.5"/><path d="M253 147 l8 7 -8 7" fill="none" stroke="#52677f" stroke-width="2.5"/>
+<rect x="265" y="115" width="210" height="78" rx="10" fill="#e7eef8" stroke="#557aa8" stroke-width="2"/>
+<text x="370" y="145" font-size="16" font-weight="700" fill="#142b4a">2. Prévalider</text><text x="370" y="168" font-size="13" fill="#142b4a">fichier de confiance</text>
+<path d="M475 154 H505" stroke="#52677f" stroke-width="2.5"/><path d="M498 147 l8 7 -8 7" fill="none" stroke="#52677f" stroke-width="2.5"/>
+<rect x="510" y="115" width="205" height="78" rx="10" fill="#d8f0e3" stroke="#32835b" stroke-width="2"/>
+<text x="612" y="145" font-size="16" font-weight="700" fill="#14532d">3. Charger + refuser</text><text x="612" y="168" font-size="13" fill="#14532d">known_hosts / RejectPolicy</text>
+<path d="M715 154 H745" stroke="#52677f" stroke-width="2.5"/><path d="M738 147 l8 7 -8 7" fill="none" stroke="#52677f" stroke-width="2.5"/>
+<rect x="750" y="115" width="210" height="78" rx="10" fill="#d8f0e3" stroke="#32835b" stroke-width="2"/>
+<text x="855" y="145" font-size="16" font-weight="700" fill="#14532d">4. Résoudre secret</text><text x="855" y="168" font-size="13" fill="#14532d">au dernier moment</text>
+<path d="M855 193 V226" stroke="#32835b" stroke-width="2.5"/><path d="M848 219 l7 8 7 -8" fill="none" stroke="#32835b" stroke-width="2.5"/>
+<rect x="750" y="232" width="210" height="62" rx="10" fill="#d8f0e3" stroke="#32835b" stroke-width="2"/>
+<text x="855" y="258" font-size="16" font-weight="700" fill="#14532d">5. Connexion</text><text x="855" y="278" font-size="13" fill="#14532d">vérification distante stricte</text>
+<path d="M370 193 V254 H410" stroke="#b42318" stroke-width="2.5" fill="none"/><path d="M403 247 l8 7 -8 7" fill="none" stroke="#b42318" stroke-width="2.5"/>
+<rect x="415" y="226" width="300" height="60" rx="10" fill="#fee4e2" stroke="#b42318" stroke-width="2"/>
+<text x="565" y="251" font-size="15" font-weight="700" fill="#912018">Échec : arrêt avant secret</text><text x="565" y="272" font-size="12" fill="#912018">aucune connexion / aucun lookup</text>
+</g>
+<text x="40" y="355" font-family="Segoe UI,Arial" font-size="14" fill="#52677f">Principe : les échecs du magasin de confiance doivent précéder tout accès au fournisseur de secrets.</text>
+<text x="40" y="383" font-family="Segoe UI,Arial" font-size="12" fill="#52677f">Auteur : Abdelhalim Talbi · Tests R131 hors ligne + non-régression OpenSSH en CI</text>
+</svg>
