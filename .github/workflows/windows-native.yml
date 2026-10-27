@@ -2,7 +2,7 @@ name: Windows native build candidate
 on:
   workflow_dispatch:
   push:
-    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version, feature/v31.8-r123-sftp-cancel-outcomes, feature/v31.8-r124-sftp-cancel-interrupt, feature/v31.8-r125-sftp-client-close-once, feature/v31.8-r126-sftp-error-redaction, feature/v31.8-r127-tcp-diagnostic-redaction, feature/v31.8-r128-incident-export-redaction, feature/v31.8-r129-private-key-export-redaction, feature/v31.8-r130-env-secret-redaction]
+    branches: [feature/v31.8-r108-winrm-ca-acl, feature/v31.8-r109-zabbix-readonly-alerts, feature/v31.8-r110-zabbix-origin-consent, feature/v31.8-r111-zabbix-response-deadline, feature/v31.8-r112-zabbix-transaction-deadline, feature/v31.8-r113-bounded-dns-deadline, feature/v31.8-r114-grafana-readonly, feature/v31.8-r115-grafana-origin-hardening, feature/v31.8-r116-ansible-preflight, feature/v31.8-r117-ansible-key-acl, feature/v31.8-r118-ansible-trust-boundary-hardening, feature/v31.8-r119-openssh-hashed-known-hosts, feature/v31.8-r120-ansible-cli-local-qualification, feature/v31.8-r121-ansible-consent-fingerprints, feature/v31.8-r122-build-report-version, feature/v31.8-r123-sftp-cancel-outcomes, feature/v31.8-r124-sftp-cancel-interrupt, feature/v31.8-r125-sftp-client-close-once, feature/v31.8-r126-sftp-error-redaction, feature/v31.8-r127-tcp-diagnostic-redaction, feature/v31.8-r128-incident-export-redaction, feature/v31.8-r129-private-key-export-redaction, feature/v31.8-r130-env-secret-redaction, feature/v31.8-r131-ssh-hostkey-preflight-order]
   pull_request:
     paths:
       - 'Application/**'
@@ -472,6 +472,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'R129 private-key export redaction tests failed' }
           & $python -m py_compile Application/session_incident_center.py Application/tests/test_incident_export_redaction_r129.py
           if ($LASTEXITCODE -ne 0) { throw 'R129 private-key export sources did not compile' }
+      - name: R131 SSH known_hosts preflight precedes credential resolution
+        shell: pwsh
+        run: |
+          $python = 'Application/.venv-build/Scripts/python.exe'
+          if (!(Test-Path $python)) { throw 'Missing built Python runtime for R131 tests' }
+          $env:PYTHONPATH = 'Application'
+          & $python -m unittest discover -s Application/tests -p 'test_ssh_hostkey_preflight_r131.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'R131 SSH host-key preflight regression failed' }
+          & $python -m py_compile Application/ssh_transport.py Application/tests/test_ssh_hostkey_preflight_r131.py
+          if ($LASTEXITCODE -ne 0) { throw 'R131 SSH host-key preflight sources did not compile' }
       - name: R130 prefixed environment secret-key redaction in built runtime
         run: |
           $python = 'Application/.venv-build/Scripts/python.exe'

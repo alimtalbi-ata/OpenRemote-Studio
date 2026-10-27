@@ -42,14 +42,18 @@ def create_ssh_client(settings: SSHSettings, *, password=None, key_filename=None
     settings.validate()
     if credential_ref is not None and password is not None:
         raise ValueError('choose password or credential_ref, not both')
-    if credential_ref is not None:
-        password = resolve_password(credential_ref, credential_provider)
+
+    # Validate the selected trust-store path before constructing the client or
+    # asking a credential provider for a secret. Loading/parsing the trust
+    # material and installing RejectPolicy also precede secret resolution, so
+    # a missing, empty, or malformed known_hosts file cannot trigger an
+    # unnecessary vault lookup.
+    verified_hosts = known_hosts_preflight(settings.known_hosts)
     if client_factory is None:
         import paramiko
         client_factory = paramiko.SSHClient
     client = client_factory()
     try:
-        verified_hosts = known_hosts_preflight(settings.known_hosts)
         if verified_hosts:
             client.load_host_keys(verified_hosts)
         else:
@@ -58,6 +62,12 @@ def create_ssh_client(settings: SSHSettings, *, password=None, key_filename=None
             import paramiko
             policy_factory = paramiko.RejectPolicy
         client.set_missing_host_key_policy(policy_factory())
+
+        # Resolve credentials only after trust material was accepted and the
+        # fail-closed host-key policy is installed. Paramiko still verifies the
+        # remote host key during connect before it attempts user authentication.
+        if credential_ref is not None:
+            password = resolve_password(credential_ref, credential_provider)
         client.connect(hostname=settings.hostname, port=settings.port,
                        username=settings.username, password=password,
                        key_filename=key_filename, timeout=settings.timeout,
