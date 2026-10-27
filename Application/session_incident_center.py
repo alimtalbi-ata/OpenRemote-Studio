@@ -16,6 +16,7 @@ _SECRET_ASSIGNMENT = re.compile(
         "(?:\\.|[^"\\])*"
         | '(?:\\.|[^'\\])*'
         | (?:Bearer|Basic)\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)
+        | \[[A-Z0-9_]+\]
         | [^\s,;}\]]+
     )
     '''
@@ -23,7 +24,7 @@ _SECRET_ASSIGNMENT = re.compile(
 _CLI_SECRET = re.compile(
     r'''(?ix)
     (?P<prefix>(?<![\w-])--?(?:''' + _SECRET_KEYS + r''')\s*(?:=|\s+))
-    (?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;]+)
+    (?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\[[A-Z0-9_]+\]|[^\s,;]+)
     '''
 )
 _BEARER_OR_BASIC = re.compile(
@@ -41,6 +42,52 @@ _PRIVATE_KEY_BLOCK = re.compile(
 )
 
 
+_ENV_SECRET_ASSIGNMENT = re.compile(
+    r'''(?ix)
+    (?P<prefix>(?<![A-Za-z0-9_])["']?(?P<key>[A-Za-z_][A-Za-z0-9_]{0,127})["']?\s*[:=]\s*)
+    (?P<value>
+        "(?:\\.|[^"\\])*"
+        | '(?:\\.|[^'\\])*'
+        | \{[^\r\n]*\}
+        | \[[^\r\n]*\]
+        | [^\s,;}]+
+    )
+    '''
+)
+
+
+def _is_sensitive_env_key(name):
+    """Recognize credential-bearing variable names, including product prefixes."""
+    normalized = re.sub(r"[^A-Z0-9]+", "_", name.upper()).strip("_")
+    parts = set(filter(None, normalized.split("_")))
+    if parts.intersection({
+        "SECRET", "TOKEN", "PASSWORD", "PASSWD", "PWD", "CREDENTIAL",
+        "CREDENTIALS", "COOKIE", "AUTHORIZATION", "BEARER", "JWT",
+        "KUBECONFIG", "NETRC",
+    }):
+        return True
+    if any(marker in normalized for marker in (
+        "API_KEY", "ACCESS_KEY", "PRIVATE_KEY", "SIGNING_KEY",
+        "ENCRYPTION_KEY", "GPG_KEY", "SSH_KEY", "AUTH_CONFIG",
+        "AUTH_KEY", "AUTH_TOKEN", "CONNECTION_STRING", "CONNECTION_URI",
+        "DATABASE_URL", "DB_URL", "REDIS_URL", "MONGO_URL", "JDBC_URL",
+        "APPLICATION_CREDENTIALS",
+    )):
+        return True
+    if normalized.endswith((
+        "SECRET", "TOKEN", "PASSWORD", "PASSWD", "PWD", "CREDENTIAL",
+        "CREDENTIALS",
+    )):
+        return True
+    return normalized == "AUTH" or normalized.endswith("_AUTH")
+
+
+def _redact_environment_assignment(match):
+    if _is_sensitive_env_key(match.group("key")):
+        return match.group("prefix") + "[REDACTED]"
+    return match.group(0)
+
+
 def _safe_text(value, limit):
     """Normalize plain scalars and redact common secret formats without stringifying arbitrary objects."""
     if type(value) is str:
@@ -51,6 +98,7 @@ def _safe_text(value, limit):
         # External adapter objects may have a hostile or sensitive __str__.
         text = ""
     text = _PRIVATE_KEY_BLOCK.sub("[REDACTED_PRIVATE_KEY_BLOCK]", text)
+    text = _ENV_SECRET_ASSIGNMENT.sub(_redact_environment_assignment, text)
     text = _URL_CREDENTIALS.sub(r"\1[REDACTED]\2", text)
     text = _SECRET_ASSIGNMENT.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
     text = _CLI_SECRET.sub(lambda match: match.group("prefix") + "[REDACTED]", text)
